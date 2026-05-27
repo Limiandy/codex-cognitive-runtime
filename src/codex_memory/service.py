@@ -312,6 +312,9 @@ class MemoryService:
             "privacy": _privacy_status(self.config),
         }
 
+    def runtime_status(self, cwd: str | None = None, session_id: str | None = None) -> dict[str, Any]:
+        return self.runtime.runtime_status(cwd=cwd, session_id=session_id)
+
     def list_memories(self, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         return self.ledger.list_memories(status=status, limit=limit)
 

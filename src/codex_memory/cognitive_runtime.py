@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .ontology import cognitive_layer_for_memory, ontology_snapshot
+from .observation import normalize_tool_observation
 from .recall import MemoryRecall
 from .reasoning_policy import ReasoningPolicyEngine
 from .security import summarize_payload
@@ -200,22 +201,46 @@ class CognitiveRuntime:
         return {"observed": True, "workflow_id": workflow["id"], "violations": violations, "hook_output": {}}
 
     def match_observation_to_step(self, workflow: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
-        text = _payload_text(payload)
-        tool_name = _tool_name(payload)
-        command = _command_text(payload)
+        normalized = normalize_tool_observation(payload)
         matched_step_id = None
-        if _is_inspection_observation(tool_name, command, text):
+        if normalized.tool_kind == "inspect":
             matched_step_id = "inspect_repository"
-        if _is_change_observation(tool_name, command, text):
+        if normalized.tool_kind == "edit":
             matched_step_id = "execute_change"
-        if _is_verification_observation(tool_name, command, text):
+        if normalized.tool_kind == "verify":
             matched_step_id = "execute_and_verify"
         return {
             "matched_step_id": matched_step_id,
-            "tool_name": tool_name,
-            "command": command[:300],
-            "summary": _summarize_observation(payload),
-            "test_failed": _looks_like_failed_verification(text) if matched_step_id == "execute_and_verify" else False,
+            "tool_name": normalized.tool_name,
+            "tool_kind": normalized.tool_kind,
+            "command": normalized.command[:300],
+            "summary": normalized.to_dict(),
+            "test_failed": bool(normalized.evidence_summary.get("failed")) if matched_step_id == "execute_and_verify" else False,
+        }
+
+    def runtime_status(self, cwd: str | None = None, session_id: str | None = None) -> dict[str, Any]:
+        workflow = self.active_workflow_for_session(session_id=session_id, cwd=cwd)
+        recipes = [
+            item
+            for item in self.ledger.list_cognitive_records(layer="skill", status="active", limit=50)
+            if item.get("record_type") == "verification_recipe"
+        ]
+        if not workflow:
+            return {"active_workflow": None, "open_violations": self.ledger.list_open_workflow_violations(limit=20), "learned_recipes": recipes[:10]}
+        metadata = workflow.get("metadata_json") or {}
+        return {
+            "active_workflow": {
+                "id": workflow["id"],
+                "state": self.ledger.latest_state_for("workflow", str(workflow["id"])),
+                "current_task": metadata.get("user_goal"),
+                "completed_steps": metadata.get("completed_steps") or [],
+                "pending_required_step": _next_pending_step(metadata),
+                "changed": bool(metadata.get("changed")),
+                "verified": bool(metadata.get("verified")),
+                "test_failed": bool(metadata.get("test_failed")),
+            },
+            "open_violations": self.ledger.list_open_workflow_violations(workflow_id=str(workflow["id"]), limit=20),
+            "learned_recipes": recipes[:10],
         }
 
     def plan_workflow(
@@ -348,7 +373,12 @@ class CognitiveRuntime:
             metadata["last_workflow_id"] = workflow_id
             self.ledger.adjust_cognitive_record_strength(str(skill["id"]), 0.12 if success else -0.3, metadata)
         self.ledger.patch_cognitive_record_metadata(workflow_id, {"dag": executed["dag"], "workflow_state": executed["workflow_state"]})
-        return {**plan, **executed}
+        return {
+            **plan,
+            **executed,
+            "mode": "legacy_simulation",
+            "warning": "workflow-execute is a legacy simulation. The runtime product observes Codex tool use through hooks and does not execute tools.",
+        }
 
     def resume_workflow(self, workflow_id: str) -> dict[str, Any]:
         workflow = self.ledger.get_cognitive_record(workflow_id)
@@ -451,11 +481,11 @@ class CognitiveRuntime:
         completed = set(metadata.get("completed_steps") or [])
         violations = []
         if "inspect_repository" not in completed:
-            violations.append(self.ledger.add_workflow_violation(workflow_id, "missing_repository_inspection", "high", {"completed_steps": sorted(completed)}))
+            violations.append(self.ledger.add_workflow_violation(workflow_id, "answered_without_inspection", "high", {"completed_steps": sorted(completed)}))
         if metadata.get("changed") and not metadata.get("verified"):
             violations.append(self.ledger.add_workflow_violation(workflow_id, "changed_without_verification", "high", {"completed_steps": sorted(completed)}))
         if metadata.get("test_failed") and _claims_completion(assistant_message):
-            violations.append(self.ledger.add_workflow_violation(workflow_id, "failed_verification_claimed_complete", "high", {"assistant_preview": assistant_message[:240]}))
+            violations.append(self.ledger.add_workflow_violation(workflow_id, "verification_failed_but_claimed_success", "high", {"assistant_preview": assistant_message[:240]}))
         return violations
 
     def _active_workflow_control(self, workflow: dict[str, Any]) -> str:
@@ -804,77 +834,8 @@ def _project_key(cwd: str | None) -> str | None:
         return str(Path(cwd).expanduser()).lower()
 
 
-def _payload_text(value: Any) -> str:
-    parts: list[str] = []
-
-    def walk(item: Any) -> None:
-        if isinstance(item, dict):
-            for key, child in item.items():
-                parts.append(str(key))
-                walk(child)
-        elif isinstance(item, list):
-            for child in item[:40]:
-                walk(child)
-        elif item is not None:
-            parts.append(str(item))
-
-    walk(value)
-    return " ".join(parts).lower()[:20000]
-
-
-def _tool_name(payload: dict[str, Any]) -> str:
-    for key in ("tool_name", "tool", "name"):
-        if payload.get(key):
-            return str(payload.get(key))
-    tool_input = payload.get("tool_input")
-    if isinstance(tool_input, dict):
-        for key in ("tool_name", "tool", "name"):
-            if tool_input.get(key):
-                return str(tool_input.get(key))
-    return ""
-
-
-def _command_text(payload: dict[str, Any]) -> str:
-    for key in ("cmd", "command", "args"):
-        if payload.get(key):
-            return str(payload.get(key))
-    tool_input = payload.get("tool_input")
-    if isinstance(tool_input, dict):
-        for key in ("cmd", "command", "args"):
-            if tool_input.get(key):
-                return str(tool_input.get(key))
-    return ""
-
-
-def _is_inspection_observation(tool_name: str, command: str, text: str) -> bool:
-    lowered = " ".join((tool_name, command, text)).lower()
-    signals = ("read_file", "grep", "search", "list", "git diff", "cat ", "sed ", "rg ", "ls ", "find ", "nl ", "wc ")
-    return any(signal in lowered for signal in signals)
-
-
-def _is_change_observation(tool_name: str, command: str, text: str) -> bool:
-    lowered = " ".join((tool_name, command, text)).lower()
-    signals = ("apply_patch", "write_file", "edit", "*** begin patch", "update file", "add file", "delete file")
-    return any(signal in lowered for signal in signals)
-
-
-def _is_verification_observation(tool_name: str, command: str, text: str) -> bool:
-    lowered = " ".join((tool_name, command, text)).lower()
-    signals = ("pytest", "unittest", "npm test", "pnpm test", "yarn test", "ruff", "mypy", "build", "lint", "tsc", "go test", "cargo test")
-    return any(signal in lowered for signal in signals)
-
-
-def _looks_like_failed_verification(text: str) -> bool:
-    lowered = text.lower()
-    return any(signal in lowered for signal in ("failed", "failure", "error", "exit code 1", "traceback", "失败", "报错"))
-
-
 def _summarize_observation(payload: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "tool_name": _tool_name(payload),
-        "command": _command_text(payload)[:300],
-        "payload_keys": sorted(str(key) for key in payload.keys())[:30],
-    }
+    return normalize_tool_observation(payload).to_dict()
 
 
 def _step_completed(metadata: dict[str, Any], step_id: str) -> bool:

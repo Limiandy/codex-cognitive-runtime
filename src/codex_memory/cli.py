@@ -47,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status")
+    runtime_status = sub.add_parser("runtime-status")
+    runtime_status.add_argument("--cwd", default=None)
+    runtime_status.add_argument("--session-id", default=None)
     doctor = sub.add_parser("doctor")
     doctor.add_argument("--model-check", action="store_true")
     doctor.add_argument("--privacy", action="store_true")
@@ -173,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "status":
             return _print(service.status())
+        if args.cmd == "runtime-status":
+            return _print(service.runtime_status(cwd=args.cwd, session_id=args.session_id))
         if args.cmd == "ingest":
             return _print(service.ingest_event(args.event_type, {"text": args.text}))
         if args.cmd == "search":
