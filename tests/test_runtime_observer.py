@@ -199,6 +199,56 @@ class RuntimeObserverTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_turn_id_prevents_cross_task_runtime_control_injection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                first = service.start_task_from_prompt({"prompt": "修复第一个 bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                second = service.start_task_from_prompt({"prompt": "修复第二个 bug", "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg first src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+
+                first_context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t1")
+                second_context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
+                self.assertIn("pending_required_step: execute_and_verify", first_context)
+                self.assertIn("pending_required_step: inspect_repository", second_context)
+                self.assertNotIn(first["workflow_id"], second_context)
+                self.assertNotEqual(first["workflow_id"], second["workflow_id"])
+            finally:
+                service.close()
+
+    def test_low_confidence_observation_is_soft_evidence_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                workflow_id = service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})["workflow_id"]
+                service.observe_tool_use({"tool_name": "functions.exec_command", "stdout": "some log mentions rg but no command", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                workflow = service.ledger.get_cognitive_record(workflow_id)
+                metadata = workflow["metadata_json"]
+                self.assertNotIn("inspect_repository", metadata["completed_steps"])
+                self.assertTrue(metadata["observations"][0]["soft_evidence"])
+            finally:
+                service.close()
+
+    def test_active_runtime_control_recommends_learned_verification_recipe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                first = service.start_task_from_prompt({"prompt": "修复测试失败", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg failing_test tests", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
+                self.assertEqual(service.ledger.latest_state_for("workflow", first["workflow_id"]), "completed")
+
+                second = service.start_task_from_prompt({"prompt": "实现另一个功能", "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+                self.assertTrue(second["started"])
+                context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
+                self.assertIn("Recommended verification recipe:", context)
+                self.assertIn("python3 -m unittest discover -s tests -v", context)
+            finally:
+                service.close()
+
     def test_successful_verify_resolves_changed_without_verification(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)

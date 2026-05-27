@@ -437,8 +437,9 @@ class CognitiveRuntime:
         limit: int = 6,
         cwd: str | None = None,
         session_id: str | None = None,
+        turn_id: str | None = None,
     ) -> str:
-        active = self.active_workflow_for_session(session_id=session_id, cwd=cwd)
+        active = self.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd)
         if active:
             control = self._active_workflow_control(active)
             if control:
@@ -467,6 +468,11 @@ class CognitiveRuntime:
     def _apply_observation(self, workflow: dict[str, Any], observation: dict[str, Any]) -> dict[str, Any]:
         metadata = dict(workflow.get("metadata_json") or {})
         step_id = str(observation["matched_step_id"])
+        summary = observation.get("summary") or {}
+        confidence = float(summary.get("confidence") or 0)
+        if confidence < 0.8 and step_id != "audit_outcome":
+            observations = [*(metadata.get("observations") or []), {**observation, "soft_evidence": True}]
+            return self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), {"observations": observations[-50:]}) or workflow
         steps = [dict(step) for step in metadata.get("steps") or []]
         for step in steps:
             if step.get("id") == step_id or step.get("name") == step_id:
@@ -543,7 +549,30 @@ class CognitiveRuntime:
                 meta = violation.get("metadata_json") or {}
                 lines.append(f"- {meta.get('violation_type')}: {meta.get('severity')}")
             lines.append("Required next action: resolve the violation before final answer.")
+        recipes = self._recommended_verification_recipes(metadata, limit=2)
+        if recipes:
+            lines.append("Recommended verification recipe:")
+            for recipe in recipes:
+                meta = recipe.get("metadata_json") or {}
+                commands = [str(item) for item in meta.get("recipe") or [] if item]
+                if commands:
+                    lines.append(f"- {commands[0]} (source: {meta.get('source_workflow_id')})")
         return "\n".join(lines)
+
+    def _recommended_verification_recipes(self, workflow_metadata: dict[str, Any], limit: int = 2) -> list[dict[str, Any]]:
+        project_key = workflow_metadata.get("project_key")
+        recipes = []
+        for record in self.ledger.list_cognitive_records(layer="skill", status="active", limit=100):
+            if record.get("record_type") != "verification_recipe":
+                continue
+            metadata = record.get("metadata_json") or {}
+            if project_key and record.get("project_key") not in {None, project_key}:
+                continue
+            if not metadata.get("recipe"):
+                continue
+            recipes.append(record)
+        recipes.sort(key=lambda item: (float(item.get("strength") or 1), float(item.get("importance") or 0)), reverse=True)
+        return recipes[:limit]
 
     def _learn_from_successful_workflow(self, workflow: dict[str, Any]) -> None:
         metadata = workflow.get("metadata_json") or {}

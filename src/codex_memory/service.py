@@ -212,7 +212,7 @@ class MemoryService:
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
-        runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id)
+        runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id, turn_id=turn_id)
         logger.debug("memory recall completed", prompt_chars=len(prompt), route=result.route, recall_id=recall_id, budget=budget, memory_count=len(result.memories))
         return "\n\n".join(part for part in (result.context, runtime_context) if part)
 
