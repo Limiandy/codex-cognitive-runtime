@@ -46,6 +46,18 @@ class ToolObservationNormalizerTest(unittest.TestCase):
         self.assertTrue(observation.evidence_summary["failed"])
         self.assertEqual(observation.exit_code_source, "exit_code")
 
+    def test_stdout_only_command_mention_is_low_confidence(self):
+        observation = normalize_tool_observation(
+            {
+                "tool_name": "functions.exec_command",
+                "stdout": "Suggested command: python3 -m unittest discover -s tests -v\nOK",
+                "exit_code": 0,
+            }
+        )
+        self.assertEqual(observation.tool_kind, "verify")
+        self.assertLess(observation.confidence, 0.8)
+        self.assertNotIn("command", observation.source_fields)
+
 
 if __name__ == "__main__":
     unittest.main()

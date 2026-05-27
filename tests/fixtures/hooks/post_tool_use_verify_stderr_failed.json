@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "fixture-session",
+  "turn_id": "fixture-turn",
+  "cwd": "/tmp/codex-memory-fixture",
+  "tool": "functions.exec_command",
+  "command": "PYTHONPATH=src python3 -m unittest discover -s tests -v",
+  "stdout": "",
+  "stderr": "FAILED (errors=1)",
+  "exit_code": 1
+}

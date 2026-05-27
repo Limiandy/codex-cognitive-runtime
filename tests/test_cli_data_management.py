@@ -33,6 +33,17 @@ class CliDataManagementTest(unittest.TestCase):
             )
             self.assertEqual(runtime_status.returncode, 0, runtime_status.stderr)
             self.assertIn("active_workflow", json.loads(runtime_status.stdout))
+            runtime_status_pretty = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "runtime-status", "--pretty"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(runtime_status_pretty.returncode, 0, runtime_status_pretty.stderr)
+            self.assertIn("Codex Memory Runtime Status", runtime_status_pretty.stdout)
             export = subprocess.run(
                 [sys.executable, "-m", "codex_memory.cli", "export", "--output", str(export_path)],
                 cwd=".",

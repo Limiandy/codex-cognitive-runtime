@@ -17,13 +17,14 @@ The local SQLite Ledger is the only runtime store and source of truth.
 
 The runtime observes Codex tool use; it does not execute shell commands, edit files, or run tests by itself.
 
-Current Runtime MVP supports observed engineering workflows: task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, and verification recipe learning. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
+Current Runtime MVP supports observed engineering workflows: task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
 
 ## Commands
 
 ```bash
 ./scripts/codex-memory status
 ./scripts/codex-memory runtime-status
+./scripts/codex-memory runtime-status --pretty
 ./scripts/codex-memory doctor
 ./scripts/codex-memory ingest "默认使用中文回答"
 ./scripts/codex-memory search "中文回答偏好"
@@ -90,9 +91,22 @@ Check that hooks and MCP are wired:
 
 ```bash
 ./scripts/codex-memory status
+./scripts/codex-memory runtime-status --pretty
 ./scripts/codex-memory ingest "默认使用中文回答"
 ./scripts/codex-memory search "中文回答"
 ```
+
+Observed runtime smoke path:
+
+```text
+UserPromptSubmit: "修复这个 bug，并跑测试验证"
+PostToolUse: rg/search/list/read command -> inspect_repository
+PostToolUse: apply_patch/edit/write tool -> execute_change
+PostToolUse: pytest/unittest/npm test/build/lint command -> execute_and_verify
+Stop: final answer with verification evidence -> audit_outcome
+```
+
+If code was changed without verification, the next turn receives a Runtime control warning. If a learned verification recipe is recommended and then reused, the recipe records reuse, success/failure, command source, exit code, and strength adjustment.
 
 ## Uninstall
 

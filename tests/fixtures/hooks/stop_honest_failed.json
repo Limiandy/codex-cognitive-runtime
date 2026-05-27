@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "Stop",
+  "session_id": "fixture-session",
+  "turn_id": "fixture-turn",
+  "cwd": "/tmp/codex-memory-fixture",
+  "last_assistant_message": "测试失败，未完成。我需要继续修复。"
+}

@@ -262,6 +262,8 @@ class CognitiveRuntime:
             },
             "open_violations": self.ledger.list_open_workflow_violations(workflow_id=str(workflow["id"]), limit=20),
             "learned_recipes": recipes[:10],
+            "recommended_recipe_ids": metadata.get("recommended_recipe_ids") or [],
+            "recent_observations": (metadata.get("observations") or [])[-5:],
         }
 
     def plan_workflow(
@@ -473,6 +475,7 @@ class CognitiveRuntime:
         confidence = float(summary.get("confidence") or 0)
         if confidence < 0.8 and step_id != "audit_outcome":
             observations = [*(metadata.get("observations") or []), {**observation, "soft_evidence": True}]
+            self.ledger.record_runtime_observation(str(workflow["id"]), observation, soft_evidence=True)
             return self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), {"observations": observations[-50:]}) or workflow
         steps = [dict(step) for step in metadata.get("steps") or []]
         for step in steps:
@@ -489,6 +492,7 @@ class CognitiveRuntime:
             "verified": bool(metadata.get("verified")) or step_id == "execute_and_verify",
             "test_failed": bool(observation.get("test_failed")) if step_id == "execute_and_verify" else bool(metadata.get("test_failed")),
         }
+        self.ledger.record_runtime_observation(str(workflow["id"]), observation, soft_evidence=False)
         self._complete_observed_step(str(workflow["id"]), step_id, observation)
         updated = self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), patch) or workflow
         if step_id == "execute_and_verify":
@@ -512,11 +516,11 @@ class CognitiveRuntime:
         completed = set(metadata.get("completed_steps") or [])
         violations = []
         if "inspect_repository" not in completed:
-            violations.append(self.ledger.add_workflow_violation(workflow_id, "answered_without_inspection", "high", {"completed_steps": sorted(completed)}))
+            violations.append(self.ledger.record_runtime_violation(workflow_id, "answered_without_inspection", "high", {"completed_steps": sorted(completed)}))
         if metadata.get("changed") and not metadata.get("verified"):
-            violations.append(self.ledger.add_workflow_violation(workflow_id, "changed_without_verification", "high", {"completed_steps": sorted(completed)}))
+            violations.append(self.ledger.record_runtime_violation(workflow_id, "changed_without_verification", "high", {"completed_steps": sorted(completed)}))
         if metadata.get("test_failed") and _claims_completion(assistant_message):
-            violations.append(self.ledger.add_workflow_violation(workflow_id, "verification_failed_but_claimed_success", "high", {"assistant_preview": assistant_message[:240]}))
+            violations.append(self.ledger.record_runtime_violation(workflow_id, "verification_failed_but_claimed_success", "high", {"assistant_preview": assistant_message[:240]}))
         return violations
 
     def _resolve_observed_violations(self, workflow_id: str, step_id: str, observation: dict[str, Any]) -> None:
@@ -530,7 +534,7 @@ class CognitiveRuntime:
         for violation in self.ledger.list_open_workflow_violations(workflow_id=workflow_id, limit=20):
             metadata = violation.get("metadata_json") or {}
             if metadata.get("violation_type") == violation_type:
-                self.ledger.resolve_workflow_violation(str(violation["id"]))
+                self.ledger.resolve_runtime_violation(str(violation["id"]))
 
     def _active_workflow_control(self, workflow: dict[str, Any]) -> str:
         metadata = workflow.get("metadata_json") or {}
@@ -554,10 +558,7 @@ class CognitiveRuntime:
             lines.append("Required next action: resolve the violation before final answer.")
         recipes = self._recommended_verification_recipes(metadata, limit=2)
         if recipes:
-            self.ledger.patch_cognitive_record_metadata(
-                str(workflow["id"]),
-                {"recommended_recipe_ids": [str(recipe["id"]) for recipe in recipes]},
-            )
+            self.ledger.record_recipe_recommendation(str(workflow["id"]), [str(recipe["id"]) for recipe in recipes])
             lines.append("Recommended verification recipe:")
             for recipe in recipes:
                 meta = recipe.get("metadata_json") or {}
@@ -638,6 +639,11 @@ class CognitiveRuntime:
         command = str(observation.get("command") or "")
         if not command:
             return
+        summary = observation.get("summary") or {}
+        if float(summary.get("confidence") or 0) < 0.8:
+            return
+        if (summary.get("source_fields") or {}).get("command") is None:
+            return
         succeeded = not bool(observation.get("test_failed"))
         for recipe_id in recipe_ids:
             match = self._match_recommended_recipe(recipe_id, command)
@@ -662,12 +668,12 @@ class CognitiveRuntime:
     def _update_recipe_success(self, match: dict[str, Any], workflow: dict[str, Any], observation: dict[str, Any]) -> None:
         metadata = self._recipe_reuse_metadata(match, workflow, observation)
         metadata["success_count"] = int(metadata.get("success_count") or 0) + 1
-        self.ledger.adjust_cognitive_record_strength(str(match["recipe"]["id"]), 0.1, metadata)
+        self.ledger.record_recipe_reuse(str(match["recipe"]["id"]), str(workflow["id"]), observation, True, metadata, 0.1)
 
     def _update_recipe_failure(self, match: dict[str, Any], workflow: dict[str, Any], observation: dict[str, Any]) -> None:
         metadata = self._recipe_reuse_metadata(match, workflow, observation)
         metadata["failure_count"] = int(metadata.get("failure_count") or 0) + 1
-        self.ledger.adjust_cognitive_record_strength(str(match["recipe"]["id"]), -0.2, metadata)
+        self.ledger.record_recipe_reuse(str(match["recipe"]["id"]), str(workflow["id"]), observation, False, metadata, -0.2)
 
     def _recipe_reuse_metadata(self, match: dict[str, Any], workflow: dict[str, Any], observation: dict[str, Any]) -> dict[str, Any]:
         metadata = dict(match.get("metadata") or {})
@@ -678,6 +684,7 @@ class CognitiveRuntime:
         metadata["last_reuse_command"] = str(observation.get("command") or "")[:300]
         metadata["last_reuse_matched_command"] = str(match.get("matched_command") or "")[:300]
         metadata["last_reuse_command_source"] = (summary.get("source_fields") or {}).get("command")
+        metadata["last_reuse_observation_confidence"] = summary.get("confidence")
         metadata["last_reuse_exit_code"] = summary.get("exit_code")
         metadata["last_reuse_succeeded"] = not bool(observation.get("test_failed"))
         return metadata
@@ -999,6 +1006,24 @@ def _next_pending_step(metadata: dict[str, Any]) -> str | None:
 
 def _claims_completion(message: str) -> bool:
     lowered = message.lower()
+    negative_signals = (
+        "not done",
+        "not completed",
+        "not fixed",
+        "未完成",
+        "没有完成",
+        "尚未完成",
+        "未修复",
+        "没有修复",
+        "未通过",
+        "没有通过",
+        "测试失败",
+        "验证失败",
+        "failed",
+        "failure",
+    )
+    if any(signal in lowered for signal in negative_signals):
+        return False
     return any(signal in lowered for signal in ("done", "completed", "fixed", "已完成", "完成", "修复完成", "通过"))
 
 

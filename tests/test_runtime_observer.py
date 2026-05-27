@@ -79,6 +79,75 @@ class RuntimeObserverTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_fixture_verify_success_without_exit_code_completes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                prompt = _fixture("user_prompt_submit_engineering.json", cwd=tmp)
+                inspect = _fixture("post_tool_use_inspect.json", cwd=tmp)
+                edit = _fixture("post_tool_use_edit.json", cwd=tmp)
+                verify = _fixture("post_tool_use_verify_ok_no_exit_code.json", cwd=tmp)
+                stop = _fixture("stop_success.json", cwd=tmp)
+
+                workflow_id = service.start_task_from_prompt(prompt)["workflow_id"]
+                service.observe_tool_use(inspect)
+                service.observe_tool_use(edit)
+                service.observe_tool_use(verify)
+                result = service.observe_stop(stop)
+
+                self.assertEqual(result["violations"], [])
+                self.assertEqual(service.ledger.latest_state_for("workflow", workflow_id), "completed")
+            finally:
+                service.close()
+
+    def test_honest_failed_stop_does_not_claim_success_violation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                prompt = _fixture("user_prompt_submit_engineering.json", cwd=tmp)
+                inspect = _fixture("post_tool_use_inspect.json", cwd=tmp)
+                edit = _fixture("post_tool_use_edit.json", cwd=tmp)
+                verify = _fixture("post_tool_use_verify_stderr_failed.json", cwd=tmp)
+                stop = _fixture("stop_honest_failed.json", cwd=tmp)
+
+                service.start_task_from_prompt(prompt)
+                service.observe_tool_use(inspect)
+                service.observe_tool_use(edit)
+                service.observe_tool_use(verify)
+                result = service.observe_stop(stop)
+
+                violation_types = [
+                    (item.get("metadata_json") or {}).get("violation_type")
+                    for item in result["violations"]
+                ]
+                self.assertNotIn("verification_failed_but_claimed_success", violation_types)
+            finally:
+                service.close()
+
+    def test_failed_fixture_claiming_success_records_violation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                prompt = _fixture("user_prompt_submit_engineering.json", cwd=tmp)
+                inspect = _fixture("post_tool_use_inspect.json", cwd=tmp)
+                edit = _fixture("post_tool_use_edit.json", cwd=tmp)
+                verify = _fixture("post_tool_use_verify_stderr_failed.json", cwd=tmp)
+                stop = _fixture("stop_claims_success_after_failure.json", cwd=tmp)
+
+                service.start_task_from_prompt(prompt)
+                service.observe_tool_use(inspect)
+                service.observe_tool_use(edit)
+                service.observe_tool_use(verify)
+                result = service.observe_stop(stop)
+
+                violation_types = [
+                    (item.get("metadata_json") or {}).get("violation_type")
+                    for item in result["violations"]
+                ]
+                self.assertIn("verification_failed_but_claimed_success", violation_types)
+            finally:
+                service.close()
+
     def test_stop_records_violation_when_change_is_not_verified(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
@@ -178,6 +247,7 @@ class RuntimeObserverTest(unittest.TestCase):
                 status = service.runtime_status(cwd=tmp, session_id="s1")
                 self.assertEqual(status["active_workflow"]["pending_required_step"], "execute_and_verify")
                 self.assertTrue(status["open_violations"])
+                self.assertTrue(status["recent_observations"])
                 self.assertEqual((status["open_violations"][0].get("metadata_json") or {})["violation_type"], "changed_without_verification")
             finally:
                 service.close()
@@ -274,10 +344,14 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertEqual(metadata["last_reuse_workflow_id"], second["workflow_id"])
                 self.assertEqual(metadata["last_reuse_matched_command"], "python3 -m unittest discover -s tests -v")
                 self.assertEqual(metadata["last_reuse_command_source"], "cmd")
+                self.assertEqual(metadata["last_reuse_observation_confidence"], 0.9)
                 self.assertEqual(metadata["last_reuse_exit_code"], 0)
                 self.assertTrue(metadata["last_reuse_succeeded"])
                 self.assertGreater(updated["strength"], initial_strength)
                 self.assertTrue(metadata["last_used_at"])
+                audit_records = service.ledger.list_cognitive_records(layer="audit", status="active", limit=50)
+                self.assertTrue([item for item in audit_records if item.get("record_type") == "recipe_recommendation"])
+                self.assertTrue([item for item in audit_records if item.get("record_type") == "recipe_reuse"])
             finally:
                 service.close()
 
@@ -327,6 +401,37 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertEqual(metadata["reuse_count"], 0)
                 self.assertEqual(metadata["success_count"], 1)
                 self.assertEqual(metadata["failure_count"], 0)
+            finally:
+                service.close()
+
+    def test_command_mentioned_in_stdout_does_not_count_as_recipe_reuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.start_task_from_prompt({"prompt": "修复测试失败", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg failing_test tests", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
+                recipe = [item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=20) if item.get("record_type") == "verification_recipe"][0]
+
+                workflow = service.start_task_from_prompt({"prompt": "实现另一个功能", "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+                service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "stdout": "Suggested command: python3 -m unittest discover -s tests -v\nOK",
+                        "exit_code": 0,
+                        "session_id": "s1",
+                        "turn_id": "t2",
+                        "cwd": tmp,
+                    }
+                )
+
+                updated = service.ledger.get_cognitive_record(recipe["id"])
+                metadata = updated["metadata_json"]
+                self.assertEqual(metadata["reuse_count"], 0)
+                self.assertNotIn("execute_and_verify", service.ledger.get_cognitive_record(workflow["workflow_id"])["metadata_json"]["completed_steps"])
             finally:
                 service.close()
 

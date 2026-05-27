@@ -52,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_status.add_argument("--cwd", default=None)
     runtime_status.add_argument("--session-id", default=None)
     runtime_status.add_argument("--turn-id", default=None)
+    runtime_status.add_argument("--pretty", action="store_true")
     doctor = sub.add_parser("doctor")
     doctor.add_argument("--model-check", action="store_true")
     doctor.add_argument("--privacy", action="store_true")
@@ -184,7 +185,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "status":
             return _print(service.status())
         if args.cmd == "runtime-status":
-            return _print(service.runtime_status(cwd=args.cwd, session_id=args.session_id, turn_id=args.turn_id))
+            status = service.runtime_status(cwd=args.cwd, session_id=args.session_id, turn_id=args.turn_id)
+            if args.pretty:
+                return _print_text(_format_runtime_status(status))
+            return _print(status)
         if args.cmd == "ingest":
             return _print(service.ingest_event(args.event_type, {"text": args.text}))
         if args.cmd == "search":
@@ -276,9 +280,66 @@ def _print(data) -> int:
     return 0
 
 
+def _print_text(text: str) -> int:
+    sys.stdout.write(text.rstrip() + "\n")
+    return 0
+
+
 def _print_error(data, code: int) -> int:
     sys.stderr.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     return code
+
+
+def _format_runtime_status(status: dict) -> str:
+    workflow = status.get("active_workflow")
+    lines = ["Codex Memory Runtime Status"]
+    if workflow:
+        lines.append(f"Active workflow: {workflow.get('id')}")
+        lines.append(f"Task: {workflow.get('current_task') or ''}")
+        lines.append(f"Turn: {workflow.get('session_id') or '-'} / {workflow.get('turn_id') or '-'}")
+        completed = workflow.get("completed_steps") or []
+        lines.append("Completed steps: " + (", ".join(completed) if completed else "none"))
+        lines.append(f"Pending required step: {workflow.get('pending_required_step') or 'none'}")
+        lines.append(f"Changed: {bool(workflow.get('changed'))}")
+        lines.append(f"Verified: {bool(workflow.get('verified'))}")
+        lines.append(f"Test failed: {bool(workflow.get('test_failed'))}")
+    else:
+        lines.append("Active workflow: none")
+
+    violations = status.get("open_violations") or []
+    lines.append(f"Open violations: {len(violations)}")
+    for violation in violations[:5]:
+        metadata = violation.get("metadata_json") or {}
+        lines.append(f"- {metadata.get('violation_type')}: {metadata.get('severity')}")
+
+    recipes = status.get("learned_recipes") or []
+    lines.append(f"Learned recipes: {len(recipes)}")
+    for recipe in recipes[:5]:
+        metadata = recipe.get("metadata_json") or {}
+        commands = [str(item) for item in metadata.get("recipe") or [] if item]
+        command = _compact_line(commands[0] if commands else str(recipe.get("content") or ""))
+        lines.append(
+            "- "
+            + command[:120]
+            + f" | reuse={int(metadata.get('reuse_count') or 0)}"
+            + f" success={int(metadata.get('success_count') or 0)}"
+            + f" failure={int(metadata.get('failure_count') or 0)}"
+        )
+    observations = status.get("recent_observations") or []
+    lines.append(f"Recent observations: {len(observations)}")
+    for observation in observations[-5:]:
+        summary = observation.get("summary") or {}
+        tool_name = _compact_line(str(observation.get("tool_name") or summary.get("tool_name") or "-"))
+        lines.append(
+            f"- {observation.get('matched_step_id') or 'unmatched'}"
+            + f" via {tool_name}"
+            + f" confidence={summary.get('confidence') if summary else '-'}"
+        )
+    return "\n".join(lines)
+
+
+def _compact_line(value: str) -> str:
+    return " ".join(str(value).split())
 
 
 if __name__ == "__main__":

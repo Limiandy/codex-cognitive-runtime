@@ -593,6 +593,86 @@ class Ledger:
     def resolve_workflow_violation(self, violation_id: str) -> dict[str, Any] | None:
         return self.set_cognitive_record_status(violation_id, "resolved", {"resolved_at": _now()})
 
+    def record_runtime_observation(
+        self,
+        workflow_id: str,
+        observation: dict[str, Any],
+        soft_evidence: bool = False,
+    ) -> dict[str, Any]:
+        summary = observation.get("summary") or {}
+        tool_kind = str(summary.get("tool_kind") or observation.get("tool_kind") or "unknown")
+        step_id = str(observation.get("matched_step_id") or "unmatched")
+        return self.record_cognitive_record(
+            "audit",
+            "workflow_observation",
+            None,
+            f"{tool_kind}: {step_id}",
+            "active",
+            "session",
+            importance=0.55 if soft_evidence else 0.7,
+            metadata={
+                "workflow_id": workflow_id,
+                "matched_step_id": step_id,
+                "soft_evidence": bool(soft_evidence),
+                "observation": observation,
+            },
+            source_kind="runtime_observation",
+        )
+
+    def record_runtime_violation(
+        self,
+        workflow_id: str,
+        violation_type: str,
+        severity: str,
+        evidence: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self.add_workflow_violation(workflow_id, violation_type, severity, evidence)
+
+    def resolve_runtime_violation(self, violation_id: str) -> dict[str, Any] | None:
+        return self.resolve_workflow_violation(violation_id)
+
+    def record_recipe_recommendation(self, workflow_id: str, recipe_ids: list[str]) -> dict[str, Any] | None:
+        self.record_cognitive_record(
+            "audit",
+            "recipe_recommendation",
+            None,
+            "Recommended verification recipes",
+            "active",
+            "session",
+            importance=0.58,
+            metadata={"workflow_id": workflow_id, "recipe_ids": recipe_ids},
+            source_kind="recipe_recommendation",
+        )
+        return self.patch_cognitive_record_metadata(workflow_id, {"recommended_recipe_ids": recipe_ids})
+
+    def record_recipe_reuse(
+        self,
+        recipe_id: str,
+        workflow_id: str,
+        observation: dict[str, Any],
+        succeeded: bool,
+        metadata_patch: dict[str, Any],
+        strength_delta: float,
+    ) -> dict[str, Any] | None:
+        self.record_cognitive_record(
+            "audit",
+            "recipe_reuse",
+            None,
+            "Verification recipe reuse: " + ("success" if succeeded else "failure"),
+            "active",
+            "session",
+            importance=0.72 if succeeded else 0.84,
+            metadata={
+                "recipe_id": recipe_id,
+                "workflow_id": workflow_id,
+                "succeeded": bool(succeeded),
+                "strength_delta": strength_delta,
+                "observation": observation,
+            },
+            source_kind="recipe_reuse",
+        )
+        return self.adjust_cognitive_record_strength(recipe_id, strength_delta, metadata_patch)
+
     def adjust_cognitive_record_strength(self, record_id: str, delta: float, metadata_patch: dict[str, Any] | None = None) -> dict[str, Any] | None:
         record = self.get_cognitive_record(record_id)
         if not record:
