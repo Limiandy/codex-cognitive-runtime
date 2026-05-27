@@ -39,17 +39,20 @@ def log(level: str, message: str, **fields: Any) -> None:
     if LEVELS.get(level, 20) < LEVELS.get(configured, 20):
         return
     log_dir = Path(os.environ.get("CODEX_MEMORY_LOG_DIR", "~/.codex-memory/logs")).expanduser()
-    log_dir.mkdir(parents=True, exist_ok=True)
     record = _redact({
         "ts": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "level": level,
         "message": message,
         **fields,
     })
-    with (log_dir / "debug.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
-    with (log_dir / "debug.pretty.log").open("a", encoding="utf-8") as handle:
-        handle.write(_format_pretty(record) + "\n")
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with (log_dir / "debug.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+        with (log_dir / "debug.pretty.log").open("a", encoding="utf-8") as handle:
+            handle.write(_format_pretty(record) + "\n")
+    except OSError:
+        return
 
 
 def _redact(value: Any) -> Any:

@@ -444,6 +444,17 @@ class Ledger:
         self.conn.commit()
         return transition_id
 
+    def latest_state_for(self, subject_type: str, subject_id: str) -> str | None:
+        row = self.conn.execute(
+            """
+            SELECT state FROM runtime_state_transitions
+            WHERE subject_type=? AND subject_id=?
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (subject_type, subject_id),
+        ).fetchone()
+        return str(row["state"]) if row else None
+
     def latest_state_transitions(self, limit: int = 50) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             "SELECT * FROM runtime_state_transitions ORDER BY created_at DESC LIMIT ?",

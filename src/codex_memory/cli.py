@@ -58,6 +58,11 @@ def main(argv: list[str] | None = None) -> int:
     workflow.add_argument("--limit", type=int, default=6)
     workflow.add_argument("--cwd", default=None)
     workflow.add_argument("--session-id", default=None)
+    execute_workflow = sub.add_parser("workflow-execute")
+    execute_workflow.add_argument("prompt")
+    execute_workflow.add_argument("--limit", type=int, default=6)
+    execute_workflow.add_argument("--cwd", default=None)
+    execute_workflow.add_argument("--session-id", default=None)
     govern = sub.add_parser("govern")
     govern.add_argument("--apply", action="store_true")
     periodic = sub.add_parser("govern-periodic")
@@ -119,6 +124,8 @@ def main(argv: list[str] | None = None) -> int:
             return _print(service.cognitive_snapshot())
         if args.cmd == "workflow-plan":
             return _print(service.workflow_plan(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
+        if args.cmd == "workflow-execute":
+            return _print(service.workflow_execute(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
         if args.cmd == "govern":
             return _print(service.govern_memories(apply=args.apply))
         if args.cmd == "govern-periodic":

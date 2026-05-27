@@ -207,8 +207,9 @@ class MemoryService:
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
+        runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id)
         logger.debug("memory recall completed", prompt=prompt, route=result.route, recall_id=recall_id, budget=budget, memories=result.memories)
-        return result.context
+        return "\n\n".join(part for part in (result.context, runtime_context) if part)
 
     def search_context(
         self,
@@ -293,6 +294,16 @@ class MemoryService:
     ) -> dict[str, Any]:
         self.runtime.sync_all_active()
         return self.runtime.plan_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
+
+    def workflow_execute(
+        self,
+        prompt: str,
+        limit: int = 6,
+        cwd: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        self.runtime.sync_all_active()
+        return self.runtime.execute_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
 
 def _candidate_from_memory(memory: dict[str, Any]):
     from .schema import Evidence, MemoryCandidate

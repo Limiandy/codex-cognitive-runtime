@@ -5,15 +5,18 @@ from typing import Any
 
 from .ontology import cognitive_layer_for_memory, ontology_snapshot
 from .recall import MemoryRecall
+from .state_machine import RuntimeStateMachine
 from .taxonomy import classify, near_duplicate_text, tokenize
 
 
 class CognitiveRuntime:
     def __init__(self, ledger: Any):
         self.ledger = ledger
+        self.state = RuntimeStateMachine()
 
     def begin_event(self, event_id: str, event_type: str, payload: dict[str, Any]) -> None:
-        self.ledger.record_state_transition("event", event_id, "received", None, event_id, {"event_type": event_type})
+        self.transition("event", event_id, "received", event_id=event_id, metadata={"event_type": event_type})
+        self.transition("event", event_id, "processing", event_id=event_id, metadata={"event_type": event_type})
         self.ledger.record_cognitive_record(
             "audit",
             "event",
@@ -26,10 +29,37 @@ class CognitiveRuntime:
         )
 
     def finish_event(self, event_id: str, result: dict[str, Any]) -> None:
-        self.ledger.record_state_transition("event", event_id, "processed", "received", event_id, {"result": result})
+        self.transition("event", event_id, "processed", event_id=event_id, metadata={"result": result})
 
     def fail_event(self, event_id: str, error: str) -> None:
-        self.ledger.record_state_transition("event", event_id, "failed", "received", event_id, {"error": error[:500]})
+        self.transition("event", event_id, "failed", event_id=event_id, metadata={"error": error[:500]})
+
+    def transition(
+        self,
+        subject_type: str,
+        subject_id: str,
+        next_state: str,
+        event_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        previous = self.ledger.latest_state_for(subject_type, subject_id)
+        verdict = self.state.validate(subject_type, previous, next_state)
+        payload = {**(metadata or {}), "state_machine": verdict.__dict__}
+        if not verdict.allowed:
+            self.ledger.record_cognitive_record(
+                "audit",
+                "invalid_state_transition",
+                f"{subject_type}:{subject_id}:{previous}:{next_state}",
+                f"{subject_type} {subject_id}: {previous} -> {next_state}",
+                "active",
+                "session",
+                importance=0.9,
+                metadata=payload,
+                source_kind="state_machine",
+            )
+            raise ValueError(f"invalid {subject_type} transition: {previous} -> {next_state}")
+        transition_id = self.ledger.record_state_transition(subject_type, subject_id, next_state, previous, event_id, payload)
+        return {"transition_id": transition_id, "previous_state": previous, "state": next_state}
 
     def sync_memory(self, memory_id: str) -> dict[str, Any] | None:
         memory = self.ledger.get_memory(memory_id)
@@ -58,7 +88,7 @@ class CognitiveRuntime:
             },
             source_kind="memory",
         )
-        self.ledger.record_state_transition("memory", memory_id, str(memory.get("status") or "candidate"), None, None, {"layer": layer})
+        self.transition("memory", memory_id, str(memory.get("status") or "candidate"), metadata={"layer": layer})
         self._sync_memory_edges(memory)
         if layer == "skill":
             self._materialize_skill(memory)
@@ -129,8 +159,10 @@ class CognitiveRuntime:
                 "memory_ids": [item["id"] for item in recalled.memories],
                 "skill_ids": [item["id"] for item in selected_skills],
                 "knowledge_ids": [item["id"] for item in selected_knowledge],
+                "reasoning_id": reasoning["id"],
             },
         )
+        self.transition("workflow", str(workflow["id"]), "planned", metadata={"prompt": prompt, "step_count": len(steps)})
         for memory in recalled.memories:
             self.ledger.upsert_cognitive_edge(str(workflow["id"]), str(memory["id"]), "uses_knowledge", 0.75, {"source": "workflow_memory"})
         for skill in selected_skills:
@@ -147,6 +179,65 @@ class CognitiveRuntime:
             "skills": selected_skills,
             "knowledge": selected_knowledge,
         }
+
+    def execute_workflow(
+        self,
+        prompt: str,
+        limit: int = 6,
+        cwd: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        plan = self.plan_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
+        workflow_id = str(plan["workflow_id"])
+        self.transition("workflow", workflow_id, "running", metadata={"prompt": prompt})
+        executed_steps = []
+        for index, step in enumerate(plan["steps"]):
+            step_id = f"{workflow_id}:step:{index}:{step['name']}"
+            self.ledger.record_cognitive_record(
+                "workflow",
+                "workflow_step",
+                step_id,
+                f"{step['name']}: {step['reason']}",
+                "active",
+                "session",
+                domain=plan["route"]["domain"],
+                category=plan["route"]["category"],
+                subcategory=plan["route"]["subcategory"],
+                confidence=0.86,
+                importance=0.7,
+                session_id=session_id,
+                metadata={"workflow_id": workflow_id, "step": step, "index": index},
+                source_kind="workflow",
+            )
+            self.transition("workflow_step", step_id, "pending", metadata={"workflow_id": workflow_id})
+            self.transition("workflow_step", step_id, "running", metadata={"workflow_id": workflow_id})
+            self.transition("workflow_step", step_id, "completed", metadata={"workflow_id": workflow_id})
+            self.ledger.upsert_cognitive_edge(workflow_id, step_id, "instantiates", 0.8, {"index": index})
+            executed_steps.append({"id": step_id, **step, "state": "completed"})
+        self.transition("workflow", workflow_id, "completed", metadata={"step_count": len(executed_steps)})
+        return {**plan, "workflow_state": "completed", "executed_steps": executed_steps}
+
+    def injection_context(
+        self,
+        prompt: str,
+        limit: int = 6,
+        cwd: str | None = None,
+        session_id: str | None = None,
+    ) -> str:
+        plan = self.plan_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
+        if not plan["memories"] and not plan["skills"] and not plan["knowledge"]:
+            return ""
+        lines = ["Codex Cognitive Runtime context:"]
+        if plan.get("reasoning_id"):
+            reasoning = self.ledger.list_cognitive_records(layer="reasoning", limit=1)
+            if reasoning:
+                lines.append(f"reasoning_policy: {reasoning[0]['content']}")
+        if plan["skills"]:
+            lines.append("skill_strategy: " + " | ".join(str(item.get("content") or "")[:120] for item in plan["skills"][:3]))
+        if plan["knowledge"]:
+            lines.append("organizational_knowledge: " + " | ".join(str(item.get("content") or "")[:120] for item in plan["knowledge"][:3]))
+        lines.append("workflow: " + " -> ".join(step["name"] for step in plan["steps"]))
+        return "\n".join(lines)
 
     def snapshot(self) -> dict[str, Any]:
         self.sync_governance_policies()

@@ -158,6 +158,64 @@ class CognitiveRuntimeTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_workflow_execute_records_stateful_steps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.ledger.add_candidate(
+                    _candidate("工程经验：实现 hook 自动注入后必须跑单元测试和 CLI 验证。"),
+                    "active",
+                    {"status": "active"},
+                )
+                result = service.workflow_execute("实现 hook 自动注入并验证", cwd=tmp)
+                self.assertEqual(result["workflow_state"], "completed")
+                self.assertTrue(result["executed_steps"])
+                states = service.ledger.latest_state_transitions(limit=100)
+                self.assertTrue(any(item["subject_id"] == result["workflow_id"] and item["state"] == "completed" for item in states))
+                self.assertTrue(any(item["subject_type"] == "workflow_step" and item["state"] == "completed" for item in states))
+            finally:
+                service.close()
+
+    def test_invalid_runtime_state_transition_is_rejected_and_audited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                with self.assertRaises(ValueError):
+                    service.runtime.transition("workflow", "wf-invalid", "completed")
+                audit = service.ledger.list_cognitive_records(layer="audit")
+                self.assertTrue(any(item["record_type"] == "invalid_state_transition" for item in audit))
+            finally:
+                service.close()
+
+    def test_prompt_context_includes_cognitive_runtime_policy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.ledger.add_candidate(
+                    _candidate("前端经验：React 与 Vue 管理平台都应先抽离权限、路由、接口封装策略。"),
+                    "active",
+                    {"status": "active"},
+                )
+                service.ledger.add_candidate(
+                    _candidate(
+                        "组织知识：当前 codex-memory 项目要求 hook 与 MCP 不混用，hook 负责自动注入。",
+                        memory_type="project_context",
+                        scope="project",
+                        domain="memory_system",
+                        category="architecture",
+                        subcategory="hook",
+                    ),
+                    "active",
+                    {"status": "active"},
+                    project_key=str(Path(tmp).resolve()).lower(),
+                )
+                context = service.prompt_context("继续实现前端工程里的 hook 自动注入并跑测试", cwd=tmp)
+                self.assertIn("Codex Cognitive Runtime context:", context)
+                self.assertIn("reasoning_policy:", context)
+                self.assertIn("workflow:", context)
+            finally:
+                service.close()
+
     def test_governance_policy_is_materialized_as_policy_layer(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
