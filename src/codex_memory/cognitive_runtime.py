@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 
 from .ontology import cognitive_layer_for_memory, ontology_snapshot
@@ -108,6 +109,114 @@ class CognitiveRuntime:
             if record:
                 synced.append(record["id"])
         return {"synced_count": len(synced), "record_ids": synced}
+
+    def start_task_from_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
+        prompt = str(payload.get("prompt") or payload.get("text") or "")
+        session_id = _optional_str(payload.get("session_id"))
+        cwd = _optional_str(payload.get("cwd"))
+        if not _is_engineering_task(prompt):
+            return {"started": False, "reason": "not_engineering_task"}
+        active = self.active_workflow_for_session(session_id=session_id, cwd=cwd)
+        if active:
+            return {"started": False, "workflow_id": active["id"], "reason": "active_workflow_exists"}
+        steps = _observed_workflow_steps()
+        metadata = {
+            "runtime_kind": "observed_workflow",
+            "user_goal": prompt,
+            "session_id": session_id,
+            "cwd": cwd,
+            "project_key": _project_key(cwd),
+            "task_type": "software_engineering",
+            "risk_level": "medium",
+            "steps": steps,
+            "observations": [],
+            "completed_steps": ["read_context", "recall_memory"],
+            "changed": False,
+            "verified": False,
+            "test_failed": False,
+        }
+        workflow = self.ledger.record_cognitive_record(
+            "workflow",
+            "observed_workflow",
+            None,
+            "Observed workflow: " + " -> ".join(step["name"] for step in steps),
+            "active",
+            "session",
+            domain="software_engineering",
+            category="workflow",
+            subcategory="observed_runtime",
+            confidence=0.9,
+            importance=0.86,
+            session_id=session_id,
+            project_key=_project_key(cwd),
+            metadata=metadata,
+            source_kind="runtime_observer",
+        )
+        workflow_id = str(workflow["id"])
+        self.transition("workflow", workflow_id, "planned", metadata={"runtime_kind": "observed_workflow", "step_count": len(steps)})
+        self.transition("workflow", workflow_id, "running", metadata={"runtime_kind": "observed_workflow"})
+        return {"started": True, "workflow_id": workflow_id, "steps": steps}
+
+    def active_workflow_for_session(self, session_id: str | None = None, cwd: str | None = None) -> dict[str, Any] | None:
+        project_key = _project_key(cwd)
+        for workflow in self.ledger.list_cognitive_records(layer="workflow", status="active", limit=100):
+            if workflow.get("record_type") != "observed_workflow":
+                continue
+            metadata = workflow.get("metadata_json") or {}
+            state = self.ledger.latest_state_for("workflow", str(workflow["id"]))
+            if state in {"completed", "cancelled", "failed"}:
+                continue
+            if session_id and metadata.get("session_id") == session_id:
+                return workflow
+            if project_key and metadata.get("project_key") == project_key:
+                return workflow
+        return None
+
+    def observe_tool_use(self, payload: dict[str, Any]) -> dict[str, Any]:
+        workflow = self.active_workflow_for_session(_optional_str(payload.get("session_id")), _optional_str(payload.get("cwd")))
+        if not workflow:
+            return {"observed": False, "reason": "no_active_workflow", "hook_output": {}}
+        observation = self.match_observation_to_step(workflow, payload)
+        if not observation.get("matched_step_id"):
+            return {"observed": True, "workflow_id": workflow["id"], "matched": False, "hook_output": {}}
+        updated = self._apply_observation(workflow, observation)
+        return {"observed": True, "workflow_id": workflow["id"], "matched": True, "observation": observation, "workflow": updated, "hook_output": {}}
+
+    def observe_stop(self, payload: dict[str, Any]) -> dict[str, Any]:
+        workflow = self.active_workflow_for_session(_optional_str(payload.get("session_id")), _optional_str(payload.get("cwd")))
+        if not workflow:
+            return {"observed": False, "reason": "no_active_workflow", "hook_output": {}}
+        metadata = dict(workflow.get("metadata_json") or {})
+        assistant_message = str(payload.get("last_assistant_message") or payload.get("assistant_message") or "")
+        if assistant_message.strip():
+            observation = {"matched_step_id": "audit_outcome", "tool_name": "Stop", "summary": _summarize_observation(payload)}
+            workflow = self._apply_observation(workflow, observation)
+            metadata = dict(workflow.get("metadata_json") or {})
+        violations = self._detect_workflow_violations(str(workflow["id"]), metadata, assistant_message)
+        if not violations and _step_completed(metadata, "audit_outcome"):
+            self.transition("workflow", str(workflow["id"]), "completed", metadata={"runtime_kind": "observed_workflow"})
+            self.ledger.set_cognitive_record_status(str(workflow["id"]), "completed", {"workflow_state": "completed"})
+            self._learn_from_successful_workflow(workflow)
+        return {"observed": True, "workflow_id": workflow["id"], "violations": violations, "hook_output": {}}
+
+    def match_observation_to_step(self, workflow: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+        text = _payload_text(payload)
+        tool_name = _tool_name(payload)
+        command = _command_text(payload)
+        matched_step_id = None
+        if _is_inspection_observation(tool_name, command, text):
+            matched_step_id = "inspect_repository"
+        if _is_change_observation(tool_name, command, text):
+            matched_step_id = "execute_change"
+        if _is_verification_observation(tool_name, command, text):
+            matched_step_id = "execute_and_verify"
+        return {
+            "matched_step_id": matched_step_id,
+            "tool_name": tool_name,
+            "command": command[:300],
+            "summary": _summarize_observation(payload),
+            "test_failed": _looks_like_failed_verification(text) if matched_step_id == "execute_and_verify" else False,
+        }
 
     def plan_workflow(
         self,
@@ -279,6 +388,11 @@ class CognitiveRuntime:
         cwd: str | None = None,
         session_id: str | None = None,
     ) -> str:
+        active = self.active_workflow_for_session(session_id=session_id, cwd=cwd)
+        if active:
+            control = self._active_workflow_control(active)
+            if control:
+                return control
         plan = self.plan_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
         if (
             "short_prompt_low_cognitive_need" in (plan.get("policy") or {}).get("reasons", [])
@@ -299,6 +413,103 @@ class CognitiveRuntime:
         lines.append("policy_gate: " + str(plan["policy"]))
         lines.append("workflow: " + " -> ".join(step["name"] for step in plan["steps"]))
         return "\n".join(lines)
+
+    def _apply_observation(self, workflow: dict[str, Any], observation: dict[str, Any]) -> dict[str, Any]:
+        metadata = dict(workflow.get("metadata_json") or {})
+        step_id = str(observation["matched_step_id"])
+        steps = [dict(step) for step in metadata.get("steps") or []]
+        for step in steps:
+            if step.get("id") == step_id or step.get("name") == step_id:
+                step["state"] = "completed"
+                step["completed_by"] = observation.get("tool_name")
+        completed = sorted({*(metadata.get("completed_steps") or []), step_id}, key=_observed_step_order)
+        observations = [*(metadata.get("observations") or []), observation]
+        patch = {
+            "steps": steps,
+            "completed_steps": completed,
+            "observations": observations[-50:],
+            "changed": bool(metadata.get("changed")) or step_id == "execute_change",
+            "verified": bool(metadata.get("verified")) or step_id == "execute_and_verify",
+            "test_failed": bool(metadata.get("test_failed")) or bool(observation.get("test_failed")),
+        }
+        self._complete_observed_step(str(workflow["id"]), step_id, observation)
+        return self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), patch) or workflow
+
+    def _complete_observed_step(self, workflow_id: str, step_id: str, observation: dict[str, Any]) -> None:
+        subject_id = f"{workflow_id}:{step_id}"
+        state = self.ledger.latest_state_for("workflow_step", subject_id)
+        if state is None:
+            self.transition("workflow_step", subject_id, "pending", metadata={"workflow_id": workflow_id})
+            self.transition("workflow_step", subject_id, "running", metadata={"workflow_id": workflow_id})
+        elif state == "pending":
+            self.transition("workflow_step", subject_id, "running", metadata={"workflow_id": workflow_id})
+        elif state in {"completed", "rolled_back"}:
+            return
+        self.transition("workflow_step", subject_id, "completed", metadata={"workflow_id": workflow_id, "observation": observation})
+
+    def _detect_workflow_violations(self, workflow_id: str, metadata: dict[str, Any], assistant_message: str) -> list[dict[str, Any]]:
+        completed = set(metadata.get("completed_steps") or [])
+        violations = []
+        if "inspect_repository" not in completed:
+            violations.append(self.ledger.add_workflow_violation(workflow_id, "missing_repository_inspection", "high", {"completed_steps": sorted(completed)}))
+        if metadata.get("changed") and not metadata.get("verified"):
+            violations.append(self.ledger.add_workflow_violation(workflow_id, "changed_without_verification", "high", {"completed_steps": sorted(completed)}))
+        if metadata.get("test_failed") and _claims_completion(assistant_message):
+            violations.append(self.ledger.add_workflow_violation(workflow_id, "failed_verification_claimed_complete", "high", {"assistant_preview": assistant_message[:240]}))
+        return violations
+
+    def _active_workflow_control(self, workflow: dict[str, Any]) -> str:
+        metadata = workflow.get("metadata_json") or {}
+        completed = metadata.get("completed_steps") or []
+        pending = _next_pending_step(metadata)
+        violations = self.ledger.list_open_workflow_violations(workflow_id=str(workflow["id"]), limit=5)
+        lines = [
+            "Runtime control:",
+            f"- current_task: {str(metadata.get('user_goal') or '')[:180]}",
+            "- completed_steps: " + (", ".join(completed) if completed else "none"),
+        ]
+        if pending:
+            lines.append(f"- pending_required_step: {pending}")
+        lines.append("- violation_guard: do not claim completion without repository inspection and verification evidence.")
+        lines.append("- evidence_required: test/build/lint output, or an explicit reason verification is impossible.")
+        if violations:
+            lines.append("Previous workflow violation:")
+            for violation in violations:
+                meta = violation.get("metadata_json") or {}
+                lines.append(f"- {meta.get('violation_type')}: {meta.get('severity')}")
+            lines.append("Required next action: resolve the violation before final answer.")
+        return "\n".join(lines)
+
+    def _learn_from_successful_workflow(self, workflow: dict[str, Any]) -> None:
+        metadata = workflow.get("metadata_json") or {}
+        observations = metadata.get("observations") or []
+        recipe = [item.get("command") for item in observations if item.get("matched_step_id") == "execute_and_verify" and item.get("command")]
+        if not recipe:
+            return
+        self.ledger.record_cognitive_record(
+            "skill",
+            "verification_recipe",
+            f"verification_recipe:{workflow['id']}",
+            "Verification recipe: " + " && ".join(recipe[:3]),
+            "active",
+            "project" if metadata.get("project_key") else "session",
+            domain="software_engineering",
+            category="verification",
+            subcategory="recipe",
+            confidence=0.82,
+            importance=0.74,
+            project_key=metadata.get("project_key"),
+            session_id=metadata.get("session_id"),
+            metadata={
+                "skill_type": "verification_recipe",
+                "source_workflow_id": workflow["id"],
+                "success_count": 1,
+                "failure_count": 0,
+                "reuse_count": 0,
+                "recipe": recipe[:5],
+            },
+            source_kind="workflow_learning",
+        )
 
     def snapshot(self) -> dict[str, Any]:
         self.sync_governance_policies()
@@ -545,3 +756,145 @@ def _dag_from_metadata(workflow_id: str, metadata: dict[str, Any]) -> WorkflowDA
     if not steps:
         steps = build_dag(workflow_id, metadata.get("steps") or [], metadata.get("policy") or {}).steps
     return WorkflowDAG(workflow_id, steps)
+
+
+def _observed_workflow_steps() -> list[dict[str, Any]]:
+    return [
+        {"id": "read_context", "name": "read_context", "kind": "inspection", "state": "completed"},
+        {"id": "recall_memory", "name": "recall_memory", "kind": "inspection", "state": "completed"},
+        {"id": "inspect_repository", "name": "inspect_repository", "kind": "inspection", "state": "pending"},
+        {"id": "execute_change", "name": "execute_change", "kind": "execution", "state": "pending"},
+        {"id": "execute_and_verify", "name": "execute_and_verify", "kind": "verification", "state": "pending"},
+        {"id": "audit_outcome", "name": "audit_outcome", "kind": "audit", "state": "pending"},
+    ]
+
+
+def _is_engineering_task(prompt: str) -> bool:
+    lowered = prompt.lower()
+    signals = (
+        "修复",
+        "实现",
+        "改",
+        "代码",
+        "测试",
+        "bug",
+        "报错",
+        "feature",
+        "implement",
+        "fix",
+        "debug",
+        "refactor",
+        "test",
+        "lint",
+    )
+    return any(signal in lowered for signal in signals)
+
+
+def _optional_str(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return text or None
+
+
+def _project_key(cwd: str | None) -> str | None:
+    if not cwd:
+        return None
+    try:
+        return str(Path(cwd).expanduser().resolve()).lower()
+    except OSError:
+        return str(Path(cwd).expanduser()).lower()
+
+
+def _payload_text(value: Any) -> str:
+    parts: list[str] = []
+
+    def walk(item: Any) -> None:
+        if isinstance(item, dict):
+            for key, child in item.items():
+                parts.append(str(key))
+                walk(child)
+        elif isinstance(item, list):
+            for child in item[:40]:
+                walk(child)
+        elif item is not None:
+            parts.append(str(item))
+
+    walk(value)
+    return " ".join(parts).lower()[:20000]
+
+
+def _tool_name(payload: dict[str, Any]) -> str:
+    for key in ("tool_name", "tool", "name"):
+        if payload.get(key):
+            return str(payload.get(key))
+    tool_input = payload.get("tool_input")
+    if isinstance(tool_input, dict):
+        for key in ("tool_name", "tool", "name"):
+            if tool_input.get(key):
+                return str(tool_input.get(key))
+    return ""
+
+
+def _command_text(payload: dict[str, Any]) -> str:
+    for key in ("cmd", "command", "args"):
+        if payload.get(key):
+            return str(payload.get(key))
+    tool_input = payload.get("tool_input")
+    if isinstance(tool_input, dict):
+        for key in ("cmd", "command", "args"):
+            if tool_input.get(key):
+                return str(tool_input.get(key))
+    return ""
+
+
+def _is_inspection_observation(tool_name: str, command: str, text: str) -> bool:
+    lowered = " ".join((tool_name, command, text)).lower()
+    signals = ("read_file", "grep", "search", "list", "git diff", "cat ", "sed ", "rg ", "ls ", "find ", "nl ", "wc ")
+    return any(signal in lowered for signal in signals)
+
+
+def _is_change_observation(tool_name: str, command: str, text: str) -> bool:
+    lowered = " ".join((tool_name, command, text)).lower()
+    signals = ("apply_patch", "write_file", "edit", "*** begin patch", "update file", "add file", "delete file")
+    return any(signal in lowered for signal in signals)
+
+
+def _is_verification_observation(tool_name: str, command: str, text: str) -> bool:
+    lowered = " ".join((tool_name, command, text)).lower()
+    signals = ("pytest", "unittest", "npm test", "pnpm test", "yarn test", "ruff", "mypy", "build", "lint", "tsc", "go test", "cargo test")
+    return any(signal in lowered for signal in signals)
+
+
+def _looks_like_failed_verification(text: str) -> bool:
+    lowered = text.lower()
+    return any(signal in lowered for signal in ("failed", "failure", "error", "exit code 1", "traceback", "失败", "报错"))
+
+
+def _summarize_observation(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "tool_name": _tool_name(payload),
+        "command": _command_text(payload)[:300],
+        "payload_keys": sorted(str(key) for key in payload.keys())[:30],
+    }
+
+
+def _step_completed(metadata: dict[str, Any], step_id: str) -> bool:
+    return step_id in set(metadata.get("completed_steps") or [])
+
+
+def _observed_step_order(step_id: str) -> int:
+    order = {step["id"]: index for index, step in enumerate(_observed_workflow_steps())}
+    return order.get(step_id, 999)
+
+
+def _next_pending_step(metadata: dict[str, Any]) -> str | None:
+    completed = set(metadata.get("completed_steps") or [])
+    for step in _observed_workflow_steps():
+        step_id = str(step["id"])
+        if step_id not in completed:
+            return step_id
+    return None
+
+
+def _claims_completion(message: str) -> bool:
+    lowered = message.lower()
+    return any(signal in lowered for signal in ("done", "completed", "fixed", "已完成", "完成", "修复完成", "通过"))

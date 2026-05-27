@@ -29,8 +29,8 @@ def main(argv: list[str] | None = None) -> int:
         if hook_name == "user_message":
             return _user_message(service, payload)
         if hook_name == "after_tool_call":
-            service.record_event(hook_name, payload, processed=True)
-            _out({})
+            result = service.observe_tool_use(payload)
+            _out(result.get("hook_output", {}))
             return 0
         if hook_name == "session_end":
             return _session_end(service, payload)
@@ -70,6 +70,7 @@ def _session_start(service: MemoryService, payload: dict[str, Any]) -> int:
 
 def _user_message(service: MemoryService, payload: dict[str, Any]) -> int:
     event_id = service.record_event("user_message", payload)
+    runtime_task = service.start_task_from_prompt(payload)
     logger.debug("user_message event recorded", event_id=event_id, payload_summary=summarize_payload(payload))
     _spawn_worker(event_id)
     context = service.prompt_context(
@@ -85,24 +86,25 @@ def _user_message(service: MemoryService, payload: dict[str, Any]) -> int:
                 "hookSpecificOutput": {
                     "hookEventName": "UserPromptSubmit",
                     "additionalContext": context,
-                }
+                },
+                "codexMemoryRuntime": runtime_task,
             }
         )
     else:
-        _out({})
+        _out({"codexMemoryRuntime": runtime_task} if runtime_task.get("started") else {})
     return 0
 
 
 def _session_end(service: MemoryService, payload: dict[str, Any]) -> int:
-    service.record_event("session_end", payload, processed=True)
+    runtime_result = service.observe_stop(payload)
     result = service.apply_recall_outcome(
         str(payload.get("session_id") or "") or None,
         str(payload.get("turn_id") or "") or None,
         str(payload.get("last_assistant_message") or ""),
     )
     service.periodic_governance(interval_minutes=60)
-    logger.debug("session_end recall feedback processed", result=result)
-    _out({})
+    logger.debug("session_end recall feedback processed", result=result, runtime=runtime_result)
+    _out(runtime_result.get("hook_output", {}))
     return 0
 
 

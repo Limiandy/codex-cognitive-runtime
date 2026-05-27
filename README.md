@@ -1,6 +1,6 @@
 # Codex Memory
 
-Codex Memory is a local Codex plugin that uses GPT-5.4-Mini as a memory decision model, reviews candidates through deterministic gates, and stores approved long-term memories in a local SQLite Ledger.
+Codex Memory is a local cognitive runtime for Codex. It observes real Codex work through hooks, maintains task workflow state, detects missing verification or process violations, and turns reviewed outcomes into reusable memory, knowledge, and skills.
 
 This is a local developer alpha. It is intended for developers who can inspect local Codex configuration and recover their own environment. It does not guarantee compatibility across Codex CLI versions and is not recommended for sensitive production environments.
 
@@ -9,9 +9,13 @@ This is a local developer alpha. It is intended for developers who can inspect l
 - `memory-engine`: extracts, classifies, and ranks memory candidates with `gpt-5.4-mini`.
 - `memory-review`: validates schema, evidence, confidence, TTL, duplicate risk, and secret-like content.
 - `memory-ledger`: local SQLite audit trail at `~/.codex-memory/ledger.sqlite3`.
+- `cognitive-runtime`: observes `UserPromptSubmit`, `PostToolUse`, and `Stop` events to maintain workflow state and inject next-step control signals.
+- `workflow-guard`: detects engineering workflow violations such as code changes without verification evidence.
 - `mcp`: exposes `codex_memory_status`, `codex_memory_search`, `codex_memory_ingest`, and `codex_memory_queue`.
 
 The local SQLite Ledger is the only runtime store and source of truth.
+
+The runtime observes Codex tool use; it does not execute shell commands, edit files, or run tests by itself.
 
 ## Commands
 

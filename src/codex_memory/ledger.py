@@ -544,6 +544,55 @@ class Ledger:
         self._commit()
         return self.get_cognitive_record(record_id)
 
+    def add_workflow_violation(
+        self,
+        workflow_id: str,
+        violation_type: str,
+        severity: str,
+        evidence: dict[str, Any],
+    ) -> dict[str, Any]:
+        existing = self.list_open_workflow_violations(workflow_id=workflow_id)
+        for item in existing:
+            metadata = item.get("metadata_json") or {}
+            if metadata.get("violation_type") == violation_type:
+                return item
+        return self.record_cognitive_record(
+            "audit",
+            "workflow_violation",
+            f"violation:{workflow_id}:{violation_type}",
+            f"{severity}: {violation_type}",
+            "active",
+            "session",
+            importance=0.95 if severity == "high" else 0.75,
+            metadata={
+                "workflow_id": workflow_id,
+                "violation_type": violation_type,
+                "severity": severity,
+                "evidence": evidence,
+                "resolved_at": None,
+            },
+            source_kind="workflow_violation",
+        )
+
+    def list_open_workflow_violations(self, workflow_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        records = self.list_cognitive_records(layer="audit", status="active", limit=max(limit, 200))
+        violations = []
+        for record in records:
+            if record.get("record_type") != "workflow_violation":
+                continue
+            metadata = record.get("metadata_json") or {}
+            if metadata.get("resolved_at"):
+                continue
+            if workflow_id and metadata.get("workflow_id") != workflow_id:
+                continue
+            violations.append(record)
+            if len(violations) >= limit:
+                break
+        return violations
+
+    def resolve_workflow_violation(self, violation_id: str) -> dict[str, Any] | None:
+        return self.set_cognitive_record_status(violation_id, "resolved", {"resolved_at": _now()})
+
     def adjust_cognitive_record_strength(self, record_id: str, delta: float, metadata_patch: dict[str, Any] | None = None) -> dict[str, Any] | None:
         record = self.get_cognitive_record(record_id)
         if not record:

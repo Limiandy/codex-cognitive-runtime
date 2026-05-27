@@ -51,8 +51,15 @@ class MemoryService:
         logger.info("process event started", event_id=event_id, event_type=event_type, payload_summary=summarize_payload(payload))
         self.runtime.begin_event(event_id, event_type, payload)
         if event_type == "user_message":
+            prompt = str(payload.get("prompt") or payload.get("text") or "")
+            if _memory_storage_opt_out(prompt):
+                result = {"event_id": event_id, "candidate_count": 0, "results": [], "skipped": "memory_storage_opt_out"}
+                self.ledger.mark_event_processed(event_id)
+                self.runtime.finish_event(event_id, result)
+                logger.info("memory extraction skipped by user opt-out", event_id=event_id)
+                return result
             feedback = self.apply_natural_feedback(
-                str(payload.get("prompt") or payload.get("text") or ""),
+                prompt,
                 str(payload.get("session_id") or "") or None,
             )
             if feedback.get("updated"):
@@ -168,6 +175,21 @@ class MemoryService:
             self.ledger.mark_event_processed(event_id)
         logger.debug("event recorded", event_id=event_id, event_type=event_type, processed=processed, payload_summary=summarize_payload(payload))
         return event_id
+
+    def start_task_from_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self.runtime.start_task_from_prompt(payload)
+
+    def observe_tool_use(self, payload: dict[str, Any]) -> dict[str, Any]:
+        event_id = self.record_event("after_tool_call", payload, processed=True)
+        result = self.runtime.observe_tool_use(payload)
+        result["event_id"] = event_id
+        return result
+
+    def observe_stop(self, payload: dict[str, Any]) -> dict[str, Any]:
+        event_id = self.record_event("session_end", payload, processed=True)
+        result = self.runtime.observe_stop(payload)
+        result["event_id"] = event_id
+        return result
 
     def _stored_event_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self.config.store_raw_events:
@@ -372,3 +394,24 @@ def _privacy_status(config: Config) -> dict[str, Any]:
     if config.store_raw_events:
         status["warning"] = "raw event payload storage is enabled"
     return status
+
+
+def _memory_storage_opt_out(prompt: str) -> bool:
+    lowered = prompt.lower()
+    signals = (
+        "不要记忆",
+        "别记忆",
+        "不要保存",
+        "别保存",
+        "不要记录",
+        "别记录",
+        "不要把这",
+        "不要存",
+        "do not remember",
+        "don't remember",
+        "do not save",
+        "don't save",
+        "do not store",
+        "don't store",
+    )
+    return any(signal in lowered for signal in signals)
