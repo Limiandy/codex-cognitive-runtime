@@ -249,6 +249,59 @@ class RuntimeObserverTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_recommended_recipe_reuse_updates_counts_and_strength(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                first = service.start_task_from_prompt({"prompt": "修复测试失败", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg failing_test tests", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
+                self.assertEqual(service.ledger.latest_state_for("workflow", first["workflow_id"]), "completed")
+                recipe = [item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=20) if item.get("record_type") == "verification_recipe"][0]
+                initial_strength = recipe["strength"]
+
+                second = service.start_task_from_prompt({"prompt": "实现另一个功能", "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+                service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+
+                updated = service.ledger.get_cognitive_record(recipe["id"])
+                metadata = updated["metadata_json"]
+                self.assertEqual(metadata["reuse_count"], 1)
+                self.assertEqual(metadata["success_count"], 2)
+                self.assertEqual(metadata["failure_count"], 0)
+                self.assertEqual(metadata["last_reuse_workflow_id"], second["workflow_id"])
+                self.assertGreater(updated["strength"], initial_strength)
+                self.assertTrue(metadata["last_used_at"])
+            finally:
+                service.close()
+
+    def test_failed_recommended_recipe_reuse_lowers_strength(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                first = service.start_task_from_prompt({"prompt": "修复测试失败", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg failing_test tests", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
+                recipe = [item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=20) if item.get("record_type") == "verification_recipe"][0]
+                initial_strength = recipe["strength"]
+
+                service.start_task_from_prompt({"prompt": "实现另一个功能", "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+                service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "FAILED", "exit_code": 1, "session_id": "s1", "turn_id": "t2", "cwd": tmp})
+
+                updated = service.ledger.get_cognitive_record(recipe["id"])
+                metadata = updated["metadata_json"]
+                self.assertEqual(metadata["reuse_count"], 1)
+                self.assertEqual(metadata["success_count"], 1)
+                self.assertEqual(metadata["failure_count"], 1)
+                self.assertLess(updated["strength"], initial_strength)
+            finally:
+                service.close()
+
     def test_successful_verify_resolves_changed_without_verification(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)

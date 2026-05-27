@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -490,6 +491,8 @@ class CognitiveRuntime:
         }
         self._complete_observed_step(str(workflow["id"]), step_id, observation)
         updated = self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), patch) or workflow
+        if step_id == "execute_and_verify":
+            self._record_recipe_reuse(updated, observation)
         self._resolve_observed_violations(str(workflow["id"]), step_id, observation)
         return updated
 
@@ -551,6 +554,10 @@ class CognitiveRuntime:
             lines.append("Required next action: resolve the violation before final answer.")
         recipes = self._recommended_verification_recipes(metadata, limit=2)
         if recipes:
+            self.ledger.patch_cognitive_record_metadata(
+                str(workflow["id"]),
+                {"recommended_recipe_ids": [str(recipe["id"]) for recipe in recipes]},
+            )
             lines.append("Recommended verification recipe:")
             for recipe in recipes:
                 meta = recipe.get("metadata_json") or {}
@@ -622,6 +629,31 @@ class CognitiveRuntime:
             },
             source_kind="workflow_learning",
         )
+
+    def _record_recipe_reuse(self, workflow: dict[str, Any], observation: dict[str, Any]) -> None:
+        metadata = workflow.get("metadata_json") or {}
+        recipe_ids = [str(item) for item in metadata.get("recommended_recipe_ids") or [] if item]
+        if not recipe_ids:
+            return
+        command = str(observation.get("command") or "")
+        if not command:
+            return
+        succeeded = not bool(observation.get("test_failed"))
+        for recipe_id in recipe_ids:
+            recipe = self.ledger.get_cognitive_record(recipe_id)
+            if not recipe:
+                continue
+            recipe_metadata = dict(recipe.get("metadata_json") or {})
+            commands = [str(item) for item in recipe_metadata.get("recipe") or [] if item]
+            if not any(_same_command(command, item) for item in commands):
+                continue
+            recipe_metadata["reuse_count"] = int(recipe_metadata.get("reuse_count") or 0) + 1
+            recipe_metadata["success_count"] = int(recipe_metadata.get("success_count") or 0) + (1 if succeeded else 0)
+            recipe_metadata["failure_count"] = int(recipe_metadata.get("failure_count") or 0) + (0 if succeeded else 1)
+            recipe_metadata["last_used_at"] = _utc_now()
+            recipe_metadata["last_reuse_workflow_id"] = workflow["id"]
+            recipe_metadata["last_reuse_command"] = command[:300]
+            self.ledger.adjust_cognitive_record_strength(str(recipe["id"]), 0.1 if succeeded else -0.2, recipe_metadata)
 
     def snapshot(self) -> dict[str, Any]:
         self.sync_governance_policies()
@@ -941,3 +973,11 @@ def _next_pending_step(metadata: dict[str, Any]) -> str | None:
 def _claims_completion(message: str) -> bool:
     lowered = message.lower()
     return any(signal in lowered for signal in ("done", "completed", "fixed", "已完成", "完成", "修复完成", "通过"))
+
+
+def _same_command(left: str, right: str) -> bool:
+    return " ".join(left.split()) == " ".join(right.split())
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
