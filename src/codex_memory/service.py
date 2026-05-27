@@ -8,6 +8,7 @@ from .cognitive_governance import CognitiveGovernance
 from .cognitive_runtime import CognitiveRuntime
 from .engine import MemoryEngine
 from .governance import MemoryGovernance
+from .knowledge import KnowledgeBuilder
 from .ledger import Ledger, project_key_for_cwd
 from . import logger
 from .local_store import LocalCognitiveStore
@@ -15,6 +16,7 @@ from .mempalace_adapter import MemPalaceAdapter
 from .model_client import CodexMiniClient
 from .recall import MemoryRecall
 from .review import MemoryReviewer
+from .skills import SkillEngine
 
 
 class MemoryService:
@@ -249,16 +251,43 @@ class MemoryService:
         if apply:
             self.runtime.sync_all_active()
             self.runtime.sync_governance_policies()
-            result["cognitive_governance"] = self.govern_cognitive(apply=True)
+            result["cognitive_governance"] = self.govern_cognitive(apply=True, full=True)
         logger.info("memory governance completed", apply=apply, result=result)
         return result
 
-    def govern_cognitive(self, apply: bool = False) -> dict[str, Any]:
+    def govern_cognitive(self, apply: bool = False, full: bool = False) -> dict[str, Any]:
         self.runtime.sync_all_active()
         self.runtime.sync_governance_policies()
+        if full:
+            self.knowledge_build(source="all")
+            self.skill_build()
         result = CognitiveGovernance(self.ledger).evaluate(apply=apply)
         logger.info("cognitive governance completed", apply=apply, result=result)
         return result
+
+    def knowledge_build(self, source: str = "all") -> dict[str, Any]:
+        return KnowledgeBuilder(self.ledger, _repo_root()).build(source=source)
+
+    def knowledge_search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
+        return KnowledgeBuilder(self.ledger, _repo_root()).search(query, limit=limit)
+
+    def knowledge_audit(self) -> dict[str, Any]:
+        return KnowledgeBuilder(self.ledger, _repo_root()).audit()
+
+    def skill_build(self) -> dict[str, Any]:
+        return SkillEngine(self.ledger).build()
+
+    def skill_list(self, limit: int = 50) -> list[dict[str, Any]]:
+        return SkillEngine(self.ledger).list(limit=limit)
+
+    def skill_audit(self) -> dict[str, Any]:
+        return SkillEngine(self.ledger).audit()
+
+    def skill_promote(self, skill_id: str) -> dict[str, Any] | None:
+        return SkillEngine(self.ledger).promote(skill_id)
+
+    def skill_deprecate(self, skill_id: str) -> dict[str, Any] | None:
+        return SkillEngine(self.ledger).deprecate(skill_id)
 
     def periodic_governance(self, interval_minutes: int = 60) -> dict[str, Any]:
         result = MemoryGovernance(self.ledger).run_periodic_if_due(interval_minutes=interval_minutes)
@@ -310,9 +339,19 @@ class MemoryService:
         limit: int = 6,
         cwd: str | None = None,
         session_id: str | None = None,
+        fail_step: str | None = None,
     ) -> dict[str, Any]:
         self.runtime.sync_all_active()
-        return self.runtime.execute_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
+        return self.runtime.execute_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id, fail_step=fail_step)
+
+    def workflow_resume(self, workflow_id: str) -> dict[str, Any]:
+        return self.runtime.resume_workflow(workflow_id)
+
+    def workflow_cancel(self, workflow_id: str) -> dict[str, Any]:
+        return self.runtime.cancel_workflow(workflow_id)
+
+    def workflow_audit(self, workflow_id: str) -> dict[str, Any]:
+        return self.runtime.audit_workflow(workflow_id)
 
 def _candidate_from_memory(memory: dict[str, Any]):
     from .schema import Evidence, MemoryCandidate
@@ -339,3 +378,9 @@ def _candidate_from_memory(memory: dict[str, Any]):
         evidence=evidence,
         reason=str(memory.get("reason") or ""),
     )
+
+
+def _repo_root():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[2]

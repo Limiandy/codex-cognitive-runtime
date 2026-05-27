@@ -23,20 +23,23 @@ MEMORY_TRANSITIONS = {
 
 WORKFLOW_TRANSITIONS = {
     None: {"planned"},
-    "planned": {"running", "cancelled"},
-    "running": {"completed", "failed", "cancelled"},
-    "failed": {"running", "cancelled"},
+    "planned": {"running", "cancelled", "paused"},
+    "running": {"completed", "failed", "cancelled", "paused"},
+    "paused": {"running", "cancelled"},
+    "failed": {"running", "cancelled", "paused"},
     "completed": set(),
     "cancelled": set(),
 }
 
 STEP_TRANSITIONS = {
     None: {"pending"},
-    "pending": {"running", "skipped"},
-    "running": {"completed", "failed"},
-    "failed": {"running", "skipped"},
+    "pending": {"ready", "running", "skipped"},
+    "ready": {"running", "skipped"},
+    "running": {"completed", "failed", "rolled_back"},
+    "failed": {"ready", "running", "skipped", "rolled_back"},
     "completed": set(),
-    "skipped": set(),
+    "skipped": {"ready", "running"},
+    "rolled_back": set(),
 }
 
 

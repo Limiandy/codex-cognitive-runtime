@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+from pathlib import Path
+
+from codex_memory.config import Config
+from codex_memory.schema import Evidence, MemoryCandidate
+from codex_memory.service import MemoryService
+
+
+SCENARIOS = [
+    ("engineering", "经验：实现 hook 自动注入后必须跑单元测试和 CLI 验证。"),
+    ("frontend", "前端经验：Vue、React、jQuery 项目都要先稳定组件边界和接口封装。"),
+    ("architecture", "项目架构决策：MCP 与 hook 必须保持两条不重叠路径，不能互相调用。"),
+    ("conflict", "项目架构决策：MCP 与 hook 应该形成统一链路并互相调用。"),
+    ("temporary", "临时调试：本轮只打印一次变量，完成后不应进入长期记忆。"),
+    ("feedback", "不对，这条记忆误导了回答。"),
+    ("workflow", "实现 hook 自动注入并验证 workflow DAG 恢复能力。"),
+    ("security", "安全经验：日志必须脱敏 secret、token、password。"),
+]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Codex Memory cognitive runtime proof")
+    parser.add_argument("--rounds", type=int, default=200)
+    parser.add_argument("--state-dir", default="/private/tmp/codex-memory-cognitive-proof")
+    parser.add_argument("--clear-before", action="store_true")
+    parser.add_argument("--report", default="/private/tmp/codex-memory-cognitive-proof-report.json")
+    args = parser.parse_args()
+
+    state_dir = Path(args.state_dir)
+    if args.clear_before and state_dir.exists():
+        shutil.rmtree(state_dir)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    os.environ["CODEX_MEMORY_DISABLE_MEMPALACE"] = "1"
+    os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+    service = MemoryService(
+        Config(
+            model="gpt-5.4-mini",
+            state_dir=state_dir,
+            ledger_path=state_dir / "ledger.sqlite3",
+            palace_path=None,
+            min_active_confidence=0.82,
+            min_quarantine_confidence=0.62,
+            duplicate_threshold=0.9,
+            max_evidence_quote_chars=500,
+        )
+    )
+    try:
+        service.knowledge_build(source="all")
+        seeded = _seed_memories(service)
+        workflow_success = 0
+        workflow_total = 0
+        noise_injections = 0
+        injection_checks = 0
+        for index in range(args.rounds):
+            kind, text = SCENARIOS[index % len(SCENARIOS)]
+            if kind == "workflow":
+                workflow_total += 1
+                result = service.workflow_execute(text, cwd=str(Path.cwd()))
+                workflow_success += 1 if result["workflow_state"] == "completed" else 0
+            elif kind == "feedback":
+                service.apply_natural_feedback(text)
+            elif kind == "temporary":
+                context = service.prompt_context("天气怎么样？", cwd=str(Path.cwd()))
+                injection_checks += 1
+                if context:
+                    noise_injections += 1
+            else:
+                service.prompt_context(text, cwd=str(Path.cwd()))
+            if index % 25 == 24:
+                service.skill_build()
+                service.govern_cognitive(apply=True, full=True)
+
+        service.skill_build()
+        governance = service.govern_cognitive(apply=True, full=True)
+        report = _report(service, args.rounds, seeded, workflow_success, workflow_total, noise_injections, injection_checks, governance)
+        Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["passed"] else 1
+    finally:
+        service.close()
+
+
+def _seed_memories(service: MemoryService) -> list[str]:
+    ids = []
+    for text in [
+        "经验：hook 自动注入必须避免 MCP 路径混用。",
+        "经验：workflow DAG 失败后必须能 resume 并审计状态。",
+        "经验：前端项目要抽离权限、路由、接口封装策略。",
+    ]:
+        candidate = MemoryCandidate(
+            content=text,
+            memory_type="experience",
+            proposed_action="store",
+            confidence=0.95,
+            importance=0.9,
+            ttl="long",
+            scope="global",
+            domain="software_engineering",
+            category="lesson",
+            subcategory="testing",
+            triggers=["hook", "workflow", "前端", "测试"],
+            evidence=[Evidence(source="proof", quote=text)],
+            reason="cognitive proof seed",
+        )
+        memory_id = service.ledger.add_candidate(candidate, "active", {"status": "active"})
+        service.runtime.sync_memory(memory_id)
+        ids.append(memory_id)
+    return ids
+
+
+def _report(
+    service: MemoryService,
+    rounds: int,
+    seeded: list[str],
+    workflow_success: int,
+    workflow_total: int,
+    noise_injections: int,
+    injection_checks: int,
+    governance: dict,
+) -> dict:
+    active = service.list_memories(status="active", limit=200)
+    false_active = [
+        item
+        for item in active
+        if any(term in str(item.get("content") or "") for term in ("临时调试", "只打印一次变量", "secret=", "token="))
+    ]
+    edges = service.ledger.list_cognitive_edges(limit=5000)
+    unresolved_conflicts = [
+        edge
+        for edge in edges
+        if edge.get("relation") == "contradicts"
+        and (service.ledger.get_cognitive_record(str(edge.get("source_id") or "")) or {}).get("status") == "active"
+    ]
+    knowledge_hits = service.knowledge_search("hook workflow 测试", limit=10)
+    skills = service.skill_list(limit=100)
+    skill_reuse = sum(int((item.get("metadata_json") or {}).get("reuse_count") or 0) for item in skills)
+    policies = service.ledger.list_governance_policies(active=True)
+    policy_hits = sum(int(item.get("hit_count") or 0) for item in policies)
+    transitions = service.ledger.latest_state_transitions(limit=5000)
+    invalid_transitions = [
+        item for item in transitions if (item.get("metadata_json") or {}).get("state_machine", {}).get("allowed") is False
+    ]
+    injection_noise_rate = noise_injections / injection_checks if injection_checks else 0.0
+    workflow_success_rate = workflow_success / workflow_total if workflow_total else 1.0
+    report = {
+        "rounds": rounds,
+        "seeded": seeded,
+        "false_active_count": len(false_active),
+        "injection_noise_rate": round(injection_noise_rate, 4),
+        "knowledge_hit_rate": 1.0 if knowledge_hits else 0.0,
+        "skill_reuse_rate": skill_reuse / max(1, len(skills)),
+        "workflow_success_rate": round(workflow_success_rate, 4),
+        "governance_action_count": len(governance.get("applied_actions") or []),
+        "policy_effectiveness": {"policy_count": len(policies), "policy_hits": policy_hits},
+        "unresolved_conflict_count": len(unresolved_conflicts),
+        "invalid_state_transition_count": len(invalid_transitions),
+    }
+    report["passed"] = (
+        report["false_active_count"] == 0
+        and report["unresolved_conflict_count"] == 0
+        and report["invalid_state_transition_count"] == 0
+        and report["workflow_success_rate"] >= 0.99
+        and report["knowledge_hit_rate"] > 0
+        and report["injection_noise_rate"] == 0
+    )
+    return report
+
+
+if __name__ == "__main__":
+    sys.exit(main())

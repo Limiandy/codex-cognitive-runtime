@@ -5,14 +5,17 @@ from typing import Any
 
 from .ontology import cognitive_layer_for_memory, ontology_snapshot
 from .recall import MemoryRecall
+from .reasoning_policy import ReasoningPolicyEngine
 from .state_machine import RuntimeStateMachine
 from .taxonomy import classify, near_duplicate_text, tokenize
+from .workflow_dag import WorkflowDAG, WorkflowExecutor, WorkflowStep, build_dag
 
 
 class CognitiveRuntime:
     def __init__(self, ledger: Any):
         self.ledger = ledger
         self.state = RuntimeStateMachine()
+        self.reasoning = ReasoningPolicyEngine()
 
     def begin_event(self, event_id: str, event_type: str, payload: dict[str, Any]) -> None:
         self.transition("event", event_id, "received", event_id=event_id, metadata={"event_type": event_type})
@@ -118,11 +121,20 @@ class CognitiveRuntime:
         route = classify(prompt)
         selected_skills = _rank_records(records, "skill", prompt, route, limit=4)
         selected_knowledge = _rank_records(records, "knowledge", prompt, route, limit=5)
+        policy = self.reasoning.decide(
+            prompt,
+            route,
+            recalled.memories,
+            selected_knowledge,
+            selected_skills,
+            injection_pressure=_recent_injection_pressure(self.ledger),
+            policies=self.ledger.list_governance_policies(active=True),
+        )
         reasoning = self.ledger.record_cognitive_record(
             "reasoning",
             "reasoning_policy",
             None,
-            _reasoning_policy_content(prompt, route, recalled.memories, selected_skills, selected_knowledge),
+            _reasoning_policy_content(prompt, route, recalled.memories, selected_skills, selected_knowledge, policy.to_dict()),
             "active",
             "session",
             domain=route["domain"],
@@ -137,9 +149,10 @@ class CognitiveRuntime:
                 "memory_count": len(recalled.memories),
                 "skill_count": len(selected_skills),
                 "knowledge_count": len(selected_knowledge),
+                "policy": policy.to_dict(),
             },
         )
-        steps = _workflow_steps(prompt, route, recalled.memories, selected_skills, selected_knowledge)
+        steps = _workflow_steps(prompt, route, recalled.memories, selected_skills, selected_knowledge, policy.to_dict())
         workflow = self.ledger.record_cognitive_record(
             "workflow",
             "dynamic_workflow",
@@ -160,6 +173,8 @@ class CognitiveRuntime:
                 "skill_ids": [item["id"] for item in selected_skills],
                 "knowledge_ids": [item["id"] for item in selected_knowledge],
                 "reasoning_id": reasoning["id"],
+                "route": route,
+                "policy": policy.to_dict(),
             },
         )
         self.transition("workflow", str(workflow["id"]), "planned", metadata={"prompt": prompt, "step_count": len(steps)})
@@ -178,6 +193,8 @@ class CognitiveRuntime:
             "memories": recalled.memories,
             "skills": selected_skills,
             "knowledge": selected_knowledge,
+            "policy": policy.to_dict(),
+            "dag": build_dag(str(workflow["id"]), steps, policy.to_dict()).to_dict(),
         }
 
     def execute_workflow(
@@ -186,18 +203,17 @@ class CognitiveRuntime:
         limit: int = 6,
         cwd: str | None = None,
         session_id: str | None = None,
+        fail_step: str | None = None,
     ) -> dict[str, Any]:
         plan = self.plan_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
         workflow_id = str(plan["workflow_id"])
-        self.transition("workflow", workflow_id, "running", metadata={"prompt": prompt})
-        executed_steps = []
-        for index, step in enumerate(plan["steps"]):
-            step_id = f"{workflow_id}:step:{index}:{step['name']}"
+        dag = build_dag(workflow_id, plan["steps"], plan["policy"])
+        for index, step in enumerate(dag.steps):
             self.ledger.record_cognitive_record(
                 "workflow",
                 "workflow_step",
-                step_id,
-                f"{step['name']}: {step['reason']}",
+                step.id,
+                f"{step.name}: {step.inputs.get('reason', '')}",
                 "active",
                 "session",
                 domain=plan["route"]["domain"],
@@ -206,16 +222,53 @@ class CognitiveRuntime:
                 confidence=0.86,
                 importance=0.7,
                 session_id=session_id,
-                metadata={"workflow_id": workflow_id, "step": step, "index": index},
+                metadata={"workflow_id": workflow_id, "step": step.to_dict(), "index": index},
                 source_kind="workflow",
             )
-            self.transition("workflow_step", step_id, "pending", metadata={"workflow_id": workflow_id})
-            self.transition("workflow_step", step_id, "running", metadata={"workflow_id": workflow_id})
-            self.transition("workflow_step", step_id, "completed", metadata={"workflow_id": workflow_id})
-            self.ledger.upsert_cognitive_edge(workflow_id, step_id, "instantiates", 0.8, {"index": index})
-            executed_steps.append({"id": step_id, **step, "state": "completed"})
-        self.transition("workflow", workflow_id, "completed", metadata={"step_count": len(executed_steps)})
-        return {**plan, "workflow_state": "completed", "executed_steps": executed_steps}
+            self.transition("workflow_step", step.id, "pending", metadata={"workflow_id": workflow_id})
+            self.ledger.upsert_cognitive_edge(workflow_id, step.id, "instantiates", 0.8, {"index": index})
+        executed = WorkflowExecutor(self).execute(dag, fail_step=fail_step)
+        success = executed["workflow_state"] == "completed"
+        for skill in plan["skills"]:
+            metadata = skill.get("metadata_json") or {}
+            metadata["reuse_count"] = int(metadata.get("reuse_count") or 0) + 1
+            metadata["success_count"] = int(metadata.get("success_count") or 0) + (1 if success else 0)
+            metadata["failure_count"] = int(metadata.get("failure_count") or 0) + (0 if success else 1)
+            metadata["last_workflow_id"] = workflow_id
+            self.ledger.adjust_cognitive_record_strength(str(skill["id"]), 0.12 if success else -0.3, metadata)
+        self.ledger.patch_cognitive_record_metadata(workflow_id, {"dag": executed["dag"], "workflow_state": executed["workflow_state"]})
+        return {**plan, **executed}
+
+    def resume_workflow(self, workflow_id: str) -> dict[str, Any]:
+        workflow = self.ledger.get_cognitive_record(workflow_id)
+        if not workflow:
+            raise ValueError(f"workflow not found: {workflow_id}")
+        metadata = workflow.get("metadata_json") or {}
+        dag = _dag_from_metadata(workflow_id, metadata)
+        executed = WorkflowExecutor(self).resume(dag)
+        self.ledger.patch_cognitive_record_metadata(workflow_id, {"dag": executed["dag"], "workflow_state": executed["workflow_state"]})
+        return {"workflow_id": workflow_id, **executed}
+
+    def cancel_workflow(self, workflow_id: str) -> dict[str, Any]:
+        workflow = self.ledger.get_cognitive_record(workflow_id)
+        if not workflow:
+            raise ValueError(f"workflow not found: {workflow_id}")
+        metadata = workflow.get("metadata_json") or {}
+        dag = _dag_from_metadata(workflow_id, metadata)
+        result = WorkflowExecutor(self).cancel(dag)
+        self.ledger.patch_cognitive_record_metadata(workflow_id, {"dag": result["dag"], "workflow_state": result["workflow_state"]})
+        return {"workflow_id": workflow_id, **result}
+
+    def audit_workflow(self, workflow_id: str) -> dict[str, Any]:
+        workflow = self.ledger.get_cognitive_record(workflow_id)
+        if not workflow:
+            raise ValueError(f"workflow not found: {workflow_id}")
+        states = [
+            item
+            for item in self.ledger.latest_state_transitions(limit=1000)
+            if item.get("subject_id") == workflow_id or str(item.get("subject_id") or "").startswith(f"{workflow_id}:step:")
+        ]
+        return {"workflow": workflow, "states": states, "state": self.ledger.latest_state_for("workflow", workflow_id)}
 
     def injection_context(
         self,
@@ -225,6 +278,11 @@ class CognitiveRuntime:
         session_id: str | None = None,
     ) -> str:
         plan = self.plan_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id)
+        if (
+            "short_prompt_low_cognitive_need" in (plan.get("policy") or {}).get("reasons", [])
+            and not plan["memories"]
+        ):
+            return ""
         if not plan["memories"] and not plan["skills"] and not plan["knowledge"]:
             return ""
         lines = ["Codex Cognitive Runtime context:"]
@@ -236,6 +294,7 @@ class CognitiveRuntime:
             lines.append("skill_strategy: " + " | ".join(str(item.get("content") or "")[:120] for item in plan["skills"][:3]))
         if plan["knowledge"]:
             lines.append("organizational_knowledge: " + " | ".join(str(item.get("content") or "")[:120] for item in plan["knowledge"][:3]))
+        lines.append("policy_gate: " + str(plan["policy"]))
         lines.append("workflow: " + " -> ".join(step["name"] for step in plan["steps"]))
         return "\n".join(lines)
 
@@ -400,25 +459,31 @@ def _workflow_steps(
     memories: list[dict[str, Any]],
     skills: list[dict[str, Any]],
     knowledge: list[dict[str, Any]],
+    policy: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
+    policy = policy or {}
     steps = [
-        {"name": "read_context", "reason": "读取当前任务与运行约束"},
-        {"name": "recall_memory", "reason": f"召回 {len(memories)} 条相关长期经验"},
+        {"name": "read_context", "kind": "inspection", "reason": "读取当前任务与运行约束"},
+        {"name": "recall_memory", "kind": "inspection", "reason": f"召回 {len(memories)} 条相关长期经验"},
     ]
     if knowledge:
-        steps.append({"name": "apply_knowledge", "reason": f"应用 {len(knowledge)} 条组织知识"})
+        steps.append({"name": "apply_knowledge", "kind": "planning", "reason": f"应用 {len(knowledge)} 条组织知识"})
     if skills:
-        steps.append({"name": "select_skill", "reason": f"选择 {len(skills)} 条可复用执行策略"})
+        steps.append({"name": "select_skill", "kind": "planning", "reason": f"选择 {len(skills)} 条可复用执行策略"})
+    if policy.get("tool_strategy") in {"inspect_first", "verify_required"}:
+        steps.append({"name": "inspect_repository", "kind": "inspection", "reason": "先让代码库事实约束方案"})
     if route.get("domain") == "software_engineering" or any(term in prompt.lower() for term in ("代码", "测试", "实现", "工程")):
         steps.extend(
             [
-                {"name": "inspect_repository", "reason": "先让代码库事实约束方案"},
-                {"name": "execute_and_verify", "reason": "实施后用测试或命令验证"},
+                {"name": "execute_change", "kind": "execution", "reason": "按认知上下文执行任务"},
+                {"name": "execute_and_verify", "kind": "verification", "reason": "实施后用测试或命令验证"},
             ]
         )
     else:
-        steps.append({"name": "reason_and_answer", "reason": "结合上下文直接推理回答"})
-    steps.append({"name": "audit_outcome", "reason": "记录采用情况与治理反馈"})
+        steps.append({"name": "reason_and_answer", "kind": "reasoning", "reason": "结合上下文直接推理回答"})
+    if policy.get("verification_required") and not any(step["name"] == "execute_and_verify" for step in steps):
+        steps.append({"name": "execute_and_verify", "kind": "verification", "reason": "reasoning policy 要求验证"})
+    steps.append({"name": "audit_outcome", "kind": "audit", "reason": "记录采用情况与治理反馈"})
     return steps
 
 
@@ -428,7 +493,9 @@ def _reasoning_policy_content(
     memories: list[dict[str, Any]],
     skills: list[dict[str, Any]],
     knowledge: list[dict[str, Any]],
+    policy: dict[str, Any] | None = None,
 ) -> str:
+    policy = policy or {}
     constraints = []
     if memories:
         constraints.append("先采用已召回的长期经验，避免重复犯错")
@@ -438,6 +505,41 @@ def _reasoning_policy_content(
         constraints.append("用已抽象技能影响工具选择和执行顺序")
     if route.get("domain") == "software_engineering":
         constraints.append("工程任务必须读代码并验证")
+    if policy:
+        constraints.append(
+            "policy gate: "
+            f"depth={policy.get('reasoning_depth')} tool={policy.get('tool_strategy')} workflow={policy.get('workflow_mode')}"
+        )
     if not constraints:
         constraints.append("低记忆相关任务保持轻量推理")
     return f"Reasoning policy for {route['domain']}/{route['category']}: " + "；".join(constraints) + f"。Prompt: {prompt[:160]}"
+
+
+def _recent_injection_pressure(ledger: Any) -> float:
+    recalls = ledger.list_recall_events(limit=100)
+    if not recalls:
+        return 0.0
+    total = sum(len(item.get("memory_ids_json") or []) for item in recalls)
+    return total / len(recalls)
+
+
+def _dag_from_metadata(workflow_id: str, metadata: dict[str, Any]) -> WorkflowDAG:
+    dag_data = metadata.get("dag") or {}
+    steps = []
+    for item in dag_data.get("steps") or []:
+        steps.append(
+            WorkflowStep(
+                id=str(item.get("id")),
+                name=str(item.get("name")),
+                kind=str(item.get("kind") or "execution"),
+                depends_on=[str(dep) for dep in item.get("depends_on") or []],
+                state=str(item.get("state") or "pending"),
+                inputs=dict(item.get("inputs") or {}),
+                outputs=dict(item.get("outputs") or {}),
+                rollback=item.get("rollback"),
+                policy=dict(item.get("policy") or {}),
+            )
+        )
+    if not steps:
+        steps = build_dag(workflow_id, metadata.get("steps") or [], metadata.get("policy") or {}).steps
+    return WorkflowDAG(workflow_id, steps)

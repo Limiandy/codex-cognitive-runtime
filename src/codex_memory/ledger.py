@@ -339,14 +339,16 @@ class Ledger:
             ),
         )
         self.conn.commit()
-        row = self.conn.execute(
-            """
-            SELECT * FROM cognitive_records
-            WHERE layer=? AND record_type=? AND source_id IS ?
-            ORDER BY updated_at DESC LIMIT 1
-            """,
-            (layer, record_type, source_id),
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM cognitive_records WHERE id=?", (record_id,)).fetchone()
+        if row is None:
+            row = self.conn.execute(
+                """
+                SELECT * FROM cognitive_records
+                WHERE layer=? AND record_type=? AND source_id IS ?
+                ORDER BY updated_at DESC LIMIT 1
+                """,
+                (layer, record_type, source_id),
+            ).fetchone()
         return _cognitive_record_row_to_dict(row) if row else {}
 
     def upsert_cognitive_edge(
@@ -427,6 +429,19 @@ class Ledger:
         self.conn.execute(
             "UPDATE cognitive_records SET status=?, metadata_json=?, updated_at=? WHERE id=?",
             (status, json.dumps(metadata, ensure_ascii=False), _now(), record_id),
+        )
+        self.conn.commit()
+        return self.get_cognitive_record(record_id)
+
+    def patch_cognitive_record_metadata(self, record_id: str, metadata_patch: dict[str, Any]) -> dict[str, Any] | None:
+        record = self.get_cognitive_record(record_id)
+        if not record:
+            return None
+        metadata = dict(record.get("metadata_json") or {})
+        metadata.update(metadata_patch)
+        self.conn.execute(
+            "UPDATE cognitive_records SET metadata_json=?, updated_at=? WHERE id=?",
+            (json.dumps(metadata, ensure_ascii=False), _now(), record_id),
         )
         self.conn.commit()
         return self.get_cognitive_record(record_id)

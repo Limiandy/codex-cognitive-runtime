@@ -53,6 +53,20 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("audit")
     sub.add_parser("consolidate")
     sub.add_parser("cognitive-snapshot")
+    knowledge_build = sub.add_parser("knowledge-build")
+    knowledge_build.add_argument("--source", choices=["repo", "git", "all"], default="all")
+    knowledge_search = sub.add_parser("knowledge-search")
+    knowledge_search.add_argument("query")
+    knowledge_search.add_argument("--limit", type=int, default=10)
+    sub.add_parser("knowledge-audit")
+    sub.add_parser("skill-build")
+    skill_list = sub.add_parser("skill-list")
+    skill_list.add_argument("--limit", type=int, default=50)
+    sub.add_parser("skill-audit")
+    skill_promote = sub.add_parser("skill-promote")
+    skill_promote.add_argument("skill_id")
+    skill_deprecate = sub.add_parser("skill-deprecate")
+    skill_deprecate.add_argument("skill_id")
     workflow = sub.add_parser("workflow-plan")
     workflow.add_argument("prompt")
     workflow.add_argument("--limit", type=int, default=6)
@@ -63,10 +77,17 @@ def main(argv: list[str] | None = None) -> int:
     execute_workflow.add_argument("--limit", type=int, default=6)
     execute_workflow.add_argument("--cwd", default=None)
     execute_workflow.add_argument("--session-id", default=None)
+    workflow_resume = sub.add_parser("workflow-resume")
+    workflow_resume.add_argument("workflow_id")
+    workflow_cancel = sub.add_parser("workflow-cancel")
+    workflow_cancel.add_argument("workflow_id")
+    workflow_audit = sub.add_parser("workflow-audit")
+    workflow_audit.add_argument("workflow_id")
     govern = sub.add_parser("govern")
     govern.add_argument("--apply", action="store_true")
     govern_cognitive = sub.add_parser("govern-cognitive")
     govern_cognitive.add_argument("--apply", action="store_true")
+    govern_cognitive.add_argument("--full", action="store_true")
     periodic = sub.add_parser("govern-periodic")
     periodic.add_argument("--interval-minutes", type=int, default=60)
     reconcile_mp = sub.add_parser("reconcile-mempalace")
@@ -124,14 +145,36 @@ def main(argv: list[str] | None = None) -> int:
             return _print(service.consolidate_memories())
         if args.cmd == "cognitive-snapshot":
             return _print(service.cognitive_snapshot())
+        if args.cmd == "knowledge-build":
+            return _print(service.knowledge_build(source=args.source))
+        if args.cmd == "knowledge-search":
+            return _print(service.knowledge_search(args.query, limit=args.limit))
+        if args.cmd == "knowledge-audit":
+            return _print(service.knowledge_audit())
+        if args.cmd == "skill-build":
+            return _print(service.skill_build())
+        if args.cmd == "skill-list":
+            return _print(service.skill_list(limit=args.limit))
+        if args.cmd == "skill-audit":
+            return _print(service.skill_audit())
+        if args.cmd == "skill-promote":
+            return _print(service.skill_promote(args.skill_id))
+        if args.cmd == "skill-deprecate":
+            return _print(service.skill_deprecate(args.skill_id))
         if args.cmd == "workflow-plan":
             return _print(service.workflow_plan(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
         if args.cmd == "workflow-execute":
             return _print(service.workflow_execute(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
+        if args.cmd == "workflow-resume":
+            return _print(service.workflow_resume(args.workflow_id))
+        if args.cmd == "workflow-cancel":
+            return _print(service.workflow_cancel(args.workflow_id))
+        if args.cmd == "workflow-audit":
+            return _print(service.workflow_audit(args.workflow_id))
         if args.cmd == "govern":
             return _print(service.govern_memories(apply=args.apply))
         if args.cmd == "govern-cognitive":
-            return _print(service.govern_cognitive(apply=args.apply))
+            return _print(service.govern_cognitive(apply=args.apply, full=args.full))
         if args.cmd == "govern-periodic":
             return _print(service.periodic_governance(interval_minutes=args.interval_minutes))
         if args.cmd == "reconcile-mempalace":
