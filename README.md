@@ -21,9 +21,21 @@ The local SQLite Ledger is the only runtime store and source of truth.
 ./scripts/codex-memory ingest "默认使用中文回答"
 ./scripts/codex-memory search "中文回答偏好"
 ./scripts/codex-memory queue --status quarantined
+./scripts/codex-memory export --output ~/codex-memory-export.json
 ```
 
 Set `CODEX_MEMORY_MODEL` to override the default model. The default is `gpt-5.4-mini`.
+
+## Support Matrix
+
+This alpha is tested for local developer use with:
+
+- Python 3.9 or newer.
+- SQLite through Python's standard `sqlite3` module.
+- Codex CLI installed and logged in locally.
+- macOS as the primary tested platform.
+
+Linux may work when Codex CLI, Python, SQLite, and filesystem permissions match the same assumptions. Windows is not currently supported.
 
 ## Install
 
@@ -61,6 +73,12 @@ Run a model smoke test only when you want to verify the local `codex exec` model
 ./scripts/codex-memory doctor --model-check
 ```
 
+Review local privacy state:
+
+```bash
+./scripts/codex-memory doctor --privacy
+```
+
 Check that hooks and MCP are wired:
 
 ```bash
@@ -93,6 +111,14 @@ To remove local memory data, stop active Codex sessions using the plugin and del
 
 ```bash
 rm -rf ~/.codex-memory
+```
+
+You can also export, prune processed event payloads, or wipe the Ledger through CLI:
+
+```bash
+./scripts/codex-memory export --output ~/codex-memory-export.json
+./scripts/codex-memory prune-events --older-than-days 30
+./scripts/codex-memory wipe --yes
 ```
 
 ## Privacy

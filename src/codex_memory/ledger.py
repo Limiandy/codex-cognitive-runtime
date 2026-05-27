@@ -13,6 +13,20 @@ from .schema import MemoryCandidate
 from .taxonomy import enrich_candidate, near_duplicate_text
 
 
+_WIPE_TABLES = (
+    "runtime_state_transitions",
+    "cognitive_edges",
+    "cognitive_records",
+    "governance_state",
+    "governance_policies",
+    "governance_reports",
+    "memory_edges",
+    "recall_events",
+    "events",
+    "memories",
+)
+
+
 class Ledger:
     def __init__(self, path: Path):
         self.path = path
@@ -607,6 +621,11 @@ class Ledger:
         except (TypeError, json.JSONDecodeError):
             data["payload_json"] = {}
         return data
+
+    def list_events(self, limit: int = 500) -> list[dict[str, Any]]:
+        limit = max(1, min(limit, 5000))
+        rows = self.conn.execute("SELECT * FROM events ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        return [_event_row_to_dict(row) for row in rows]
 
     def mark_event_processed(self, event_id: str) -> None:
         self.conn.execute(
@@ -1210,6 +1229,45 @@ class Ledger:
         ).fetchall()
         return [_recall_row_to_dict(row) for row in rows]
 
+    def export_data(self, limit: int = 5000) -> dict[str, Any]:
+        limit = max(1, min(limit, 20000))
+        return {
+            "version": 1,
+            "ledger_path": str(self.path),
+            "exported_at": _now(),
+            "stats": self.stats(),
+            "memories": self.list_memories(limit=min(limit, 5000)),
+            "events": self.list_events(limit=limit),
+            "recall_events": self.list_recall_events(limit=limit),
+            "memory_edges": self.list_edges([], limit=limit),
+            "governance_policies": self.list_governance_policies(active=True) + self.list_governance_policies(active=False),
+            "cognitive_records": self.list_cognitive_records(limit=limit),
+            "cognitive_edges": self.list_cognitive_edges(limit=limit),
+            "runtime_state_transitions": self.latest_state_transitions(limit=limit),
+        }
+
+    def wipe_all(self) -> dict[str, Any]:
+        counts = {name: self.conn.execute(f"SELECT COUNT(*) AS count FROM {name}").fetchone()["count"] for name in _WIPE_TABLES}
+        with self.transaction():
+            for table in _WIPE_TABLES:
+                self.conn.execute(f"DELETE FROM {table}")
+        return {"wiped": counts, "ledger_path": str(self.path)}
+
+    def prune_events(self, older_than_days: int | None = None) -> dict[str, Any]:
+        if older_than_days is not None and older_than_days < 0:
+            raise ValueError("older_than_days must be non-negative")
+        if older_than_days is None:
+            where = "processed_at IS NOT NULL"
+            params: tuple[Any, ...] = ()
+        else:
+            cutoff = (datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=older_than_days)).isoformat().replace("+00:00", "Z")
+            where = "processed_at IS NOT NULL AND created_at < ?"
+            params = (cutoff,)
+        count = self.conn.execute(f"SELECT COUNT(*) AS count FROM events WHERE {where}", params).fetchone()["count"]
+        self.conn.execute(f"DELETE FROM events WHERE {where}", params)
+        self._commit()
+        return {"pruned_events": count, "older_than_days": older_than_days}
+
     def set_status(self, memory_id: str, status: str, review: dict[str, Any] | None = None) -> None:
         if review is None:
             self.conn.execute("UPDATE memories SET status=?, updated_at=? WHERE id=?", (status, _now(), memory_id))
@@ -1256,6 +1314,15 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
             data[key] = json.loads(data[key])
         except (TypeError, json.JSONDecodeError):
             data[key] = None
+    return data
+
+
+def _event_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    try:
+        data["payload_json"] = json.loads(data["payload_json"])
+    except (TypeError, json.JSONDecodeError):
+        data["payload_json"] = {}
     return data
 
 

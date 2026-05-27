@@ -293,6 +293,15 @@ class MemoryService:
     def list_memories(self, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         return self.ledger.list_memories(status=status, limit=limit)
 
+    def export_data(self, limit: int = 5000) -> dict[str, Any]:
+        return self.ledger.export_data(limit=limit)
+
+    def wipe_data(self) -> dict[str, Any]:
+        return self.ledger.wipe_all()
+
+    def prune_events(self, older_than_days: int | None = None) -> dict[str, Any]:
+        return self.ledger.prune_events(older_than_days=older_than_days)
+
     def cognitive_snapshot(self) -> dict[str, Any]:
         self.runtime.sync_all_active()
         return self.runtime.snapshot()

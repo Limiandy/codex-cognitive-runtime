@@ -40,6 +40,8 @@ class DoctorTest(unittest.TestCase):
             self.assertIn("checks", result)
             self.assertIn("summary", result)
             self.assertIn("sqlite_ledger", result["checks"])
+            self.assertIn("python_version", result["checks"])
+            self.assertIn("sqlite_version", result["checks"])
             self.assertEqual(result["checks"]["sqlite_ledger"]["level"], "fatal")
             self.assertIn("fix_hint", result["checks"]["codex_cli"])
 
@@ -49,6 +51,22 @@ class DoctorTest(unittest.TestCase):
             self.assertTrue(result["checks"]["sqlite_ledger"]["ok"])
             self.assertTrue(result["checks"]["mcp_server"]["ok"])
             self.assertEqual(result["checks"]["model_smoke"]["level"], "info")
+
+    def test_doctor_privacy_report_lists_storage_policy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "doctor", "--privacy"],
+                cwd=".",
+                env={**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp},
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            result = json.loads(proc.stdout)
+            self.assertEqual(result["privacy"]["event_storage"], "sanitized")
+            self.assertIn("ledger_path", result["privacy"])
 
     def test_raw_event_storage_is_warn_not_fatal(self):
         with tempfile.TemporaryDirectory() as tmp:

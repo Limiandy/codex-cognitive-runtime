@@ -4,35 +4,44 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import uuid
 from pathlib import Path
 from typing import Any
 
+from . import __version__, plugin_manager
 from .config import Config, ensure_state_dir
 from .ledger import Ledger
 from .model_client import CodexMiniClient
 
 
-def run_doctor(config: Config, model_check: bool = False) -> dict[str, Any]:
+def run_doctor(config: Config, model_check: bool = False, privacy: bool = False) -> dict[str, Any]:
     root = plugin_root()
     checks = {
         "plugin_root": _check_plugin_root(root),
+        "python_version": _check_python_version(),
+        "sqlite_version": _check_sqlite_version(),
         "state_dir": _check_state_dir(config),
         "sqlite_ledger": _check_sqlite_ledger(config),
         "codex_cli": _check_codex_cli(),
+        "installed_plugin": _check_installed_plugin(),
         "raw_event_storage": _check_raw_event_storage(config),
         "mcp_config_portable": _check_config_portable(root / ".mcp.json"),
         "hooks_config": _check_hooks_config(root / "hooks.json"),
         "mcp_server": _check_mcp_server(config),
         "model_smoke": _check_model(config) if model_check else _skipped("pass --model-check to run a model smoke test"),
     }
-    return {
+    result = {
+        "version": __version__,
         "ok": all(item.get("ok") is not False for item in checks.values() if item.get("level") == "fatal"),
         "summary": _summary(checks),
         "checks": checks,
     }
+    if privacy:
+        result["privacy"] = _privacy_report(config)
+    return result
 
 
 def plugin_root() -> Path:
@@ -86,12 +95,37 @@ def _check_sqlite_ledger(config: Config) -> dict[str, Any]:
 
 def _check_codex_cli() -> dict[str, Any]:
     path = shutil.which("codex")
+    version = _codex_version(path) if path else None
     return _result(
         "fatal",
         bool(path),
         path=path,
+        version=version,
         impact="required for model-backed memory extraction",
         fix_hint="Install and log in to the Codex CLI, then rerun doctor.",
+    )
+
+
+def _check_python_version() -> dict[str, Any]:
+    version = ".".join(str(part) for part in sys.version_info[:3])
+    ok = sys.version_info >= (3, 9)
+    return _result("fatal", ok, version=version, minimum="3.9", fix_hint="Use Python 3.9 or newer.")
+
+
+def _check_sqlite_version() -> dict[str, Any]:
+    return _result("fatal", True, version=sqlite3.sqlite_version)
+
+
+def _check_installed_plugin() -> dict[str, Any]:
+    state = plugin_manager.status()
+    installed = state.get("status") in {"on", "published"}
+    return _result(
+        "warn",
+        installed,
+        status=state.get("status"),
+        install_path=state.get("install_path"),
+        codex_plugin_enabled=state.get("codex_plugin_enabled"),
+        fix_hint="Run ./scripts/codex-memory plugin install --source \"$PWD\" if this plugin is not installed.",
     )
 
 
@@ -187,6 +221,48 @@ def _check_model(config: Config) -> dict[str, Any]:
         return _result("fatal", bool(result), result_keys=sorted(result.keys()), fix_hint="Check Codex CLI login, model availability, and CODEX_MEMORY_MODEL.")
     except Exception as exc:
         return _result("fatal", False, error=str(exc), fix_hint="Check Codex CLI login, model availability, and CODEX_MEMORY_MODEL.")
+
+
+def _codex_version(path: str | None) -> str | None:
+    if not path:
+        return None
+    try:
+        proc = subprocess.run(
+            [path, "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+        )
+    except Exception:
+        return None
+    text = (proc.stdout or proc.stderr or "").strip()
+    return text.splitlines()[0][:120] if text else None
+
+
+def _privacy_report(config: Config) -> dict[str, Any]:
+    ledger = Ledger(config.ledger_path)
+    try:
+        events = ledger.list_events(limit=5)
+        return {
+            "ledger_path": str(config.ledger_path),
+            "store_raw_events": config.store_raw_events,
+            "event_storage": "raw" if config.store_raw_events else "sanitized",
+            "retention_policy": "manual; use prune-events, wipe, or remove the state directory",
+            "recent_event_count": len(events),
+            "recent_events": [
+                {
+                    "id": item.get("id"),
+                    "event_type": item.get("event_type"),
+                    "created_at": item.get("created_at"),
+                    "raw_payload_stored": bool((item.get("payload_json") or {}).get("_raw_payload_stored")),
+                    "payload_keys": sorted(str(key) for key in (item.get("payload_json") or {}).keys()),
+                }
+                for item in events
+            ],
+        }
+    finally:
+        ledger.close()
 
 
 def _read_json_line(proc: subprocess.Popen[str]) -> dict[str, Any]:

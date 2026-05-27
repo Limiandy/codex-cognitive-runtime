@@ -31,12 +31,25 @@ EXPERIMENTAL_COMMANDS = {
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    config = load_config()
+    if argv and argv[0] in EXPERIMENTAL_COMMANDS and not config.enable_experimental_cli:
+        return _print_error(
+            {
+                "error": "experimental_cli_disabled",
+                "command": argv[0],
+                "hint": "Set CODEX_MEMORY_ENABLE_EXPERIMENTAL_CLI=1 to enable experimental commands.",
+            },
+            code=2,
+        )
+
     parser = argparse.ArgumentParser(description="Codex Memory")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status")
     doctor = sub.add_parser("doctor")
     doctor.add_argument("--model-check", action="store_true")
+    doctor.add_argument("--privacy", action="store_true")
 
     ingest = sub.add_parser("ingest")
     ingest.add_argument("text")
@@ -69,48 +82,60 @@ def main(argv: list[str] | None = None) -> int:
     feedback.add_argument("outcome", choices=["positive", "negative"])
     feedback.add_argument("--note", default="")
 
+    export = sub.add_parser("export")
+    export.add_argument("--output", default=None)
+    export.add_argument("--limit", type=int, default=5000)
+
+    wipe = sub.add_parser("wipe")
+    wipe.add_argument("--yes", action="store_true")
+
+    prune = sub.add_parser("prune-events")
+    prune.add_argument("--older-than-days", type=int, default=None)
+
     sub.add_parser("expire")
     sub.add_parser("reconcile")
     sub.add_parser("audit")
     sub.add_parser("consolidate")
-    sub.add_parser("cognitive-snapshot")
-    knowledge_build = sub.add_parser("knowledge-build")
-    knowledge_build.add_argument("--source", choices=["repo", "git", "all"], default="all")
-    knowledge_search = sub.add_parser("knowledge-search")
-    knowledge_search.add_argument("query")
-    knowledge_search.add_argument("--limit", type=int, default=10)
-    sub.add_parser("knowledge-audit")
-    sub.add_parser("skill-build")
-    skill_list = sub.add_parser("skill-list")
-    skill_list.add_argument("--limit", type=int, default=50)
-    sub.add_parser("skill-audit")
-    skill_promote = sub.add_parser("skill-promote")
-    skill_promote.add_argument("skill_id")
-    skill_deprecate = sub.add_parser("skill-deprecate")
-    skill_deprecate.add_argument("skill_id")
-    workflow = sub.add_parser("workflow-plan")
-    workflow.add_argument("prompt")
-    workflow.add_argument("--limit", type=int, default=6)
-    workflow.add_argument("--cwd", default=None)
-    workflow.add_argument("--session-id", default=None)
-    execute_workflow = sub.add_parser("workflow-execute")
-    execute_workflow.add_argument("prompt")
-    execute_workflow.add_argument("--limit", type=int, default=6)
-    execute_workflow.add_argument("--cwd", default=None)
-    execute_workflow.add_argument("--session-id", default=None)
-    workflow_resume = sub.add_parser("workflow-resume")
-    workflow_resume.add_argument("workflow_id")
-    workflow_cancel = sub.add_parser("workflow-cancel")
-    workflow_cancel.add_argument("workflow_id")
-    workflow_audit = sub.add_parser("workflow-audit")
-    workflow_audit.add_argument("workflow_id")
+    if config.enable_experimental_cli:
+        sub.add_parser("cognitive-snapshot")
+        knowledge_build = sub.add_parser("knowledge-build")
+        knowledge_build.add_argument("--source", choices=["repo", "git", "all"], default="all")
+        knowledge_search = sub.add_parser("knowledge-search")
+        knowledge_search.add_argument("query")
+        knowledge_search.add_argument("--limit", type=int, default=10)
+        sub.add_parser("knowledge-audit")
+        sub.add_parser("skill-build")
+        skill_list = sub.add_parser("skill-list")
+        skill_list.add_argument("--limit", type=int, default=50)
+        sub.add_parser("skill-audit")
+        skill_promote = sub.add_parser("skill-promote")
+        skill_promote.add_argument("skill_id")
+        skill_deprecate = sub.add_parser("skill-deprecate")
+        skill_deprecate.add_argument("skill_id")
+        workflow = sub.add_parser("workflow-plan")
+        workflow.add_argument("prompt")
+        workflow.add_argument("--limit", type=int, default=6)
+        workflow.add_argument("--cwd", default=None)
+        workflow.add_argument("--session-id", default=None)
+        execute_workflow = sub.add_parser("workflow-execute")
+        execute_workflow.add_argument("prompt")
+        execute_workflow.add_argument("--limit", type=int, default=6)
+        execute_workflow.add_argument("--cwd", default=None)
+        execute_workflow.add_argument("--session-id", default=None)
+        workflow_resume = sub.add_parser("workflow-resume")
+        workflow_resume.add_argument("workflow_id")
+        workflow_cancel = sub.add_parser("workflow-cancel")
+        workflow_cancel.add_argument("workflow_id")
+        workflow_audit = sub.add_parser("workflow-audit")
+        workflow_audit.add_argument("workflow_id")
     govern = sub.add_parser("govern")
     govern.add_argument("--apply", action="store_true")
-    govern_cognitive = sub.add_parser("govern-cognitive")
-    govern_cognitive.add_argument("--apply", action="store_true")
-    govern_cognitive.add_argument("--full", action="store_true")
     periodic = sub.add_parser("govern-periodic")
     periodic.add_argument("--interval-minutes", type=int, default=60)
+    if config.enable_experimental_cli:
+        govern_cognitive = sub.add_parser("govern-cognitive")
+        govern_cognitive.add_argument("--apply", action="store_true")
+        govern_cognitive.add_argument("--full", action="store_true")
 
     plugin = sub.add_parser("plugin")
     plugin_sub = plugin.add_subparsers(dest="plugin_cmd", required=True)
@@ -128,7 +153,6 @@ def main(argv: list[str] | None = None) -> int:
     uninstall.add_argument("--diff", action="store_true")
 
     args = parser.parse_args(argv)
-    config = load_config()
     if args.cmd == "plugin":
         if args.plugin_cmd == "install":
             return _print(plugin_manager.install(Path(args.source), dry_run=args.dry_run, show_diff=args.diff))
@@ -143,16 +167,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.plugin_cmd == "uninstall":
             return _print(plugin_manager.uninstall(delete_files=args.delete_files, dry_run=args.dry_run, show_diff=args.diff))
     if args.cmd == "doctor":
-        return _print(run_doctor(config, model_check=args.model_check))
-    if args.cmd in EXPERIMENTAL_COMMANDS and not config.enable_experimental_cli:
-        return _print_error(
-            {
-                "error": "experimental_cli_disabled",
-                "command": args.cmd,
-                "hint": "Set CODEX_MEMORY_ENABLE_EXPERIMENTAL_CLI=1 to enable experimental commands.",
-            },
-            code=2,
-        )
+        return _print(run_doctor(config, model_check=args.model_check, privacy=args.privacy))
 
     service = MemoryService(config)
     try:
@@ -172,6 +187,20 @@ def main(argv: list[str] | None = None) -> int:
             return _print(service.delete_memory(args.memory_id, note=args.note))
         if args.cmd == "recall-feedback":
             return _print(service.recall_feedback(args.memory_id, args.outcome, note=args.note))
+        if args.cmd == "export":
+            data = service.export_data(limit=args.limit)
+            if args.output:
+                output_path = Path(args.output).expanduser()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                return _print({"exported": True, "path": str(output_path), "stats": data.get("stats")})
+            return _print(data)
+        if args.cmd == "wipe":
+            if not args.yes:
+                return _print_error({"error": "confirmation_required", "hint": "Pass --yes to wipe the local Codex Memory Ledger."}, code=2)
+            return _print(service.wipe_data())
+        if args.cmd == "prune-events":
+            return _print(service.prune_events(older_than_days=args.older_than_days))
         if args.cmd == "expire":
             return _print(service.expire_due_memories())
         if args.cmd == "reconcile":

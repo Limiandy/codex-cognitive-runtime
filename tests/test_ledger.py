@@ -41,3 +41,22 @@ class LedgerTransactionTest(unittest.TestCase):
                 self.assertEqual(row["name"], "baseline_ledger_cognitive_runtime")
             finally:
                 ledger.close()
+
+    def test_export_prune_and_wipe(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Ledger(Path(tmp) / "ledger.sqlite3")
+            try:
+                event_id = ledger.add_event("manual", {"text": "hello", "_raw_payload_stored": False})
+                ledger.mark_event_processed(event_id)
+                exported = ledger.export_data()
+                self.assertEqual(exported["version"], 1)
+                self.assertEqual(len(exported["events"]), 1)
+                pruned = ledger.prune_events()
+                self.assertEqual(pruned["pruned_events"], 1)
+                self.assertEqual(ledger.list_events(), [])
+                ledger.add_event("manual", {"text": "again", "_raw_payload_stored": False})
+                wiped = ledger.wipe_all()
+                self.assertGreaterEqual(wiped["wiped"]["events"], 1)
+                self.assertEqual(ledger.stats()["events"]["pending"], 0)
+            finally:
+                ledger.close()
