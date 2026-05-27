@@ -414,6 +414,42 @@ class Ledger:
         rows = self.conn.execute(sql, params).fetchall()
         return [_cognitive_record_row_to_dict(row) for row in rows]
 
+    def get_cognitive_record(self, record_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM cognitive_records WHERE id=?", (record_id,)).fetchone()
+        return _cognitive_record_row_to_dict(row) if row else None
+
+    def set_cognitive_record_status(self, record_id: str, status: str, metadata_patch: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        record = self.get_cognitive_record(record_id)
+        if not record:
+            return None
+        metadata = dict(record.get("metadata_json") or {})
+        metadata.update(metadata_patch or {})
+        self.conn.execute(
+            "UPDATE cognitive_records SET status=?, metadata_json=?, updated_at=? WHERE id=?",
+            (status, json.dumps(metadata, ensure_ascii=False), _now(), record_id),
+        )
+        self.conn.commit()
+        return self.get_cognitive_record(record_id)
+
+    def adjust_cognitive_record_strength(self, record_id: str, delta: float, metadata_patch: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        record = self.get_cognitive_record(record_id)
+        if not record:
+            return None
+        metadata = dict(record.get("metadata_json") or {})
+        metadata.update(metadata_patch or {})
+        self.conn.execute(
+            """
+            UPDATE cognitive_records
+            SET strength=max(0.1, min(3.0, strength+?)),
+                metadata_json=?,
+                updated_at=?
+            WHERE id=?
+            """,
+            (float(delta), json.dumps(metadata, ensure_ascii=False), _now(), record_id),
+        )
+        self.conn.commit()
+        return self.get_cognitive_record(record_id)
+
     def record_state_transition(
         self,
         subject_type: str,

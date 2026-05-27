@@ -65,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
     execute_workflow.add_argument("--session-id", default=None)
     govern = sub.add_parser("govern")
     govern.add_argument("--apply", action="store_true")
+    govern_cognitive = sub.add_parser("govern-cognitive")
+    govern_cognitive.add_argument("--apply", action="store_true")
     periodic = sub.add_parser("govern-periodic")
     periodic.add_argument("--interval-minutes", type=int, default=60)
     reconcile_mp = sub.add_parser("reconcile-mempalace")
@@ -128,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
             return _print(service.workflow_execute(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
         if args.cmd == "govern":
             return _print(service.govern_memories(apply=args.apply))
+        if args.cmd == "govern-cognitive":
+            return _print(service.govern_cognitive(apply=args.apply))
         if args.cmd == "govern-periodic":
             return _print(service.periodic_governance(interval_minutes=args.interval_minutes))
         if args.cmd == "reconcile-mempalace":

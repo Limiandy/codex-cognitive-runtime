@@ -4,6 +4,7 @@ from typing import Any
 
 from .consolidation import MemoryConsolidator
 from .config import Config, ensure_state_dir
+from .cognitive_governance import CognitiveGovernance
 from .cognitive_runtime import CognitiveRuntime
 from .engine import MemoryEngine
 from .governance import MemoryGovernance
@@ -248,7 +249,15 @@ class MemoryService:
         if apply:
             self.runtime.sync_all_active()
             self.runtime.sync_governance_policies()
+            result["cognitive_governance"] = self.govern_cognitive(apply=True)
         logger.info("memory governance completed", apply=apply, result=result)
+        return result
+
+    def govern_cognitive(self, apply: bool = False) -> dict[str, Any]:
+        self.runtime.sync_all_active()
+        self.runtime.sync_governance_policies()
+        result = CognitiveGovernance(self.ledger).evaluate(apply=apply)
+        logger.info("cognitive governance completed", apply=apply, result=result)
         return result
 
     def periodic_governance(self, interval_minutes: int = 60) -> dict[str, Any]:
