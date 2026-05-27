@@ -119,11 +119,15 @@ TOOLS = {
     },
 }
 
-DANGEROUS_TOOLS = {
-    "codex_memory_promote",
-    "codex_memory_reject",
-    "codex_memory_delete",
-    "codex_memory_reconcile",
+MCP_TOOL_LEVELS = {
+    "codex_memory_ingest": "write",
+    "codex_memory_recall_feedback": "write",
+    "codex_memory_expire": "write",
+    "codex_memory_promote": "review",
+    "codex_memory_reject": "review",
+    "codex_memory_delete": "admin",
+    "codex_memory_reconcile": "admin",
+    "codex_memory_consolidate": "admin",
 }
 
 
@@ -175,7 +179,7 @@ def main() -> int:
         for line in sys.stdin:
             if not line.strip():
                 continue
-            _handle(line, handlers)
+            _handle(line, handlers, ledger)
     finally:
         ledger.close()
     return 0
@@ -214,7 +218,7 @@ def _with_service(callback: Callable[[MemoryService], Any]) -> Any:
         service.close()
 
 
-def _handle(line: str, handlers: dict[str, Callable[[dict[str, Any]], Any]]) -> None:
+def _handle(line: str, handlers: dict[str, Callable[[dict[str, Any]], Any]], ledger: Ledger) -> None:
     try:
         request = json.loads(line)
         method = request.get("method")
@@ -234,9 +238,14 @@ def _handle(line: str, handlers: dict[str, Callable[[dict[str, Any]], Any]]) -> 
             args = params.get("arguments") or {}
             if name not in handlers:
                 raise ValueError(f"unknown tool: {name}")
-            if _is_dangerous_call(name, args) and not load_config().enable_dangerous_mcp_tools:
-                raise PermissionError(f"dangerous MCP tool disabled: {name}")
+            config = load_config()
+            permission_level = _permission_level(name, args)
+            if not _mcp_permission_enabled(config, permission_level):
+                raise McpPermissionError(permission_level, str(name))
             result = handlers[name](args)
+            if permission_level != "read":
+                _record_mcp_action(ledger, str(name), permission_level, args)
+                result = _annotate_action(result, str(name), permission_level)
             _send({"jsonrpc": "2.0", "id": request_id, "result": {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}]}})
             return
         _send({"jsonrpc": "2.0", "id": request_id, "error": {"code": -32601, "message": f"unknown method: {method}"}})
@@ -307,28 +316,79 @@ def _bool_arg(value: Any, name: str) -> bool:
     return value
 
 
-def _is_dangerous_call(name: Any, args: dict[str, Any]) -> bool:
-    if name in DANGEROUS_TOOLS:
-        return True
+class McpPermissionError(PermissionError):
+    def __init__(self, level: str, tool: str):
+        self.level = level
+        self.tool = tool
+        super().__init__(f"MCP {level} tool disabled: {tool}")
+
+
+def _permission_level(name: Any, args: dict[str, Any]) -> str:
     if name == "codex_memory_govern":
-        return bool(args.get("apply", False))
+        return "admin" if bool(args.get("apply", False)) else "read"
+    return MCP_TOOL_LEVELS.get(str(name), "read")
+
+
+def _mcp_permission_enabled(config: Any, level: str) -> bool:
+    if level == "read":
+        return True
+    if level == "write":
+        return bool(config.enable_mcp_write_tools)
+    if level == "review":
+        return bool(config.enable_mcp_review_tools)
+    if level == "admin":
+        return bool(config.enable_mcp_admin_tools)
     return False
 
 
+def _record_mcp_action(ledger: Ledger, tool: str, level: str, args: dict[str, Any]) -> None:
+    ledger.add_event(
+        "mcp_action",
+        {
+            "tool": tool,
+            "permission_level": level,
+            "argument_keys": sorted(str(key) for key in args.keys()),
+            "action_applied": True,
+            "_raw_payload_stored": False,
+        },
+    )
+
+
+def _annotate_action(result: Any, tool: str, level: str) -> Any:
+    marker = {"tool": tool, "permission_level": level, "action_applied": True}
+    if isinstance(result, dict):
+        return {**result, "mcp_action": marker}
+    return {"result": result, "mcp_action": marker}
+
+
 def _error_code(exc: Exception) -> str:
+    if isinstance(exc, McpPermissionError):
+        return f"mcp_{exc.level}_tool_disabled"
     if isinstance(exc, PermissionError):
-        return "dangerous_tool_disabled"
+        return "mcp_tool_disabled"
     if isinstance(exc, (TypeError, ValueError)):
         return "invalid_arguments"
     return "internal_error"
 
 
 def _error_hint(exc: Exception) -> str:
+    if isinstance(exc, McpPermissionError):
+        return _permission_hint(exc.level)
     if isinstance(exc, PermissionError):
-        return "Set CODEX_MEMORY_ENABLE_DANGEROUS_MCP_TOOLS=1 or enable_dangerous_mcp_tools=true to allow this tool."
+        return "Enable the required MCP permission level before retrying."
     if isinstance(exc, (TypeError, ValueError)):
         return "Check the tool input schema and argument ranges."
     return "See Codex Memory logs for details."
+
+
+def _permission_hint(level: str) -> str:
+    if level == "write":
+        return "Set CODEX_MEMORY_ENABLE_MCP_WRITE_TOOLS=1 or enable_mcp_write_tools=true to allow write MCP tools."
+    if level == "review":
+        return "Set CODEX_MEMORY_ENABLE_MCP_REVIEW_TOOLS=1 or enable_mcp_review_tools=true to allow promote/reject MCP tools."
+    if level == "admin":
+        return "Set CODEX_MEMORY_ENABLE_MCP_ADMIN_TOOLS=1 or enable_mcp_admin_tools=true to allow admin MCP tools."
+    return "Enable the required MCP permission level before retrying."
 
 
 if __name__ == "__main__":

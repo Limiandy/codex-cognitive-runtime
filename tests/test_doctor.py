@@ -41,6 +41,7 @@ class DoctorTest(unittest.TestCase):
             self.assertIn("summary", result)
             self.assertIn("sqlite_ledger", result["checks"])
             self.assertEqual(result["checks"]["sqlite_ledger"]["level"], "fatal")
+            self.assertIn("fix_hint", result["checks"]["codex_cli"])
 
     def test_doctor_checks_sqlite_and_mcp(self):
         with tempfile.TemporaryDirectory() as tmp:

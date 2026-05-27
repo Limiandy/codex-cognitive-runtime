@@ -48,7 +48,13 @@ def config_text_is_portable(text: str) -> bool:
 
 def _check_plugin_root(root: Path) -> dict[str, Any]:
     manifest = root / ".codex-plugin" / "plugin.json"
-    return _result("fatal", root.is_dir() and manifest.is_file(), path=str(root), manifest=str(manifest))
+    return _result(
+        "fatal",
+        root.is_dir() and manifest.is_file(),
+        path=str(root),
+        manifest=str(manifest),
+        fix_hint="Run doctor from a valid codex-memory checkout or reinstall the plugin.",
+    )
 
 
 def _check_state_dir(config: Config) -> dict[str, Any]:
@@ -63,7 +69,7 @@ def _check_state_dir(config: Config) -> dict[str, Any]:
         mode = oct(config.state_dir.stat().st_mode & 0o777)
         return _result("fatal", True, path=str(config.state_dir), mode=mode)
     except OSError as exc:
-        return _result("fatal", False, path=str(config.state_dir), error=str(exc))
+        return _result("fatal", False, path=str(config.state_dir), error=str(exc), fix_hint="Create the state directory or fix local filesystem permissions.")
 
 
 def _check_sqlite_ledger(config: Config) -> dict[str, Any]:
@@ -75,17 +81,29 @@ def _check_sqlite_ledger(config: Config) -> dict[str, Any]:
             ledger.close()
         return _result("fatal", True, path=str(config.ledger_path), stats=stats)
     except Exception as exc:
-        return _result("fatal", False, path=str(config.ledger_path), error=str(exc))
+        return _result("fatal", False, path=str(config.ledger_path), error=str(exc), fix_hint="Check SQLite file permissions or move CODEX_MEMORY_STATE_DIR to a writable path.")
 
 
 def _check_codex_cli() -> dict[str, Any]:
     path = shutil.which("codex")
-    return _result("fatal", bool(path), path=path, impact="required for model-backed memory extraction")
+    return _result(
+        "fatal",
+        bool(path),
+        path=path,
+        impact="required for model-backed memory extraction",
+        fix_hint="Install and log in to the Codex CLI, then rerun doctor.",
+    )
 
 
 def _check_raw_event_storage(config: Config) -> dict[str, Any]:
     if config.store_raw_events:
-        return _result("warn", False, enabled=True, impact="raw event payloads are stored in the local Ledger")
+        return _result(
+            "warn",
+            False,
+            enabled=True,
+            impact="raw event payloads are stored in the local Ledger",
+            fix_hint="Unset CODEX_MEMORY_STORE_RAW_EVENTS or set store_raw_events=false.",
+        )
     return _result("info", True, enabled=False)
 
 
@@ -93,15 +111,20 @@ def _check_config_portable(path: Path) -> dict[str, Any]:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
-        return _result("fatal", False, path=str(path), error=str(exc))
-    return _result("fatal", config_text_is_portable(text), path=str(path))
+        return _result("fatal", False, path=str(path), error=str(exc), fix_hint="Reinstall the plugin to regenerate .mcp.json.")
+    return _result(
+        "fatal",
+        config_text_is_portable(text),
+        path=str(path),
+        fix_hint="Ensure .mcp.json uses CODEX_PLUGIN_ROOT or $HOME instead of machine-specific absolute paths.",
+    )
 
 
 def _check_hooks_config(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        return _result("fatal", False, path=str(path), error=str(exc))
+        return _result("fatal", False, path=str(path), error=str(exc), fix_hint="Reinstall the plugin to regenerate hooks.json.")
     hooks = data.get("hooks") if isinstance(data, dict) else {}
     required = {"SessionStart", "UserPromptSubmit", "PostToolUse", "Stop", "PreCompact"}
     present = set(hooks or {})
@@ -111,6 +134,7 @@ def _check_hooks_config(path: Path) -> dict[str, Any]:
         required.issubset(present) and config_text_is_portable(text),
         path=str(path),
         missing=sorted(required - present),
+        fix_hint="Reinstall the plugin or update hooks.json so SessionStart, UserPromptSubmit, PostToolUse, Stop, and PreCompact are present.",
     )
 
 
@@ -136,9 +160,9 @@ def _check_mcp_server(config: Config) -> dict[str, Any]:
         second = _read_json_line(proc)
         names = [tool.get("name") for tool in second.get("result", {}).get("tools", [])]
         ok = first.get("result", {}).get("serverInfo", {}).get("name") == "codex-memory" and "codex_memory_search" in names
-        return _result("fatal", ok, tool_count=len(names))
+        return _result("fatal", ok, tool_count=len(names), fix_hint="Check scripts/codex-memory-mcp and run plugin install again.")
     except Exception as exc:
-        return _result("fatal", False, error=str(exc))
+        return _result("fatal", False, error=str(exc), fix_hint="Run PYTHONPATH=src python3 -m codex_memory.mcp_server to inspect MCP startup errors.")
     finally:
         for stream in (proc.stdin, proc.stdout, proc.stderr):
             if stream is not None:
@@ -160,9 +184,9 @@ def _check_model(config: Config) -> dict[str, Any]:
             "Return {\"ok\": true} as JSON.",
             {"ok": "boolean"},
         )
-        return _result("fatal", bool(result), result_keys=sorted(result.keys()))
+        return _result("fatal", bool(result), result_keys=sorted(result.keys()), fix_hint="Check Codex CLI login, model availability, and CODEX_MEMORY_MODEL.")
     except Exception as exc:
-        return _result("fatal", False, error=str(exc))
+        return _result("fatal", False, error=str(exc), fix_hint="Check Codex CLI login, model availability, and CODEX_MEMORY_MODEL.")
 
 
 def _read_json_line(proc: subprocess.Popen[str]) -> dict[str, Any]:

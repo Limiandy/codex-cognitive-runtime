@@ -116,18 +116,22 @@ def main(argv: list[str] | None = None) -> int:
     plugin_sub = plugin.add_subparsers(dest="plugin_cmd", required=True)
     install = plugin_sub.add_parser("install")
     install.add_argument("--source", default=str(Path(__file__).resolve().parents[2]))
+    install.add_argument("--dry-run", action="store_true")
+    install.add_argument("--diff", action="store_true")
     plugin_sub.add_parser("status")
     plugin_sub.add_parser("enable")
     plugin_sub.add_parser("disable")
     plugin_sub.add_parser("block")
     uninstall = plugin_sub.add_parser("uninstall")
     uninstall.add_argument("--delete-files", action="store_true")
+    uninstall.add_argument("--dry-run", action="store_true")
+    uninstall.add_argument("--diff", action="store_true")
 
     args = parser.parse_args(argv)
     config = load_config()
     if args.cmd == "plugin":
         if args.plugin_cmd == "install":
-            return _print(plugin_manager.install(Path(args.source)))
+            return _print(plugin_manager.install(Path(args.source), dry_run=args.dry_run, show_diff=args.diff))
         if args.plugin_cmd == "status":
             return _print(plugin_manager.status())
         if args.plugin_cmd == "enable":
@@ -137,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.plugin_cmd == "block":
             return _print(plugin_manager.block())
         if args.plugin_cmd == "uninstall":
-            return _print(plugin_manager.uninstall(delete_files=args.delete_files))
+            return _print(plugin_manager.uninstall(delete_files=args.delete_files, dry_run=args.dry_run, show_diff=args.diff))
     if args.cmd == "doctor":
         return _print(run_doctor(config, model_check=args.model_check))
     if args.cmd in EXPERIMENTAL_COMMANDS and not config.enable_experimental_cli:

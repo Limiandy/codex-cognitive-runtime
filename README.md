@@ -2,6 +2,8 @@
 
 Codex Memory is a local Codex plugin that uses GPT-5.4-Mini as a memory decision model, reviews candidates through deterministic gates, and stores approved long-term memories in a local SQLite Ledger.
 
+This is a local developer alpha. It is intended for developers who can inspect local Codex configuration and recover their own environment. It does not guarantee compatibility across Codex CLI versions and is not recommended for sensitive production environments.
+
 ## Runtime
 
 - `memory-engine`: extracts, classifies, and ranks memory candidates with `gpt-5.4-mini`.
@@ -36,6 +38,12 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
 The installer copies the plugin to `~/plugins/codex-memory`, registers it in `~/.agents/plugins/marketplace.json`, and enables it in `~/.codex/config.toml`. Existing Codex config is backed up before writing.
+
+Preview install changes without writing files:
+
+```bash
+./scripts/codex-memory plugin install --source "$PWD" --dry-run --diff
+```
 
 ## Verify
 
@@ -75,6 +83,12 @@ Remove the installed plugin files too:
 ./scripts/codex-memory plugin uninstall --delete-files
 ```
 
+Preview uninstall changes:
+
+```bash
+./scripts/codex-memory plugin uninstall --dry-run --diff
+```
+
 To remove local memory data, stop active Codex sessions using the plugin and delete the state directory:
 
 ```bash
@@ -94,6 +108,16 @@ CODEX_MEMORY_STORE_RAW_EVENTS=1 ./scripts/codex-memory ingest "debug text"
 ```
 
 When raw event storage is enabled, original event payloads are written to the local Ledger with `_raw_payload_stored: true`. `status` and `doctor` report that raw event storage is enabled.
+
+## MCP Permissions
+
+MCP defaults to read-only tools. Mutating tools require explicit opt-in:
+
+- `CODEX_MEMORY_ENABLE_MCP_WRITE_TOOLS=1`: allows ingest, recall feedback, and expiration.
+- `CODEX_MEMORY_ENABLE_MCP_REVIEW_TOOLS=1`: allows promote and reject.
+- `CODEX_MEMORY_ENABLE_MCP_ADMIN_TOOLS=1`: allows delete, reconcile, consolidate, and `govern apply`.
+
+The legacy `CODEX_MEMORY_ENABLE_DANGEROUS_MCP_TOOLS=1` enables all three groups for compatibility, but the narrower switches are preferred.
 
 ## Experimental CLI
 

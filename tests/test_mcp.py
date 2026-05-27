@@ -144,7 +144,108 @@ class McpTest(unittest.TestCase):
                 proc.stdin.flush()
                 json.loads(proc.stdout.readline())
                 response = json.loads(proc.stdout.readline())
-                self.assertEqual(response["error"]["data"]["error_code"], "dangerous_tool_disabled")
+                self.assertEqual(response["error"]["data"]["error_code"], "mcp_admin_tool_disabled")
+            finally:
+                for stream in (proc.stdin, proc.stdout, proc.stderr):
+                    if stream is not None:
+                        try:
+                            stream.close()
+                        except OSError:
+                            pass
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=2)
+
+    def test_write_tool_requires_write_permission(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                "PYTHONPATH": "src",
+                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_MEMORY_FAKE_MODEL": "1",
+            }
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "codex_memory.mcp_server"],
+                cwd=".",
+                env={**os.environ, **env},
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                assert proc.stdin is not None
+                assert proc.stdout is not None
+                proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}) + "\n")
+                proc.stdin.write(
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 2,
+                            "method": "tools/call",
+                            "params": {"name": "codex_memory_ingest", "arguments": {"text": "默认使用中文回答"}},
+                        }
+                    )
+                    + "\n"
+                )
+                proc.stdin.flush()
+                json.loads(proc.stdout.readline())
+                response = json.loads(proc.stdout.readline())
+                self.assertEqual(response["error"]["data"]["error_code"], "mcp_write_tool_disabled")
+            finally:
+                for stream in (proc.stdin, proc.stdout, proc.stderr):
+                    if stream is not None:
+                        try:
+                            stream.close()
+                        except OSError:
+                            pass
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=2)
+
+    def test_enabled_write_tool_records_action_marker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                "PYTHONPATH": "src",
+                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_MEMORY_FAKE_MODEL": "1",
+                "CODEX_MEMORY_ENABLE_MCP_WRITE_TOOLS": "1",
+            }
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "codex_memory.mcp_server"],
+                cwd=".",
+                env={**os.environ, **env},
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                assert proc.stdin is not None
+                assert proc.stdout is not None
+                proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}) + "\n")
+                proc.stdin.write(
+                    json.dumps(
+                        {
+                            "jsonrpc": "2.0",
+                            "id": 2,
+                            "method": "tools/call",
+                            "params": {"name": "codex_memory_ingest", "arguments": {"text": "默认使用中文回答"}},
+                        }
+                    )
+                    + "\n"
+                )
+                proc.stdin.flush()
+                json.loads(proc.stdout.readline())
+                response = json.loads(proc.stdout.readline())
+                text = json.loads(response["result"]["content"][0]["text"])
+                self.assertTrue(text["mcp_action"]["action_applied"])
+                self.assertEqual(text["mcp_action"]["permission_level"], "write")
             finally:
                 for stream in (proc.stdin, proc.stdout, proc.stderr):
                     if stream is not None:
