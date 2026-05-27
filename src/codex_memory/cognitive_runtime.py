@@ -114,10 +114,11 @@ class CognitiveRuntime:
     def start_task_from_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
         prompt = str(payload.get("prompt") or payload.get("text") or "")
         session_id = _optional_str(payload.get("session_id"))
+        turn_id = _optional_str(payload.get("turn_id"))
         cwd = _optional_str(payload.get("cwd"))
         if not _is_engineering_task(prompt):
             return {"started": False, "reason": "not_engineering_task"}
-        active = self.active_workflow_for_session(session_id=session_id, cwd=cwd)
+        active = self.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd)
         if active:
             return {"started": False, "workflow_id": active["id"], "reason": "active_workflow_exists"}
         steps = _observed_workflow_steps()
@@ -125,6 +126,7 @@ class CognitiveRuntime:
             "runtime_kind": "observed_workflow",
             "user_goal": prompt,
             "session_id": session_id,
+            "turn_id": turn_id,
             "cwd": cwd,
             "project_key": _project_key(cwd),
             "task_type": "software_engineering",
@@ -158,8 +160,14 @@ class CognitiveRuntime:
         self.transition("workflow", workflow_id, "running", metadata={"runtime_kind": "observed_workflow"})
         return {"started": True, "workflow_id": workflow_id, "steps": steps}
 
-    def active_workflow_for_session(self, session_id: str | None = None, cwd: str | None = None) -> dict[str, Any] | None:
+    def active_workflow_for_session(
+        self,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        cwd: str | None = None,
+    ) -> dict[str, Any] | None:
         project_key = _project_key(cwd)
+        fallback = None
         for workflow in self.ledger.list_cognitive_records(layer="workflow", status="active", limit=100):
             if workflow.get("record_type") != "observed_workflow":
                 continue
@@ -167,14 +175,20 @@ class CognitiveRuntime:
             state = self.ledger.latest_state_for("workflow", str(workflow["id"]))
             if state in {"completed", "cancelled", "failed"}:
                 continue
-            if session_id and metadata.get("session_id") == session_id:
+            if session_id and turn_id and metadata.get("session_id") == session_id and metadata.get("turn_id") == turn_id:
                 return workflow
-            if project_key and metadata.get("project_key") == project_key:
+            if not turn_id and session_id and metadata.get("session_id") == session_id:
                 return workflow
-        return None
+            if not turn_id and project_key and metadata.get("project_key") == project_key and fallback is None:
+                fallback = workflow
+        return fallback
 
     def observe_tool_use(self, payload: dict[str, Any]) -> dict[str, Any]:
-        workflow = self.active_workflow_for_session(_optional_str(payload.get("session_id")), _optional_str(payload.get("cwd")))
+        workflow = self.active_workflow_for_session(
+            session_id=_optional_str(payload.get("session_id")),
+            turn_id=_optional_str(payload.get("turn_id")),
+            cwd=_optional_str(payload.get("cwd")),
+        )
         if not workflow:
             return {"observed": False, "reason": "no_active_workflow", "hook_output": {}}
         observation = self.match_observation_to_step(workflow, payload)
@@ -184,7 +198,11 @@ class CognitiveRuntime:
         return {"observed": True, "workflow_id": workflow["id"], "matched": True, "observation": observation, "workflow": updated, "hook_output": {}}
 
     def observe_stop(self, payload: dict[str, Any]) -> dict[str, Any]:
-        workflow = self.active_workflow_for_session(_optional_str(payload.get("session_id")), _optional_str(payload.get("cwd")))
+        workflow = self.active_workflow_for_session(
+            session_id=_optional_str(payload.get("session_id")),
+            turn_id=_optional_str(payload.get("turn_id")),
+            cwd=_optional_str(payload.get("cwd")),
+        )
         if not workflow:
             return {"observed": False, "reason": "no_active_workflow", "hook_output": {}}
         metadata = dict(workflow.get("metadata_json") or {})
@@ -218,8 +236,8 @@ class CognitiveRuntime:
             "test_failed": bool(normalized.evidence_summary.get("failed")) if matched_step_id == "execute_and_verify" else False,
         }
 
-    def runtime_status(self, cwd: str | None = None, session_id: str | None = None) -> dict[str, Any]:
-        workflow = self.active_workflow_for_session(session_id=session_id, cwd=cwd)
+    def runtime_status(self, cwd: str | None = None, session_id: str | None = None, turn_id: str | None = None) -> dict[str, Any]:
+        workflow = self.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd)
         recipes = [
             item
             for item in self.ledger.list_cognitive_records(layer="skill", status="active", limit=50)
@@ -233,6 +251,8 @@ class CognitiveRuntime:
                 "id": workflow["id"],
                 "state": self.ledger.latest_state_for("workflow", str(workflow["id"])),
                 "current_task": metadata.get("user_goal"),
+                "session_id": metadata.get("session_id"),
+                "turn_id": metadata.get("turn_id"),
                 "completed_steps": metadata.get("completed_steps") or [],
                 "pending_required_step": _next_pending_step(metadata),
                 "changed": bool(metadata.get("changed")),
@@ -460,10 +480,12 @@ class CognitiveRuntime:
             "observations": observations[-50:],
             "changed": bool(metadata.get("changed")) or step_id == "execute_change",
             "verified": bool(metadata.get("verified")) or step_id == "execute_and_verify",
-            "test_failed": bool(metadata.get("test_failed")) or bool(observation.get("test_failed")),
+            "test_failed": bool(observation.get("test_failed")) if step_id == "execute_and_verify" else bool(metadata.get("test_failed")),
         }
         self._complete_observed_step(str(workflow["id"]), step_id, observation)
-        return self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), patch) or workflow
+        updated = self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), patch) or workflow
+        self._resolve_observed_violations(str(workflow["id"]), step_id, observation)
+        return updated
 
     def _complete_observed_step(self, workflow_id: str, step_id: str, observation: dict[str, Any]) -> None:
         subject_id = f"{workflow_id}:{step_id}"
@@ -487,6 +509,19 @@ class CognitiveRuntime:
         if metadata.get("test_failed") and _claims_completion(assistant_message):
             violations.append(self.ledger.add_workflow_violation(workflow_id, "verification_failed_but_claimed_success", "high", {"assistant_preview": assistant_message[:240]}))
         return violations
+
+    def _resolve_observed_violations(self, workflow_id: str, step_id: str, observation: dict[str, Any]) -> None:
+        if step_id == "inspect_repository":
+            self._resolve_violation_type(workflow_id, "answered_without_inspection")
+        if step_id == "execute_and_verify" and not observation.get("test_failed"):
+            self._resolve_violation_type(workflow_id, "changed_without_verification")
+            self._resolve_violation_type(workflow_id, "verification_failed_but_claimed_success")
+
+    def _resolve_violation_type(self, workflow_id: str, violation_type: str) -> None:
+        for violation in self.ledger.list_open_workflow_violations(workflow_id=workflow_id, limit=20):
+            metadata = violation.get("metadata_json") or {}
+            if metadata.get("violation_type") == violation_type:
+                self.ledger.resolve_workflow_violation(str(violation["id"]))
 
     def _active_workflow_control(self, workflow: dict[str, Any]) -> str:
         metadata = workflow.get("metadata_json") or {}
@@ -513,9 +548,20 @@ class CognitiveRuntime:
     def _learn_from_successful_workflow(self, workflow: dict[str, Any]) -> None:
         metadata = workflow.get("metadata_json") or {}
         observations = metadata.get("observations") or []
-        recipe = [item.get("command") for item in observations if item.get("matched_step_id") == "execute_and_verify" and item.get("command")]
+        verify_observations = [item for item in observations if item.get("matched_step_id") == "execute_and_verify" and item.get("command")]
+        recipe = [item.get("command") for item in verify_observations]
         if not recipe:
             return
+        latest_verify = verify_observations[-1]
+        latest_summary = latest_verify.get("summary") or {}
+        files_changed = sorted(
+            {
+                str(path)
+                for item in observations
+                for path in ((item.get("summary") or {}).get("files_changed") or [])
+                if path
+            }
+        )
         self.ledger.record_cognitive_record(
             "skill",
             "verification_recipe",
@@ -537,6 +583,13 @@ class CognitiveRuntime:
                 "failure_count": 0,
                 "reuse_count": 0,
                 "recipe": recipe[:5],
+                "verification_stdout_preview": str(latest_summary.get("stdout") or "")[:300],
+                "exit_code": latest_summary.get("exit_code"),
+                "files_changed": files_changed[:50],
+                "task_type": metadata.get("task_type"),
+                "project_key": metadata.get("project_key"),
+                "created_from_observations": [item.get("summary") for item in verify_observations[-3:]],
+                "last_used_at": None,
             },
             source_kind="workflow_learning",
         )

@@ -1,0 +1,15 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "fixture-session",
+  "turn_id": "fixture-turn",
+  "cwd": "/tmp/codex-memory-fixture",
+  "tool_name": "functions.exec_command",
+  "tool_input": {
+    "cmd": "rg failing_test tests src"
+  },
+  "result": {
+    "stdout": "tests/test_runtime_observer.py: failing_test",
+    "stderr": "",
+    "exit_code": 0
+  }
+}

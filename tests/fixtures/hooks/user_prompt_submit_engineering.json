@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "session_id": "fixture-session",
+  "turn_id": "fixture-turn",
+  "cwd": "/tmp/codex-memory-fixture",
+  "prompt": "修复这个 bug，并跑测试验证",
+  "model": "gpt-5.4-mini",
+  "permission_mode": "default"
+}

@@ -23,6 +23,7 @@ EXPERIMENTAL_COMMANDS = {
     "skill-deprecate",
     "workflow-plan",
     "workflow-execute",
+    "workflow-simulate",
     "workflow-resume",
     "workflow-cancel",
     "workflow-audit",
@@ -50,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_status = sub.add_parser("runtime-status")
     runtime_status.add_argument("--cwd", default=None)
     runtime_status.add_argument("--session-id", default=None)
+    runtime_status.add_argument("--turn-id", default=None)
     doctor = sub.add_parser("doctor")
     doctor.add_argument("--model-check", action="store_true")
     doctor.add_argument("--privacy", action="store_true")
@@ -125,6 +127,11 @@ def main(argv: list[str] | None = None) -> int:
         execute_workflow.add_argument("--limit", type=int, default=6)
         execute_workflow.add_argument("--cwd", default=None)
         execute_workflow.add_argument("--session-id", default=None)
+        simulate_workflow = sub.add_parser("workflow-simulate")
+        simulate_workflow.add_argument("prompt")
+        simulate_workflow.add_argument("--limit", type=int, default=6)
+        simulate_workflow.add_argument("--cwd", default=None)
+        simulate_workflow.add_argument("--session-id", default=None)
         workflow_resume = sub.add_parser("workflow-resume")
         workflow_resume.add_argument("workflow_id")
         workflow_cancel = sub.add_parser("workflow-cancel")
@@ -177,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "status":
             return _print(service.status())
         if args.cmd == "runtime-status":
-            return _print(service.runtime_status(cwd=args.cwd, session_id=args.session_id))
+            return _print(service.runtime_status(cwd=args.cwd, session_id=args.session_id, turn_id=args.turn_id))
         if args.cmd == "ingest":
             return _print(service.ingest_event(args.event_type, {"text": args.text}))
         if args.cmd == "search":
@@ -233,7 +240,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "workflow-plan":
             return _print(service.workflow_plan(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
         if args.cmd == "workflow-execute":
-            return _print(service.workflow_execute(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
+            result = service.workflow_execute(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id)
+            result["deprecated_command"] = "workflow-execute"
+            result["replacement_command"] = "workflow-simulate"
+            return _print(result)
+        if args.cmd == "workflow-simulate":
+            return _print(service.workflow_simulate(args.prompt, limit=args.limit, cwd=args.cwd, session_id=args.session_id))
         if args.cmd == "workflow-resume":
             return _print(service.workflow_resume(args.workflow_id))
         if args.cmd == "workflow-cancel":

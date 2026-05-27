@@ -15,17 +15,23 @@ class ToolObservationNormalizerTest(unittest.TestCase):
         self.assertEqual(observation.tool_kind, "inspect")
         self.assertEqual(observation.command, "rg failing_test tests")
         self.assertEqual(observation.exit_code, 0)
+        self.assertEqual(observation.schema_version, 1)
+        self.assertGreaterEqual(observation.confidence, 0.8)
+        self.assertEqual(observation.source_fields["command"], "tool_input.cmd")
+        self.assertEqual(observation.exit_code_source, "result.exit_code")
+        self.assertIn("matched inspect signal", observation.raw_kind_reason)
 
     def test_normalizes_patch_payload_as_edit(self):
         observation = normalize_tool_observation(
             {
                 "tool_name": "functions.apply_patch",
-                "patch": "*** Begin Patch\n*** Update File: src/app.py\n",
+                "patch": "*** Begin Patch\n*** Update File: src/app.py\n+python3 -m unittest discover -s tests -v\n",
                 "files_changed": ["src/app.py"],
             }
         )
         self.assertEqual(observation.tool_kind, "edit")
         self.assertEqual(observation.files_changed, ["src/app.py"])
+        self.assertIn("files_changed", observation.source_fields)
 
     def test_normalizes_failed_verification_payload(self):
         observation = normalize_tool_observation(
@@ -38,6 +44,7 @@ class ToolObservationNormalizerTest(unittest.TestCase):
         )
         self.assertEqual(observation.tool_kind, "verify")
         self.assertTrue(observation.evidence_summary["failed"])
+        self.assertEqual(observation.exit_code_source, "exit_code")
 
 
 if __name__ == "__main__":

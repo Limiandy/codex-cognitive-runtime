@@ -17,7 +17,7 @@ The local SQLite Ledger is the only runtime store and source of truth.
 
 The runtime observes Codex tool use; it does not execute shell commands, edit files, or run tests by itself.
 
-Current Runtime MVP supports observed engineering workflows: task start, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, and verification recipe learning. Legacy `workflow-execute` remains an experimental simulation command and is not the runtime execution path.
+Current Runtime MVP supports observed engineering workflows: task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, and verification recipe learning. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
 
 ## Commands
 

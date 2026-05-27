@@ -19,6 +19,7 @@ class CliExperimentalTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertNotIn("workflow-plan", proc.stdout)
+        self.assertNotIn("workflow-simulate", proc.stdout)
         self.assertNotIn("knowledge-build", proc.stdout)
         self.assertNotIn("govern-cognitive", proc.stdout)
         self.assertIn("doctor", proc.stdout)
@@ -27,7 +28,7 @@ class CliExperimentalTest(unittest.TestCase):
     def test_experimental_commands_are_disabled_by_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
-            for command in (["workflow-plan", "test task"], ["knowledge-build"]):
+            for command in (["workflow-plan", "test task"], ["workflow-simulate", "test task"], ["knowledge-build"]):
                 proc = subprocess.run(
                     [sys.executable, "-m", "codex_memory.cli", *command],
                     cwd=".",
@@ -74,6 +75,7 @@ class CliExperimentalTest(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("workflow-plan", proc.stdout)
+        self.assertIn("workflow-simulate", proc.stdout)
 
     def test_regular_command_is_not_gated(self):
         with tempfile.TemporaryDirectory() as tmp:

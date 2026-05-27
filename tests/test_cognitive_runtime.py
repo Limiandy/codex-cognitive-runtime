@@ -168,6 +168,8 @@ class CognitiveRuntimeTest(unittest.TestCase):
                 self.assertEqual(result["workflow_state"], "completed")
                 self.assertEqual(result["mode"], "legacy_simulation")
                 self.assertIn("legacy simulation", result["warning"])
+                simulated = service.workflow_simulate("实现 hook 自动注入并验证", cwd=tmp)
+                self.assertEqual(simulated["mode"], "legacy_simulation")
                 self.assertTrue(result["executed_steps"])
                 states = service.ledger.latest_state_transitions(limit=100)
                 self.assertTrue(any(item["subject_id"] == result["workflow_id"] and item["state"] == "completed" for item in states))

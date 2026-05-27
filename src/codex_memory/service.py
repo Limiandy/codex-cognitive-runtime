@@ -312,8 +312,8 @@ class MemoryService:
             "privacy": _privacy_status(self.config),
         }
 
-    def runtime_status(self, cwd: str | None = None, session_id: str | None = None) -> dict[str, Any]:
-        return self.runtime.runtime_status(cwd=cwd, session_id=session_id)
+    def runtime_status(self, cwd: str | None = None, session_id: str | None = None, turn_id: str | None = None) -> dict[str, Any]:
+        return self.runtime.runtime_status(cwd=cwd, session_id=session_id, turn_id=turn_id)
 
     def list_memories(self, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         return self.ledger.list_memories(status=status, limit=limit)
@@ -351,6 +351,16 @@ class MemoryService:
     ) -> dict[str, Any]:
         self.runtime.sync_all_active()
         return self.runtime.execute_workflow(prompt, limit=limit, cwd=cwd, session_id=session_id, fail_step=fail_step)
+
+    def workflow_simulate(
+        self,
+        prompt: str,
+        limit: int = 6,
+        cwd: str | None = None,
+        session_id: str | None = None,
+        fail_step: str | None = None,
+    ) -> dict[str, Any]:
+        return self.workflow_execute(prompt, limit=limit, cwd=cwd, session_id=session_id, fail_step=fail_step)
 
     def workflow_resume(self, workflow_id: str) -> dict[str, Any]:
         return self.runtime.resume_workflow(workflow_id)
