@@ -19,6 +19,8 @@ The runtime observes Codex tool use; it does not execute shell commands, edit fi
 
 Current Runtime MVP supports observed engineering workflows: task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
 
+The runtime observer is enabled by default. Disable it with `CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER=0` if you only want reviewed memory storage without workflow guard behavior.
+
 ## Commands
 
 ```bash
@@ -142,11 +144,23 @@ You can also export, prune processed event payloads, or wipe the Ledger through 
 ./scripts/codex-memory wipe --yes
 ```
 
+`prune-events` only deletes processed rows from the `events` table. It does not remove cognitive runtime observations, workflow violations, learned recipes, or reviewed memories. Use `wipe --yes` to clear the local Ledger completely.
+
 ## Privacy
 
 Codex Memory stores events in `~/.codex-memory/ledger.sqlite3`. By default, event payloads are sanitized before storage: allowed fields are retained, long strings are truncated, and secret-like values are redacted. Stored event payloads include `_raw_payload_stored: false`.
 
 Reviewed memory content and evidence can still be stored when they pass review gates. Use `./scripts/codex-memory queue`, `promote`, `reject`, and `delete` to inspect and manage memory records.
+
+Runtime observation is a separate privacy surface from event payload storage. When the observer is enabled, Codex Memory may store structured workflow observations in the local Ledger, including tool command strings, changed file paths, exit codes, source field names, failure flags, and stdout/stderr hashes and lengths. By default, stdout/stderr text previews are not stored in runtime observations or verification recipes.
+
+To store stdout/stderr previews for local debugging, opt in explicitly:
+
+```bash
+CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS=1 ./scripts/codex-memory doctor --privacy
+```
+
+When preview storage is enabled, runtime observations and learned verification recipes may include truncated stdout/stderr text. Do not enable it for sensitive projects.
 
 Raw event storage is opt-in and should only be used for local debugging:
 

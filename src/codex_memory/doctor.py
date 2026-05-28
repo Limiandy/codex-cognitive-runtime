@@ -28,6 +28,7 @@ def run_doctor(config: Config, model_check: bool = False, privacy: bool = False)
         "codex_cli": _check_codex_cli(),
         "installed_plugin": _check_installed_plugin(),
         "raw_event_storage": _check_raw_event_storage(config),
+        "runtime_observer": _check_runtime_observer(config),
         "mcp_config_portable": _check_config_portable(root / ".mcp.json"),
         "hooks_config": _check_hooks_config(root / "hooks.json"),
         "mcp_server": _check_mcp_server(config),
@@ -141,6 +142,25 @@ def _check_raw_event_storage(config: Config) -> dict[str, Any]:
     return _result("info", True, enabled=False)
 
 
+def _check_runtime_observer(config: Config) -> dict[str, Any]:
+    if config.store_runtime_observation_previews:
+        return _result(
+            "warn",
+            False,
+            enabled=config.enable_runtime_observer,
+            observation_previews="stored",
+            impact="runtime observations store stdout/stderr previews in the local Ledger",
+            fix_hint="Unset CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS unless local debugging requires output previews.",
+        )
+    return _result(
+        "info",
+        True,
+        enabled=config.enable_runtime_observer,
+        observation_previews="redacted",
+        impact="runtime observations store command, file paths, exit code, output hashes, lengths, and failure flags",
+    )
+
+
 def _check_config_portable(path: Path) -> dict[str, Any]:
     try:
         text = path.read_text(encoding="utf-8")
@@ -248,7 +268,10 @@ def _privacy_report(config: Config) -> dict[str, Any]:
             "ledger_path": str(config.ledger_path),
             "store_raw_events": config.store_raw_events,
             "event_storage": "raw" if config.store_raw_events else "sanitized",
-            "retention_policy": "manual; use prune-events, wipe, or remove the state directory",
+            "runtime_observer_enabled": config.enable_runtime_observer,
+            "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
+            "runtime_observation_storage": "commands, file paths, exit code, source fields, output hashes/lengths, and failure flags; stdout/stderr previews only when explicitly enabled",
+            "retention_policy": "manual; prune-events only removes events; use wipe or remove the state directory to remove cognitive runtime observations and recipes",
             "recent_event_count": len(events),
             "recent_events": [
                 {

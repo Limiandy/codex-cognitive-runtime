@@ -1,19 +1,20 @@
 {
   "name": "codex-memory",
   "version": "0.1.1",
-  "description": "Ledger-only local long-term memory for Codex with GPT-5.4-Mini review.",
+  "description": "Local Codex workflow guard and reviewed memory ledger.",
   "author": {
     "name": "Local developer"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "Codex Memory",
-    "shortDescription": "Reviewed long-term memory for Codex.",
-    "longDescription": "Codex Memory captures useful conversation and tool context, evaluates it with GPT-5.4-Mini, reviews it through deterministic quality gates, and stores reviewed memories in a local SQLite Ledger.",
+    "shortDescription": "Local workflow guard and reviewed memory ledger for Codex.",
+    "longDescription": "Codex Memory observes Codex work through hooks, guards engineering workflows against missing inspection or verification, evaluates durable memory candidates with GPT-5.4-Mini, and stores reviewed memories in a local SQLite Ledger.",
     "developerName": "Local developer",
     "category": "Productivity",
     "capabilities": [
       "Memory",
+      "Workflow Guard",
       "MCP",
       "Hooks"
     ],

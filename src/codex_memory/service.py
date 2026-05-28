@@ -27,7 +27,7 @@ class MemoryService:
         self.model = CodexMiniClient(config)
         self.engine = MemoryEngine(config, self.model)
         self.reviewer = MemoryReviewer(config, self.model)
-        self.runtime = CognitiveRuntime(self.ledger)
+        self.runtime = CognitiveRuntime(self.ledger, store_observation_previews=config.store_runtime_observation_previews)
         self.store = LocalCognitiveStore(self.ledger)
 
     def close(self) -> None:
@@ -177,16 +177,22 @@ class MemoryService:
         return event_id
 
     def start_task_from_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if not self.config.enable_runtime_observer:
+            return {"started": False, "reason": "runtime_observer_disabled"}
         return self.runtime.start_task_from_prompt(payload)
 
     def observe_tool_use(self, payload: dict[str, Any]) -> dict[str, Any]:
         event_id = self.record_event("after_tool_call", payload, processed=True)
+        if not self.config.enable_runtime_observer:
+            return {"observed": False, "reason": "runtime_observer_disabled", "event_id": event_id, "hook_output": {}}
         result = self.runtime.observe_tool_use(payload)
         result["event_id"] = event_id
         return result
 
     def observe_stop(self, payload: dict[str, Any]) -> dict[str, Any]:
         event_id = self.record_event("session_end", payload, processed=True)
+        if not self.config.enable_runtime_observer:
+            return {"observed": False, "reason": "runtime_observer_disabled", "event_id": event_id, "hook_output": {}}
         result = self.runtime.observe_stop(payload)
         result["event_id"] = event_id
         return result
@@ -212,7 +218,9 @@ class MemoryService:
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
-        runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id, turn_id=turn_id)
+        runtime_context = ""
+        if self.config.enable_runtime_observer:
+            runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id, turn_id=turn_id)
         logger.debug("memory recall completed", prompt_chars=len(prompt), route=result.route, recall_id=recall_id, budget=budget, memory_count=len(result.memories))
         return "\n\n".join(part for part in (result.context, runtime_context) if part)
 
@@ -313,7 +321,12 @@ class MemoryService:
         }
 
     def runtime_status(self, cwd: str | None = None, session_id: str | None = None, turn_id: str | None = None) -> dict[str, Any]:
-        return self.runtime.runtime_status(cwd=cwd, session_id=session_id, turn_id=turn_id)
+        status = self.runtime.runtime_status(cwd=cwd, session_id=session_id, turn_id=turn_id)
+        status["runtime_observer"] = {
+            "enabled": self.config.enable_runtime_observer,
+            "observation_previews": "stored" if self.config.store_runtime_observation_previews else "redacted",
+        }
+        return status
 
     def list_memories(self, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         return self.ledger.list_memories(status=status, limit=limit)
@@ -403,9 +416,15 @@ def _repo_root():
 
 
 def _privacy_status(config: Config) -> dict[str, Any]:
-    status = {"store_raw_events": config.store_raw_events}
+    status = {
+        "store_raw_events": config.store_raw_events,
+        "runtime_observer_enabled": config.enable_runtime_observer,
+        "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
+    }
     if config.store_raw_events:
         status["warning"] = "raw event payload storage is enabled"
+    if config.store_runtime_observation_previews:
+        status["runtime_warning"] = "runtime observation stdout/stderr previews are stored"
     return status
 
 

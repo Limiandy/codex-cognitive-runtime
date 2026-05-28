@@ -6,7 +6,12 @@ from codex_memory.config import Config
 from codex_memory.service import MemoryService
 
 
-def _config(tmp: str, store_raw_events: bool = False) -> Config:
+def _config(
+    tmp: str,
+    store_raw_events: bool = False,
+    enable_runtime_observer: bool = True,
+    store_runtime_observation_previews: bool = False,
+) -> Config:
     return Config(
         model="gpt-5.4-mini",
         state_dir=Path(tmp),
@@ -16,6 +21,8 @@ def _config(tmp: str, store_raw_events: bool = False) -> Config:
         duplicate_threshold=0.9,
         max_evidence_quote_chars=500,
         store_raw_events=store_raw_events,
+        enable_runtime_observer=enable_runtime_observer,
+        store_runtime_observation_previews=store_runtime_observation_previews,
     )
 
 
@@ -79,6 +86,67 @@ class PrivacyTest(unittest.TestCase):
                 self.assertNotIn("supersecretvalue1234567890", rendered)
                 self.assertNotIn("sk-secretsecretsecret", rendered)
                 self.assertNotIn("private customer", rendered)
+            finally:
+                service.close()
+
+    def test_runtime_observation_redacts_output_previews_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "cmd": "python3 -m unittest discover -s tests -v",
+                        "stdout": "PRIVATE_CUSTOMER_OUTPUT OK",
+                        "stderr": "PRIVATE_ERROR_OUTPUT",
+                        "exit_code": 0,
+                        "session_id": "s1",
+                        "turn_id": "t1",
+                        "cwd": tmp,
+                    }
+                )
+                records = service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                rendered = str([item for item in records if item.get("record_type") == "workflow_observation"])
+                self.assertNotIn("PRIVATE_CUSTOMER_OUTPUT", rendered)
+                self.assertNotIn("PRIVATE_ERROR_OUTPUT", rendered)
+                self.assertIn("stdout_sha256", rendered)
+                self.assertIn("stderr_chars", rendered)
+            finally:
+                service.close()
+
+    def test_runtime_observation_preview_storage_requires_explicit_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp, store_runtime_observation_previews=True))
+            try:
+                service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "cmd": "python3 -m unittest discover -s tests -v",
+                        "stdout": "PRIVATE_CUSTOMER_OUTPUT OK",
+                        "exit_code": 0,
+                        "session_id": "s1",
+                        "turn_id": "t1",
+                        "cwd": tmp,
+                    }
+                )
+                records = service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                rendered = str([item for item in records if item.get("record_type") == "workflow_observation"])
+                self.assertIn("PRIVATE_CUSTOMER_OUTPUT", rendered)
+            finally:
+                service.close()
+
+    def test_runtime_observer_can_be_disabled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp, enable_runtime_observer=False))
+            try:
+                started = service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                self.assertEqual(started["reason"], "runtime_observer_disabled")
+                observed = service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg bug src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                self.assertEqual(observed["reason"], "runtime_observer_disabled")
+                context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t1")
+                self.assertNotIn("Runtime control:", context)
             finally:
                 service.close()
 

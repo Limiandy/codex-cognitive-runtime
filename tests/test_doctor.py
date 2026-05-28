@@ -66,6 +66,8 @@ class DoctorTest(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             result = json.loads(proc.stdout)
             self.assertEqual(result["privacy"]["event_storage"], "sanitized")
+            self.assertEqual(result["privacy"]["runtime_observation_previews"], "redacted")
+            self.assertIn("runtime_observation_storage", result["privacy"])
             self.assertIn("ledger_path", result["privacy"])
 
     def test_raw_event_storage_is_warn_not_fatal(self):
@@ -76,6 +78,14 @@ class DoctorTest(unittest.TestCase):
             self.assertFalse(result["checks"]["raw_event_storage"]["ok"])
             self.assertEqual(result["checks"]["raw_event_storage"]["level"], "warn")
             self.assertEqual(result["summary"]["warn_failed"], 1)
+
+    def test_runtime_preview_storage_is_warn_not_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = _config(tmp)
+            config = Config(**{**config.__dict__, "store_runtime_observation_previews": True})
+            result = run_doctor(config)
+            self.assertFalse(result["checks"]["runtime_observer"]["ok"])
+            self.assertEqual(result["checks"]["runtime_observer"]["level"], "warn")
 
     def test_portable_config_detects_absolute_user_paths(self):
         self.assertFalse(config_text_is_portable('{"command": "/Users/limengkai/plugins/codex-memory/script"}'))

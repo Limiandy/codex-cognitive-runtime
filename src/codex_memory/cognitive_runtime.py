@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -16,8 +17,9 @@ from .workflow_dag import WorkflowDAG, WorkflowExecutor, WorkflowStep, build_dag
 
 
 class CognitiveRuntime:
-    def __init__(self, ledger: Any):
+    def __init__(self, ledger: Any, store_observation_previews: bool = False):
         self.ledger = ledger
+        self.store_observation_previews = store_observation_previews
         self.state = RuntimeStateMachine()
         self.reasoning = ReasoningPolicyEngine()
 
@@ -228,12 +230,15 @@ class CognitiveRuntime:
             matched_step_id = "execute_change"
         if normalized.tool_kind == "verify":
             matched_step_id = "execute_and_verify"
+        summary = normalized.to_dict()
+        if not self.store_observation_previews:
+            summary = _redact_observation_previews(summary)
         return {
             "matched_step_id": matched_step_id,
             "tool_name": normalized.tool_name,
             "tool_kind": normalized.tool_kind,
             "command": normalized.command[:300],
-            "summary": normalized.to_dict(),
+            "summary": summary,
             "test_failed": bool(normalized.evidence_summary.get("failed")) if matched_step_id == "execute_and_verify" else False,
         }
 
@@ -983,7 +988,18 @@ def _project_key(cwd: str | None) -> str | None:
 
 
 def _summarize_observation(payload: dict[str, Any]) -> dict[str, Any]:
-    return normalize_tool_observation(payload).to_dict()
+    return _redact_observation_previews(normalize_tool_observation(payload).to_dict())
+
+
+def _redact_observation_previews(summary: dict[str, Any]) -> dict[str, Any]:
+    redacted = dict(summary)
+    for field in ("stdout", "stderr"):
+        value = str(redacted.get(field) or "")
+        redacted[f"{field}_chars"] = len(value)
+        redacted[f"{field}_sha256"] = hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest() if value else None
+        redacted[field] = ""
+    redacted["preview_storage"] = "redacted"
+    return redacted
 
 
 def _step_completed(metadata: dict[str, Any], step_id: str) -> bool:

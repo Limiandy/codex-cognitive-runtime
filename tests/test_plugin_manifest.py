@@ -10,6 +10,7 @@ class PluginManifestTest(unittest.TestCase):
         self.assertNotIn("mempalace", text)
         self.assertIn("ledger", text)
         self.assertIn("sqlite", text)
+        self.assertIn("workflow guard", text)
 
 
 if __name__ == "__main__":

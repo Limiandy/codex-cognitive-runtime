@@ -25,6 +25,8 @@ class Config:
     enable_mcp_admin_tools: bool = False
     store_raw_events: bool = False
     enable_experimental_cli: bool = False
+    enable_runtime_observer: bool = True
+    store_runtime_observation_previews: bool = False
 
 
 def _default_state_dir() -> Path:
@@ -67,6 +69,14 @@ def load_config() -> Config:
         os.environ.get("CODEX_MEMORY_ENABLE_EXPERIMENTAL_CLI"),
         bool(data.get("enable_experimental_cli", False)),
     )
+    enable_runtime_observer = _bool(
+        os.environ.get("CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER"),
+        bool(data.get("enable_runtime_observer", True)),
+    )
+    store_runtime_observation_previews = _bool(
+        os.environ.get("CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS"),
+        bool(data.get("store_runtime_observation_previews", False)),
+    )
 
     return Config(
         model=str(model),
@@ -83,6 +93,8 @@ def load_config() -> Config:
         enable_mcp_admin_tools=enable_dangerous_mcp_tools or enable_mcp_admin_tools,
         store_raw_events=store_raw_events,
         enable_experimental_cli=enable_experimental_cli,
+        enable_runtime_observer=enable_runtime_observer,
+        store_runtime_observation_previews=store_runtime_observation_previews,
     )
 
 
