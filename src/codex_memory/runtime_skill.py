@@ -19,6 +19,8 @@ class RuntimeSkill:
     memory_basis_summary: str
     strategy: list[str]
     first_action: dict[str, Any]
+    durable_skill_ids: list[str] = field(default_factory=list)
+    durable_skill_basis_summary: str = ""
     seed_skill_ids: list[str] = field(default_factory=list)
     seed_skill_basis_summary: str = ""
     avoid: list[str] = field(default_factory=list)
@@ -34,6 +36,8 @@ class RuntimeSkill:
             "goal": self.goal,
             "memory_basis_ids": self.memory_basis_ids,
             "memory_basis_summary": self.memory_basis_summary,
+            "durable_skill_ids": self.durable_skill_ids,
+            "durable_skill_basis_summary": self.durable_skill_basis_summary,
             "seed_skill_ids": self.seed_skill_ids,
             "seed_skill_basis_summary": self.seed_skill_basis_summary,
             "strategy": self.strategy,
@@ -53,16 +57,33 @@ class RuntimeSkillSynthesizer:
         if not decision.skill_needed:
             return None
         memories = memory_basis.get("memories") or []
+        durable_skills = memory_basis.get("durable_skills") or []
         seed_skills = memory_basis.get("seed_skills") or []
         basis_ids = [str(item.get("id")) for item in memories if item.get("id")]
         basis_summary = str(memory_basis.get("memory_basis_summary") or "")
+        durable_skill_ids = [str(item.get("id")) for item in durable_skills if item.get("id")]
+        durable_summary = str(memory_basis.get("durable_skill_basis_summary") or "")
         seed_skill_ids = [str(item.get("id")) for item in seed_skills if item.get("id")]
         seed_summary = str(memory_basis.get("seed_skill_basis_summary") or "")
         if self.model is not None:
-            modeled = self._model_synthesize(prompt, decision, memories, basis_ids, basis_summary, seed_skills, seed_skill_ids, seed_summary)
+            modeled = self._model_synthesize(
+                prompt,
+                decision,
+                memories,
+                basis_ids,
+                basis_summary,
+                durable_skills,
+                durable_skill_ids,
+                durable_summary,
+                seed_skills,
+                seed_skill_ids,
+                seed_summary,
+            )
             if modeled:
+                if durable_skill_ids and not modeled.durable_skill_ids:
+                    modeled = replace(modeled, durable_skill_ids=durable_skill_ids, durable_skill_basis_summary=durable_summary)
                 return modeled
-        return self._fallback_synthesize(decision, basis_ids, basis_summary, memories, seed_skill_ids, seed_summary)
+        return self._fallback_synthesize(decision, basis_ids, basis_summary, memories, durable_skill_ids, durable_summary, seed_skill_ids, seed_summary)
 
     def _fallback_synthesize(
         self,
@@ -70,6 +91,8 @@ class RuntimeSkillSynthesizer:
         basis_ids: list[str],
         basis_summary: str,
         memories: list[dict[str, Any]],
+        durable_skill_ids: list[str],
+        durable_summary: str,
         seed_skill_ids: list[str],
         seed_summary: str,
     ) -> RuntimeSkill:
@@ -80,6 +103,8 @@ class RuntimeSkillSynthesizer:
                 goal="Use clean long-term preferences to narrow the design brief before any image generation.",
                 memory_basis_ids=basis_ids,
                 memory_basis_summary=basis_summary,
+                durable_skill_ids=durable_skill_ids,
+                durable_skill_basis_summary=durable_summary,
                 seed_skill_ids=seed_skill_ids,
                 seed_skill_basis_summary=seed_summary,
                 strategy=[
@@ -112,6 +137,8 @@ class RuntimeSkillSynthesizer:
                 goal="Make code changes through inspected context, minimal edits, and explicit verification evidence.",
                 memory_basis_ids=basis_ids,
                 memory_basis_summary=basis_summary,
+                durable_skill_ids=durable_skill_ids,
+                durable_skill_basis_summary=durable_summary,
                 seed_skill_ids=seed_skill_ids,
                 seed_skill_basis_summary=seed_summary,
                 strategy=[
@@ -135,6 +162,8 @@ class RuntimeSkillSynthesizer:
             goal="Use clean long-term memory to choose a task-specific strategy before acting.",
             memory_basis_ids=basis_ids,
             memory_basis_summary=basis_summary,
+            durable_skill_ids=durable_skill_ids,
+            durable_skill_basis_summary=durable_summary,
             seed_skill_ids=seed_skill_ids,
             seed_skill_basis_summary=seed_summary,
             strategy=[
@@ -156,6 +185,9 @@ class RuntimeSkillSynthesizer:
         memories: list[dict[str, Any]],
         basis_ids: list[str],
         basis_summary: str,
+        durable_skills: list[dict[str, Any]],
+        durable_skill_ids: list[str],
+        durable_summary: str,
         seed_skills: list[dict[str, Any]],
         seed_skill_ids: list[str],
         seed_summary: str,
@@ -163,12 +195,14 @@ class RuntimeSkillSynthesizer:
         prompt_text = (
             "Generate a Runtime Skill for the current Codex request. "
             "A Runtime Skill is temporary, task-specific guidance for this turn. "
-            "Use only the supplied clean memory basis. Do not invent user preferences, organization facts, or project constraints. "
+            "Use only the supplied clean memory basis, durable skills, and seed skills. Do not invent user preferences, organization facts, or project constraints. "
+            "Priority: current user request, clean memory, active durable skills, then seed skills as general fallback. "
             "If key information is missing, make first_action ask clarifying questions. "
             "Return concise JSON only.\n\n"
             f"User request:\n{redact_secrets(prompt)[:1200]}\n\n"
             f"Skill need decision:\n{decision.to_dict()}\n\n"
             f"Allowed memory basis:\n{_memory_basis_for_model(memories)}\n\n"
+            f"Allowed durable skills:\n{_durable_skills_for_model(durable_skills)}\n\n"
             f"Allowed seed skills:\n{_seed_skills_for_model(seed_skills)}"
         )
         schema = {
@@ -176,6 +210,7 @@ class RuntimeSkillSynthesizer:
             "applies_to": "what current tasks this skill applies to",
             "goal": "one sentence",
             "memory_basis_ids": ["ids from allowed memory basis only"],
+            "durable_skill_ids": ["ids from allowed durable skills only"],
             "seed_skill_ids": ["ids from allowed seed skills only"],
             "strategy": ["3-5 concise execution steps"],
             "first_action": {"type": "ask_clarifying_questions|inspect_repository|proceed_or_clarify", "questions": ["optional"]},
@@ -193,7 +228,7 @@ class RuntimeSkillSynthesizer:
             return None
         if not isinstance(result, dict):
             return None
-        return _skill_from_model(result, decision, basis_ids, basis_summary, seed_skill_ids, seed_summary)
+        return _skill_from_model(result, decision, basis_ids, basis_summary, durable_skill_ids, durable_summary, seed_skill_ids, seed_summary)
 
 
 class RuntimeSkillReviewer:
@@ -203,11 +238,15 @@ class RuntimeSkillReviewer:
         reasons = []
         risk_flags = []
         allowed_memory_ids = {str(item.get("id")) for item in memory_basis.get("memories") or [] if item.get("id")}
+        allowed_durable_ids = {str(item.get("id")) for item in memory_basis.get("durable_skills") or [] if item.get("id")}
         allowed_seed_ids = {str(item.get("id")) for item in memory_basis.get("seed_skills") or [] if item.get("id")}
         memory_ids = [item for item in skill.memory_basis_ids if item in allowed_memory_ids]
+        durable_ids = [item for item in skill.durable_skill_ids if item in allowed_durable_ids]
         seed_ids = [item for item in skill.seed_skill_ids if item in allowed_seed_ids]
         if len(memory_ids) != len(skill.memory_basis_ids):
             reasons.append("filtered_unknown_memory_basis")
+        if len(durable_ids) != len(skill.durable_skill_ids):
+            reasons.append("filtered_unknown_durable_skill")
         if len(seed_ids) != len(skill.seed_skill_ids):
             reasons.append("filtered_unknown_seed_skill")
         if skill.confidence < 0.55:
@@ -240,6 +279,7 @@ class RuntimeSkillReviewer:
             skill,
             goal=goal,
             memory_basis_ids=memory_ids,
+            durable_skill_ids=durable_ids,
             seed_skill_ids=seed_ids,
             strategy=strategy,
             first_action=first_action,
@@ -251,7 +291,7 @@ class RuntimeSkillReviewer:
             "reasons": reasons or ["passed_runtime_skill_review"],
             "risk_flags": risk_flags,
             "skill": reviewed,
-            "basis_precedence": "memory_over_seed",
+            "basis_precedence": "memory_over_durable_over_seed",
         }
 
 
@@ -267,6 +307,9 @@ class RuntimeSkillInjector:
             "Memory basis:",
         ]
         lines.append("- " + skill.memory_basis_summary if skill.memory_basis_ids else "- No clean long-term memory matched; ask before assuming missing facts.")
+        if skill.durable_skill_ids:
+            lines.append("Durable skill basis:")
+            lines.append("- " + skill.durable_skill_basis_summary)
         if skill.seed_skill_ids:
             lines.append("Seed skill basis:")
             lines.append("- " + skill.seed_skill_basis_summary)
@@ -321,11 +364,30 @@ def _seed_skills_for_model(seed_skills: list[dict[str, Any]]) -> list[dict[str, 
     return basis
 
 
+def _durable_skills_for_model(durable_skills: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    basis = []
+    for skill in durable_skills[:5]:
+        metadata = skill.get("metadata_json") or {}
+        basis.append(
+            {
+                "id": skill.get("id"),
+                "title": metadata.get("title"),
+                "procedure": (metadata.get("procedure") or [])[:4],
+                "verification": (metadata.get("verification") or [])[:3],
+                "success_count": metadata.get("success_count"),
+                "failure_count": metadata.get("failure_count"),
+            }
+        )
+    return basis
+
+
 def _skill_from_model(
     result: dict[str, Any],
     decision: SkillNeedDecision,
     allowed_basis_ids: list[str],
     basis_summary: str,
+    allowed_durable_skill_ids: list[str],
+    durable_summary: str,
     allowed_seed_skill_ids: list[str],
     seed_summary: str,
 ) -> RuntimeSkill | None:
@@ -336,6 +398,7 @@ def _skill_from_model(
     avoid = [_clean_text(item, 180) for item in result.get("avoid") or [] if _clean_text(item, 180)]
     first_action = result.get("first_action") if isinstance(result.get("first_action"), dict) else {}
     memory_basis_ids = [str(item) for item in result.get("memory_basis_ids") or [] if str(item) in set(allowed_basis_ids)]
+    durable_skill_ids = [str(item) for item in result.get("durable_skill_ids") or [] if str(item) in set(allowed_durable_skill_ids)]
     seed_skill_ids = [str(item) for item in result.get("seed_skill_ids") or [] if str(item) in set(allowed_seed_skill_ids)]
     if not applies_to or not goal or len(strategy) < 2:
         return None
@@ -355,6 +418,8 @@ def _skill_from_model(
         goal=goal,
         memory_basis_ids=memory_basis_ids,
         memory_basis_summary=basis_summary,
+        durable_skill_ids=durable_skill_ids,
+        durable_skill_basis_summary=durable_summary,
         strategy=strategy[:5],
         first_action=first_action,
         seed_skill_ids=seed_skill_ids,
@@ -383,6 +448,7 @@ def _has_secret_like_text(skill: RuntimeSkill) -> bool:
             skill.applies_to,
             skill.goal,
             skill.memory_basis_summary,
+            skill.durable_skill_basis_summary,
             skill.seed_skill_basis_summary,
             *skill.strategy,
             *skill.avoid,

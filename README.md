@@ -9,11 +9,11 @@ This is a local developer alpha. It is intended for developers who can inspect l
 - `memory-engine`: extracts, classifies, and ranks memory candidates with `gpt-5.4-mini`.
 - `memory-review`: validates schema, evidence, confidence, TTL, duplicate risk, and secret-like content.
 - `memory-ledger`: local SQLite audit trail at `~/.codex-memory/ledger.sqlite3`.
-- `runtime-skill`: decides whether the current request needs a task-specific skill, retrieves clean active memories, and injects a short action strategy.
+- `runtime-skill`: decides whether the current request needs a task-specific skill, retrieves clean active memories, active durable skills, and trusted seed skills, then injects a short action strategy.
 - `cognitive-runtime`: observes `UserPromptSubmit`, `PostToolUse`, and `Stop` events to maintain workflow state and inject next-step control signals.
 - `workflow-guard`: detects engineering workflow violations such as code changes without verification evidence.
 - `skill-synthesizer`: turns successful observed workflows and related experience memories into reusable dynamic skills.
-- `mcp`: exposes `codex_memory_status`, `codex_memory_search`, `codex_memory_ingest`, and `codex_memory_queue`.
+- `mcp`: exposes local memory, Runtime Skill, seed skill, dynamic skill, and runtime governance tools.
 
 The local SQLite Ledger is the only runtime store and source of truth.
 
@@ -26,12 +26,13 @@ The runtime observer is enabled by default. Disable it with `CODEX_MEMORY_ENABLE
 Runtime Skill lifecycle:
 
 1. Decide whether the request needs a task-specific skill.
-2. Retrieve reviewed clean memories and trusted seed skills.
+2. Retrieve reviewed clean memories, active durable skills, and trusted seed skills.
 3. Generate a temporary Runtime Skill.
 4. Review the Runtime Skill for allowed basis ids, missing clarification, secret-like content, and unsupported user or organization claims.
 5. Inject the reviewed skill and record a local audit event.
 6. Observe workflow or natural feedback.
 7. Feed success/failure dimensions back into seed skill strength and dynamic skill candidates.
+8. Promote reviewed dynamic skill candidates into active durable skills when they are useful.
 
 ## Commands
 
@@ -44,6 +45,10 @@ Runtime Skill lifecycle:
 ./scripts/codex-memory search "中文回答偏好"
 ./scripts/codex-memory queue --status quarantined
 ./scripts/codex-memory seed-skills --dry-run
+./scripts/codex-memory seed-skills list
+./scripts/codex-memory runtime-skills list
+./scripts/codex-memory dynamic-skills list --status candidate
+./scripts/codex-memory runtime-benchmark
 ./scripts/codex-memory export --output ~/codex-memory-export.json
 ./scripts/codex-memory prune-runtime
 ```
@@ -154,11 +159,32 @@ Seed skills can be imported to provide a cold-start skill basis before the local
 
 By default this imports agent skill markdown from [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents) on demand and records each entry as a local `seed_skill` cognitive record with source path, commit, content hash, trust level, feedback counters, and MIT license metadata. The source content is not vendored into this repository. Use `--source /path/to/agency-agents` for an already cloned checkout, `--category design` to import one category, and `--limit N` for a smaller trial import.
 
-Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis. Seed skills stay active for cold start but carry `trust_level`, `trust_state`, source hash, license metadata, and feedback counters; repeated failures automatically suppress them from future Runtime Skill basis retrieval.
+Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis. Seed skills stay active for cold start but carry `trust_level`, `trust_state`, source hash, license metadata, and feedback counters; repeated failures, `seed-skills disable`, or `seed-skills suppress` remove them from future Runtime Skill basis retrieval.
 
-Runtime Skill injections are recorded as local runtime records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Feedback is associated with the same turn when available, or with the latest same-session injection within a short recent window. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
+Runtime Skill injections are recorded as local runtime records with the generated skill JSON, memory basis ids, durable skill ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Feedback is associated with the same turn when available, or with the latest same-session injection within a short recent window. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
 
 Runtime Skill injection and feedback records are stored as local `runtime_skill` cognitive records. Older alpha Ledgers may still contain legacy audit-layer Runtime Skill records; the runtime keeps reading and pruning both shapes.
+
+Dynamic skill governance:
+
+```bash
+./scripts/codex-memory dynamic-skills list --status candidate
+./scripts/codex-memory dynamic-skills show <skill_id>
+./scripts/codex-memory dynamic-skills promote <skill_id> --note "validated"
+./scripts/codex-memory dynamic-skills reject <skill_id> --note "too narrow"
+./scripts/codex-memory dynamic-skills deprecate <skill_id>
+```
+
+Runtime and seed skill governance:
+
+```bash
+./scripts/codex-memory runtime-skills list
+./scripts/codex-memory runtime-skills feedback <injection_id> --outcome positive --target skill_strategy
+./scripts/codex-memory seed-skills list
+./scripts/codex-memory seed-skills disable <seed_skill_id>
+./scripts/codex-memory seed-skills restore <seed_skill_id>
+./scripts/codex-memory seed-skills stats
+```
 
 ## Uninstall
 
@@ -195,7 +221,7 @@ You can also export, prune processed event payloads, or wipe the Ledger through 
 ./scripts/codex-memory wipe --yes
 ```
 
-`prune-events` only deletes processed rows from the `events` table. It does not remove cognitive runtime observations, workflow violations, learned recipes, or reviewed memories. Use `prune-runtime` to remove runtime audit records such as workflow observations and recipe reuse events; it also clears observation copies embedded in observed workflow metadata. Learned verification recipes are kept unless you pass `--include-recipes`. Use `wipe --yes` to clear the local Ledger completely.
+`prune-events` only deletes processed rows from the `events` table. It does not remove cognitive runtime observations, workflow violations, learned recipes, or reviewed memories. Use `prune-runtime` to remove runtime audit records such as workflow observations, Runtime Skill injection/feedback records, and recipe reuse events; it also clears observation copies embedded in observed workflow metadata. Learned verification recipes are kept unless you pass `--include-recipes`; dynamic skills are kept unless you pass `--include-skills`. Use `wipe --yes` to clear the local Ledger completely.
 
 ## Privacy
 
@@ -214,6 +240,14 @@ CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS=1 ./scripts/codex-memory doctor 
 ```
 
 When preview storage is enabled, runtime observations and learned verification recipes may include truncated stdout/stderr text. Do not enable it for sensitive projects.
+
+Strict privacy mode further minimizes local runtime data:
+
+```bash
+CODEX_MEMORY_STRICT_PRIVACY=1 ./scripts/codex-memory doctor --privacy
+```
+
+In strict privacy mode, prompt previews are replaced with hashes, runtime observation commands and changed paths are hashed, Runtime Skill injection records keep only compact skill metadata and basis ids, stdout/stderr previews stay disabled, and exports omit seed skill content.
 
 Raw event storage is opt-in and should only be used for local debugging:
 
@@ -235,7 +269,7 @@ The legacy `CODEX_MEMORY_ENABLE_DANGEROUS_MCP_TOOLS=1` enables all three groups 
 
 ## Experimental CLI
 
-The public alpha command surface is focused on local memory, runtime skills, and observed runtime guardrails: `status`, `runtime-status`, `doctor`, `ingest`, `search`, `queue`, `seed-skills`, `promote`, `reject`, `delete`, `recall-feedback`, `expire`, `audit`, `export`, `prune-events`, `prune-runtime`, `wipe`, `plugin`, `govern`, and `govern-periodic`.
+The public alpha command surface is focused on local memory, runtime skills, and observed runtime guardrails: `status`, `runtime-status`, `runtime-benchmark`, `doctor`, `ingest`, `search`, `queue`, `runtime-skills`, `seed-skills`, `dynamic-skills`, `promote`, `reject`, `delete`, `recall-feedback`, `expire`, `audit`, `export`, `prune-events`, `prune-runtime`, `wipe`, `plugin`, `govern`, and `govern-periodic`.
 
 Experimental cognitive, knowledge, skill, and workflow commands are hidden behind an explicit environment switch:
 

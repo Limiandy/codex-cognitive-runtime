@@ -152,8 +152,42 @@ TOOLS = {
             "properties": {
                 "older_than_days": {"type": "integer"},
                 "include_recipes": {"type": "boolean", "default": False},
+                "include_skills": {"type": "boolean", "default": False},
             },
         },
+    },
+    "codex_memory_runtime_skills": {
+        "description": "List Runtime Skill injections.",
+        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "default": 20}}},
+    },
+    "codex_memory_runtime_skill_feedback": {
+        "description": "Record explicit feedback for a Runtime Skill injection.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "injection_id": {"type": "string"},
+                "outcome": {"type": "string", "enum": ["positive", "negative", "mixed", "unknown"]},
+                "target": {"type": "string", "default": "final_result"},
+                "note": {"type": "string", "default": ""},
+            },
+            "required": ["injection_id", "outcome"],
+        },
+    },
+    "codex_memory_seed_skills": {
+        "description": "List seed skills and trust state.",
+        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "default": 20}}},
+    },
+    "codex_memory_dynamic_skills": {
+        "description": "List dynamic durable skill candidates or active skills.",
+        "inputSchema": {"type": "object", "properties": {"status": {"type": "string"}, "limit": {"type": "integer", "default": 20}}},
+    },
+    "codex_memory_promote_dynamic_skill": {
+        "description": "Promote a dynamic skill candidate to active durable skill.",
+        "inputSchema": {"type": "object", "properties": {"skill_id": {"type": "string"}, "note": {"type": "string", "default": ""}}, "required": ["skill_id"]},
+    },
+    "codex_memory_disable_seed_skill": {
+        "description": "Disable a seed skill so it is no longer used as Runtime Skill basis.",
+        "inputSchema": {"type": "object", "properties": {"skill_id": {"type": "string"}}, "required": ["skill_id"]},
     },
 }
 
@@ -167,6 +201,9 @@ MCP_TOOL_LEVELS = {
     "codex_memory_reconcile": "admin",
     "codex_memory_consolidate": "admin",
     "codex_memory_prune_runtime": "admin",
+    "codex_memory_runtime_skill_feedback": "write",
+    "codex_memory_promote_dynamic_skill": "review",
+    "codex_memory_disable_seed_skill": "admin",
 }
 
 
@@ -229,7 +266,25 @@ def main() -> int:
             lambda service: service.prune_runtime(
                 older_than_days=_optional_nonnegative_int(args.get("older_than_days"), "older_than_days"),
                 include_recipes=_bool_arg(args.get("include_recipes", False), "include_recipes"),
+                include_skills=_bool_arg(args.get("include_skills", False), "include_skills"),
             )
+        ),
+        "codex_memory_runtime_skills": lambda args: _with_service(lambda service: service.list_runtime_skills(_limit(args.get("limit", 20)))),
+        "codex_memory_runtime_skill_feedback": lambda args: _with_service(
+            lambda service: service.runtime_skill_feedback(
+                _id_arg(args["injection_id"], "injection_id"),
+                str(args["outcome"]),
+                target=str(args.get("target") or "final_result"),
+                note=str(args.get("note") or ""),
+            )
+        ),
+        "codex_memory_seed_skills": lambda args: _with_service(lambda service: service.list_seed_skills(_limit(args.get("limit", 20)))),
+        "codex_memory_dynamic_skills": lambda args: _with_service(lambda service: service.list_dynamic_skills(status=args.get("status"), limit=_limit(args.get("limit", 20)))),
+        "codex_memory_promote_dynamic_skill": lambda args: _with_service(
+            lambda service: service.promote_dynamic_skill(_id_arg(args["skill_id"], "skill_id"), note=str(args.get("note") or ""))
+        ),
+        "codex_memory_disable_seed_skill": lambda args: _with_service(
+            lambda service: service.set_seed_skill_trust_state(_id_arg(args["skill_id"], "skill_id"), "disabled")
         ),
     }
     try:
@@ -251,6 +306,7 @@ def _status(config, ledger: Ledger) -> dict[str, Any]:
             "store_raw_events": config.store_raw_events,
             "runtime_observer_enabled": config.enable_runtime_observer,
             "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
+            "strict_privacy": config.strict_privacy,
         },
     }
 

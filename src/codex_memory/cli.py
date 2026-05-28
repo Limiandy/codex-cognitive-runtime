@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from .benchmark import run_runtime_skill_benchmark
 from .config import load_config
 from .doctor import run_doctor
 from . import plugin_manager
@@ -48,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status")
+    sub.add_parser("runtime-benchmark")
     runtime_status = sub.add_parser("runtime-status")
     runtime_status.add_argument("--cwd", default=None)
     runtime_status.add_argument("--session-id", default=None)
@@ -100,12 +102,35 @@ def main(argv: list[str] | None = None) -> int:
     prune_runtime = sub.add_parser("prune-runtime")
     prune_runtime.add_argument("--older-than-days", type=int, default=None)
     prune_runtime.add_argument("--include-recipes", action="store_true")
+    prune_runtime.add_argument("--include-skills", action="store_true")
     seed_skills = sub.add_parser("seed-skills")
     seed_skills.add_argument("--source", default=None)
     seed_skills.add_argument("--repo-url", default="https://github.com/msitarzewski/agency-agents.git")
     seed_skills.add_argument("--limit", type=int, default=None)
     seed_skills.add_argument("--category", default=None)
     seed_skills.add_argument("--dry-run", action="store_true")
+    seed_skills.add_argument("seed_cmd", nargs="?", choices=["list", "show", "disable", "restore", "suppress", "stats"])
+    seed_skills.add_argument("seed_id", nargs="?")
+
+    runtime_skills = sub.add_parser("runtime-skills")
+    runtime_skills.add_argument("runtime_cmd", choices=["list", "show", "feedback", "audit"])
+    runtime_skills.add_argument("runtime_id", nargs="?")
+    runtime_skills.add_argument("--outcome", choices=["positive", "negative", "mixed", "unknown"], default="positive")
+    runtime_skills.add_argument(
+        "--target",
+        choices=["first_action", "skill_strategy", "memory_basis", "seed_skill", "durable_skill", "final_result", "execution"],
+        default="final_result",
+    )
+    runtime_skills.add_argument("--note", default="")
+    runtime_skills.add_argument("--limit", type=int, default=50)
+
+    dynamic_skills = sub.add_parser("dynamic-skills")
+    dynamic_skills.add_argument("dynamic_cmd", choices=["list", "show", "promote", "reject", "deprecate", "suppress"])
+    dynamic_skills.add_argument("dynamic_id", nargs="?")
+    dynamic_skills.add_argument("--status", default=None)
+    dynamic_skills.add_argument("--note", default="")
+    dynamic_skills.add_argument("--reason", default="")
+    dynamic_skills.add_argument("--limit", type=int, default=50)
 
     sub.add_parser("expire")
     sub.add_parser("reconcile")
@@ -193,6 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "status":
             return _print(service.status())
+        if args.cmd == "runtime-benchmark":
+            return _print(run_runtime_skill_benchmark())
         if args.cmd == "runtime-status":
             status = service.runtime_status(cwd=args.cwd, session_id=args.session_id, turn_id=args.turn_id)
             if args.pretty:
@@ -227,9 +254,47 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "prune-events":
             return _print(service.prune_events(older_than_days=args.older_than_days))
         if args.cmd == "prune-runtime":
-            return _print(service.prune_runtime(older_than_days=args.older_than_days, include_recipes=args.include_recipes))
+            return _print(service.prune_runtime(older_than_days=args.older_than_days, include_recipes=args.include_recipes, include_skills=args.include_skills))
         if args.cmd == "seed-skills":
+            if args.seed_cmd == "list":
+                return _print(service.list_seed_skills(limit=args.limit or 50))
+            if args.seed_cmd == "show":
+                return _print(_require_result(service.get_seed_skill(args.seed_id or ""), "seed_skill_not_found"))
+            if args.seed_cmd == "disable":
+                return _print(_require_result(service.set_seed_skill_trust_state(args.seed_id or "", "disabled"), "seed_skill_not_found"))
+            if args.seed_cmd == "restore":
+                seed = service.get_seed_skill(args.seed_id or "")
+                if not seed:
+                    return _print_error({"error": "seed_skill_not_found", "id": args.seed_id}, code=2)
+                restored = "trusted" if (seed.get("metadata_json") or {}).get("source_verified") else "unverified"
+                return _print(service.set_seed_skill_trust_state(args.seed_id or "", restored))
+            if args.seed_cmd == "suppress":
+                return _print(_require_result(service.set_seed_skill_trust_state(args.seed_id or "", "suppressed"), "seed_skill_not_found"))
+            if args.seed_cmd == "stats":
+                return _print(service.seed_skill_stats())
             return _print(service.seed_skills(source=args.source, repo_url=args.repo_url, limit=args.limit, category=args.category, dry_run=args.dry_run))
+        if args.cmd == "runtime-skills":
+            if args.runtime_cmd == "list":
+                return _print(service.list_runtime_skills(limit=args.limit))
+            if args.runtime_cmd == "show":
+                return _print(_require_result(service.get_runtime_skill(args.runtime_id or ""), "runtime_skill_not_found"))
+            if args.runtime_cmd == "feedback":
+                return _print(_require_result(service.runtime_skill_feedback(args.runtime_id or "", args.outcome, target=args.target, note=args.note), "runtime_skill_not_found"))
+            if args.runtime_cmd == "audit":
+                return _print(service.runtime_skill_audit())
+        if args.cmd == "dynamic-skills":
+            if args.dynamic_cmd == "list":
+                return _print(service.list_dynamic_skills(status=args.status, limit=args.limit))
+            if args.dynamic_cmd == "show":
+                return _print(_require_result(service.get_dynamic_skill(args.dynamic_id or ""), "dynamic_skill_not_found"))
+            if args.dynamic_cmd == "promote":
+                return _print(_require_result(service.promote_dynamic_skill(args.dynamic_id or "", note=args.note), "dynamic_skill_not_found"))
+            if args.dynamic_cmd == "reject":
+                return _print(_require_result(service.reject_dynamic_skill(args.dynamic_id or "", note=args.note), "dynamic_skill_not_found"))
+            if args.dynamic_cmd == "deprecate":
+                return _print(_require_result(service.deprecate_dynamic_skill(args.dynamic_id or "", note=args.note), "dynamic_skill_not_found"))
+            if args.dynamic_cmd == "suppress":
+                return _print(_require_result(service.suppress_dynamic_skill(args.dynamic_id or "", reason=args.reason), "dynamic_skill_not_found"))
         if args.cmd == "expire":
             return _print(service.expire_due_memories())
         if args.cmd == "reconcile":
@@ -301,6 +366,12 @@ def _print_text(text: str) -> int:
 def _print_error(data, code: int) -> int:
     sys.stderr.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
     return code
+
+
+def _require_result(result, error: str):
+    if result is None:
+        return {"error": error}
+    return result
 
 
 def _format_runtime_status(status: dict) -> str:

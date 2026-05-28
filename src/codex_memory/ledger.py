@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 import time
 import uuid
@@ -628,8 +629,28 @@ class Ledger:
         turn_id: str | None = None,
         cwd: str | None = None,
         project_key: str | None = None,
+        strict_privacy: bool = False,
     ) -> dict[str, Any]:
         skill_name = str(skill.get("name") or "runtime_skill")
+        prompt_text = str(redact_secrets(prompt or ""))
+        prompt_metadata = {
+            "prompt_sha256": hashlib.sha256(prompt_text.encode("utf-8", errors="replace")).hexdigest(),
+            "prompt_chars": len(prompt_text),
+        }
+        if not strict_privacy:
+            prompt_metadata["prompt_preview"] = prompt_text[:500]
+        stored_skill = skill
+        if strict_privacy:
+            stored_skill = {
+                "skill_type": skill.get("skill_type"),
+                "name": skill.get("name"),
+                "intent": skill.get("intent"),
+                "domain": skill.get("domain"),
+                "confidence": skill.get("confidence"),
+                "memory_basis_ids": [str(item) for item in skill.get("memory_basis_ids") or []],
+                "durable_skill_ids": [str(item) for item in skill.get("durable_skill_ids") or []],
+                "seed_skill_ids": [str(item) for item in skill.get("seed_skill_ids") or []],
+            }
         return self.record_cognitive_record(
             "runtime_skill",
             "injection",
@@ -645,9 +666,10 @@ class Ledger:
             project_key=project_key,
             session_id=session_id,
             metadata={
-                "prompt_preview": str(redact_secrets(prompt or ""))[:500],
-                "skill": skill,
+                **prompt_metadata,
+                "skill": stored_skill,
                 "memory_basis_ids": [str(item) for item in skill.get("memory_basis_ids") or []],
+                "durable_skill_ids": [str(item) for item in skill.get("durable_skill_ids") or []],
                 "seed_skill_ids": [str(item) for item in skill.get("seed_skill_ids") or []],
                 "session_id": session_id,
                 "turn_id": turn_id,
@@ -698,6 +720,9 @@ class Ledger:
         feedback_target = str(evidence.get("feedback_target") or _runtime_skill_feedback_target(outcome, evidence))
         evidence = {**evidence, "feedback_target": feedback_target}
         dimensions = _runtime_skill_feedback_dimensions(outcome, evidence)
+        classifier_dimensions = evidence.get("classifier_dimensions") if isinstance(evidence.get("classifier_dimensions"), dict) else {}
+        if classifier_dimensions:
+            dimensions.update({key: value for key, value in classifier_dimensions.items() if value})
         metadata.update(
             {
                 "feedback_status": outcome,
@@ -730,6 +755,7 @@ class Ledger:
                 "dimensions": dimensions,
                 "evidence": evidence,
                 "seed_skill_ids": metadata.get("seed_skill_ids") or [],
+                "durable_skill_ids": metadata.get("durable_skill_ids") or [],
             },
             source_kind="runtime_skill_feedback",
         )
@@ -738,6 +764,11 @@ class Ledger:
             success = outcome in {"positive", "success"}
             for seed_id in metadata.get("seed_skill_ids") or []:
                 self._record_seed_skill_feedback(str(seed_id), success)
+        should_adjust_durable_strength = bool(evidence.get("adjust_durable_skill_strength", False))
+        if should_adjust_durable_strength and outcome in {"positive", "success", "negative", "failure"}:
+            success = outcome in {"positive", "success"}
+            for skill_id in metadata.get("durable_skill_ids") or []:
+                self._record_durable_skill_feedback(str(skill_id), success)
         return feedback
 
     def _record_seed_skill_feedback(self, seed_id: str, success: bool) -> None:
@@ -754,6 +785,21 @@ class Ledger:
         elif metadata.get("trust_state") == "suppressed" and metadata["success_count"] >= metadata["failure_count"]:
             metadata["trust_state"] = "trusted" if metadata.get("source_verified") else "unverified"
         self.adjust_cognitive_record_strength(seed_id, 0.05 if success else -0.1, metadata)
+
+    def _record_durable_skill_feedback(self, skill_id: str, success: bool) -> None:
+        skill = self.get_cognitive_record(skill_id)
+        if not skill or skill.get("record_type") != "dynamic_skill":
+            return
+        metadata = dict(skill.get("metadata_json") or {})
+        metadata["reuse_count"] = int(metadata.get("reuse_count") or 0) + 1
+        metadata["success_count"] = int(metadata.get("success_count") or 0) + (1 if success else 0)
+        metadata["failure_count"] = int(metadata.get("failure_count") or 0) + (0 if success else 1)
+        metadata["last_feedback_at"] = _now()
+        if metadata["failure_count"] >= 3 and metadata["failure_count"] > metadata["success_count"]:
+            metadata["trust_state"] = "suppressed"
+            self.set_cognitive_record_status(skill_id, "suppressed", metadata)
+            return
+        self.adjust_cognitive_record_strength(skill_id, 0.08 if success else -0.16, metadata)
 
     def record_runtime_violation(
         self,
@@ -1533,7 +1579,7 @@ class Ledger:
         self._commit()
         return {"pruned_events": count, "older_than_days": older_than_days}
 
-    def prune_runtime_records(self, older_than_days: int | None = None, include_recipes: bool = False) -> dict[str, Any]:
+    def prune_runtime_records(self, older_than_days: int | None = None, include_recipes: bool = False, include_skills: bool = False) -> dict[str, Any]:
         if older_than_days is not None and older_than_days < 0:
             raise ValueError("older_than_days must be non-negative")
         cutoff = None
@@ -1554,6 +1600,7 @@ class Ledger:
             "resolved_workflow_violation": 0,
             "workflow_metadata_observations": 0,
             "verification_recipe": 0,
+            "dynamic_skill": 0,
         }
         rows = self.conn.execute(
             """
@@ -1593,9 +1640,12 @@ class Ledger:
                     patch["pruned_runtime_metadata_at"] = _now()
                     workflow_metadata_updates.append((str(row["id"]), patch))
                     counts["workflow_metadata_observations"] += 1
-            elif include_recipes and layer == "skill" and record_type == "verification_recipe":
+            elif (include_recipes or include_skills) and layer == "skill" and record_type == "verification_recipe":
                 should_delete = True
                 count_key = "verification_recipe"
+            elif include_skills and layer == "skill" and record_type == "dynamic_skill":
+                should_delete = True
+                count_key = "dynamic_skill"
             if should_delete:
                 ids.append(str(row["id"]))
                 counts[count_key] = counts.get(count_key, 0) + 1

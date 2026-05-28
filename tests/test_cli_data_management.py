@@ -185,6 +185,83 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(payload["error"], "unsupported_seed_skill_license")
             self.assertEqual(payload["skill_count"], 0)
 
+    def test_runtime_seed_dynamic_skill_governance_commands(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+
+            seed = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path), "--category", "design"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(seed.returncode, 0, seed.stderr)
+            seed_id = json.loads(seed.stdout)["created"][0]["id"]
+
+            seed_list = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "list"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(seed_list.returncode, 0, seed_list.stderr)
+            self.assertEqual(json.loads(seed_list.stdout)[0]["id"], seed_id)
+
+            disable = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "disable", seed_id],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(disable.returncode, 0, disable.stderr)
+            self.assertEqual(json.loads(disable.stdout)["metadata_json"]["trust_state"], "disabled")
+
+            restore = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "restore", seed_id],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(restore.returncode, 0, restore.stderr)
+            self.assertEqual(json.loads(restore.stdout)["metadata_json"]["trust_state"], "unverified")
+
+            context = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "search", "帮我画一个品牌 logo"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(context.returncode, 0, context.stderr)
+
+            benchmark = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "runtime-benchmark"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(benchmark.returncode, 0, benchmark.stderr)
+            self.assertIn("skill_trigger_recall", json.loads(benchmark.stdout))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -157,6 +157,7 @@ def _check_runtime_observer(config: Config) -> dict[str, Any]:
         True,
         enabled=config.enable_runtime_observer,
         observation_previews="redacted",
+        strict_privacy=config.strict_privacy,
         impact="runtime observations store command, file paths, exit code, output hashes, lengths, and failure flags",
     )
 
@@ -270,6 +271,7 @@ def _privacy_report(config: Config) -> dict[str, Any]:
             "event_storage": "raw" if config.store_raw_events else "sanitized",
             "runtime_observer_enabled": config.enable_runtime_observer,
             "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
+            "strict_privacy": config.strict_privacy,
             "runtime_observation_storage": "commands, file paths, exit code, source fields, output hashes/lengths, and failure flags; stdout/stderr previews only when explicitly enabled",
             "retention_policy": "manual; prune-events only removes events; prune-runtime removes runtime audit records and embedded workflow observation copies; wipe removes the full local Ledger",
             "recent_event_count": len(events),

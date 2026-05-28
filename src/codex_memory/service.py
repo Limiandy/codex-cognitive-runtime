@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import time
 from typing import Any
 
 from .consolidation import MemoryConsolidator
 from .config import Config, ensure_state_dir
 from .cognitive_governance import CognitiveGovernance
 from .cognitive_runtime import CognitiveRuntime
+from .durable_skills import DurableSkillManager
 from .engine import MemoryEngine
+from .feedback_classifier import RuntimeSkillFeedbackClassifier
 from .governance import MemoryGovernance
 from .knowledge import KnowledgeBuilder
 from .ledger import Ledger, project_key_for_cwd
@@ -31,8 +36,13 @@ class MemoryService:
         self.model = CodexMiniClient(config)
         self.engine = MemoryEngine(config, self.model)
         self.reviewer = MemoryReviewer(config, self.model)
-        self.runtime = CognitiveRuntime(self.ledger, store_observation_previews=config.store_runtime_observation_previews)
+        self.runtime = CognitiveRuntime(
+            self.ledger,
+            store_observation_previews=config.store_runtime_observation_previews,
+            strict_privacy=config.strict_privacy,
+        )
         self.store = LocalCognitiveStore(self.ledger)
+        self._runtime_skill_cache: dict[str, tuple[Any, dict[str, Any]]] = {}
 
     def close(self) -> None:
         self.ledger.close()
@@ -220,9 +230,12 @@ class MemoryService:
         session_id: str | None = None,
         turn_id: str | None = None,
     ) -> str:
+        total_started = time.perf_counter()
         budget = MemoryGovernance(self.ledger).injection_budget(prompt, limit)
         limit = int(budget["limit"])
+        skill_need_started = time.perf_counter()
         skill_decision = SkillNeedClassifier(self.model).classify(prompt)
+        skill_need_latency_ms = _elapsed_ms(skill_need_started)
         active_workflow = self.runtime.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd) if self.config.enable_runtime_observer else None
         if (
             not skill_decision.skill_needed
@@ -233,16 +246,40 @@ class MemoryService:
             logger.debug("prompt context skipped", prompt_chars=len(prompt), reason="direct_answer_without_memory_need")
             return ""
 
+        recall_started = time.perf_counter()
         memories = self.ledger.list_recallable_memories(cwd=cwd, session_id=session_id, limit=200)
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
+        memory_retrieval_latency_ms = _elapsed_ms(recall_started)
         runtime_skill_context = ""
         runtime_skill = None
+        cache_hit = False
+        fallback_count = 0
         if skill_decision.skill_needed:
+            basis_started = time.perf_counter()
             memory_basis = CleanMemoryRetriever(self.ledger).retrieve(prompt, cwd=cwd, session_id=session_id, limit=limit)
-            runtime_skill = RuntimeSkillSynthesizer(self.model).synthesize(prompt, skill_decision, memory_basis)
-            review = RuntimeSkillReviewer().review(runtime_skill, skill_decision, memory_basis)
+            memory_retrieval_latency_ms += _elapsed_ms(basis_started)
+            cache_key = _runtime_skill_cache_key(prompt, memory_basis)
+            cached = self._runtime_skill_cache.get(cache_key)
+            if cached:
+                runtime_skill, review = cached
+                cache_hit = True
+            else:
+                synthesis_started = time.perf_counter()
+                runtime_skill = RuntimeSkillSynthesizer(self.model).synthesize(prompt, skill_decision, memory_basis)
+                skill_synthesis_latency_ms = _elapsed_ms(synthesis_started)
+                review_started = time.perf_counter()
+                review = RuntimeSkillReviewer().review(runtime_skill, skill_decision, memory_basis)
+                review_latency_ms = _elapsed_ms(review_started)
+                runtime_skill = review.get("skill")
+                if runtime_skill and review.get("status") in {"approved", "fallback"}:
+                    self._runtime_skill_cache[cache_key] = (runtime_skill, review)
+                if review.get("status") == "fallback":
+                    fallback_count += 1
+            if cached:
+                skill_synthesis_latency_ms = 0
+                review_latency_ms = 0
             runtime_skill = review.get("skill")
             runtime_skill_context = RuntimeSkillInjector().format(runtime_skill)
             if runtime_skill_context and runtime_skill:
@@ -253,6 +290,7 @@ class MemoryService:
                     turn_id=turn_id,
                     cwd=cwd,
                     project_key=project_key_for_cwd(cwd) if cwd else None,
+                    strict_privacy=self.config.strict_privacy,
                 )
                 self.ledger.patch_cognitive_record_metadata(
                     str(injection["id"]),
@@ -261,8 +299,18 @@ class MemoryService:
                             "status": review.get("status"),
                             "reasons": review.get("reasons") or [],
                             "risk_flags": review.get("risk_flags") or [],
-                            "basis_precedence": review.get("basis_precedence"),
-                        }
+                                "basis_precedence": review.get("basis_precedence"),
+                        },
+                        "latency": {
+                            "skill_need_latency_ms": skill_need_latency_ms,
+                            "memory_retrieval_latency_ms": memory_retrieval_latency_ms,
+                            "skill_synthesis_latency_ms": skill_synthesis_latency_ms,
+                            "review_latency_ms": review_latency_ms,
+                            "total_prompt_context_latency_ms": _elapsed_ms(total_started),
+                            "model_timeout_count": 0,
+                            "fallback_count": fallback_count,
+                            "cache_hit": cache_hit,
+                        },
                     },
                 )
         runtime_context = ""
@@ -336,6 +384,7 @@ class MemoryService:
                 "workflow_id": result.get("workflow_id"),
                 "event_id": result.get("event_id"),
                 "matched_reason": "session_turn_workflow_stop" if payload.get("turn_id") else "session_workflow_stop",
+                "adjust_durable_skill_strength": True,
             },
         )
 
@@ -345,24 +394,22 @@ class MemoryService:
         session_id: str | None = None,
         turn_id: str | None = None,
     ) -> dict[str, Any] | None:
-        outcome = _runtime_skill_feedback_sentiment(prompt)
-        if not outcome:
+        decision = RuntimeSkillFeedbackClassifier().classify(prompt)
+        if not decision:
             return None
         injection = self.ledger.latest_runtime_skill_injection(session_id=session_id, turn_id=turn_id, max_age_minutes=30)
         if not injection:
             return None
         matched_reason = "same_turn_recent_feedback" if turn_id else "same_session_recent_feedback"
-        feedback_target = _natural_feedback_target(prompt)
         return self.ledger.record_runtime_skill_feedback(
             str(injection["id"]),
-            outcome,
+            decision.outcome,
             {
                 "source": "natural_feedback",
                 "prompt_preview": prompt[:160],
                 "matched_reason": matched_reason,
                 "injection_created_at": injection.get("created_at"),
-                "feedback_target": feedback_target,
-                "adjust_seed_skill_strength": feedback_target in {"skill_strategy", "first_action"},
+                **decision.to_evidence(),
             },
         )
 
@@ -420,6 +467,89 @@ class MemoryService:
     ) -> dict[str, Any]:
         return AgencySkillSeeder(self.ledger).seed(source=source, repo_url=repo_url, limit=limit, category=category, dry_run=dry_run)
 
+    def list_runtime_skills(self, limit: int = 50) -> list[dict[str, Any]]:
+        return [
+            record
+            for record in self.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=max(limit, 200))
+            if record.get("record_type") == "injection"
+        ][:limit]
+
+    def get_runtime_skill(self, injection_id: str) -> dict[str, Any] | None:
+        record = self.ledger.get_cognitive_record(injection_id)
+        if not record or record.get("layer") != "runtime_skill" or record.get("record_type") != "injection":
+            return None
+        return record
+
+    def runtime_skill_feedback(self, injection_id: str, outcome: str, target: str = "final_result", note: str = "") -> dict[str, Any] | None:
+        evidence = {
+            "source": "manual_cli",
+            "feedback_target": target,
+            "note": note,
+            "adjust_seed_skill_strength": target in {"seed_skill", "skill_strategy", "first_action"},
+            "adjust_durable_skill_strength": target in {"durable_skill", "skill_strategy", "first_action", "execution"},
+        }
+        return self.ledger.record_runtime_skill_feedback(injection_id, outcome, evidence)
+
+    def runtime_skill_audit(self) -> dict[str, Any]:
+        records = self.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=1000)
+        injections = [item for item in records if item.get("record_type") == "injection"]
+        feedback = [item for item in records if item.get("record_type") == "feedback"]
+        return {
+            "injection_count": len(injections),
+            "feedback_count": len(feedback),
+            "recent_injections": injections[:10],
+            "recent_feedback": feedback[:10],
+        }
+
+    def list_seed_skills(self, limit: int = 50) -> list[dict[str, Any]]:
+        return [
+            record
+            for record in self.ledger.list_cognitive_records(layer="skill", limit=max(limit, 200))
+            if record.get("record_type") == "seed_skill"
+        ][:limit]
+
+    def get_seed_skill(self, skill_id: str) -> dict[str, Any] | None:
+        record = self.ledger.get_cognitive_record(skill_id)
+        if not record or record.get("record_type") != "seed_skill":
+            return None
+        return record
+
+    def set_seed_skill_trust_state(self, skill_id: str, trust_state: str) -> dict[str, Any] | None:
+        record = self.get_seed_skill(skill_id)
+        if not record:
+            return None
+        patch = {"trust_state": trust_state, "last_status_change_at": _utc_now()}
+        if trust_state == "disabled":
+            patch["disabled_at"] = _utc_now()
+        return self.ledger.patch_cognitive_record_metadata(skill_id, patch)
+
+    def seed_skill_stats(self) -> dict[str, Any]:
+        skills = self.list_seed_skills(limit=1000)
+        counts: dict[str, int] = {}
+        for skill in skills:
+            metadata = skill.get("metadata_json") or {}
+            state = str(metadata.get("trust_state") or "unknown")
+            counts[state] = counts.get(state, 0) + 1
+        return {"count": len(skills), "by_trust_state": counts, "skills": skills[:20]}
+
+    def list_dynamic_skills(self, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        return DurableSkillManager(self.ledger).list(status=status, limit=limit)
+
+    def get_dynamic_skill(self, skill_id: str) -> dict[str, Any] | None:
+        return DurableSkillManager(self.ledger).get(skill_id)
+
+    def promote_dynamic_skill(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
+        return DurableSkillManager(self.ledger).promote(skill_id, note)
+
+    def reject_dynamic_skill(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
+        return DurableSkillManager(self.ledger).reject(skill_id, note)
+
+    def deprecate_dynamic_skill(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
+        return DurableSkillManager(self.ledger).deprecate(skill_id, note)
+
+    def suppress_dynamic_skill(self, skill_id: str, reason: str = "") -> dict[str, Any] | None:
+        return DurableSkillManager(self.ledger).suppress(skill_id, reason)
+
     def skill_promote(self, skill_id: str) -> dict[str, Any] | None:
         return SkillEngine(self.ledger).promote(skill_id)
 
@@ -452,6 +582,7 @@ class MemoryService:
         status["runtime_observer"] = {
             "enabled": self.config.enable_runtime_observer,
             "observation_previews": "stored" if self.config.store_runtime_observation_previews else "redacted",
+            "strict_privacy": self.config.strict_privacy,
         }
         return status
 
@@ -459,7 +590,15 @@ class MemoryService:
         return self.ledger.list_memories(status=status, limit=limit)
 
     def export_data(self, limit: int = 5000) -> dict[str, Any]:
-        return self.ledger.export_data(limit=limit)
+        data = self.ledger.export_data(limit=limit)
+        if self.config.strict_privacy:
+            for record in data.get("cognitive_records") or []:
+                if record.get("record_type") == "seed_skill":
+                    record["content"] = ""
+                    metadata = record.get("metadata_json") or {}
+                    metadata["content_export"] = "omitted_by_strict_privacy"
+                    record["metadata_json"] = metadata
+        return data
 
     def wipe_data(self) -> dict[str, Any]:
         return self.ledger.wipe_all()
@@ -467,8 +606,8 @@ class MemoryService:
     def prune_events(self, older_than_days: int | None = None) -> dict[str, Any]:
         return self.ledger.prune_events(older_than_days=older_than_days)
 
-    def prune_runtime(self, older_than_days: int | None = None, include_recipes: bool = False) -> dict[str, Any]:
-        return self.ledger.prune_runtime_records(older_than_days=older_than_days, include_recipes=include_recipes)
+    def prune_runtime(self, older_than_days: int | None = None, include_recipes: bool = False, include_skills: bool = False) -> dict[str, Any]:
+        return self.ledger.prune_runtime_records(older_than_days=older_than_days, include_recipes=include_recipes, include_skills=include_skills)
 
     def cognitive_snapshot(self) -> dict[str, Any]:
         self.runtime.sync_all_active()
@@ -550,6 +689,7 @@ def _privacy_status(config: Config) -> dict[str, Any]:
         "store_raw_events": config.store_raw_events,
         "runtime_observer_enabled": config.enable_runtime_observer,
         "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
+        "strict_privacy": config.strict_privacy,
     }
     if config.store_raw_events:
         status["warning"] = "raw event payload storage is enabled"
@@ -650,3 +790,24 @@ def _natural_feedback_target(prompt: str) -> str:
     if any(signal in lowered for signal in strategy_signals):
         return "skill_strategy"
     return "final_result"
+
+
+def _elapsed_ms(started: float) -> int:
+    return int((time.perf_counter() - started) * 1000)
+
+
+def _runtime_skill_cache_key(prompt: str, memory_basis: dict[str, Any]) -> str:
+    basis = {
+        "prompt": prompt,
+        "memory_ids": [str(item.get("id")) for item in memory_basis.get("memories") or []],
+        "durable_skill_ids": [str(item.get("id")) for item in memory_basis.get("durable_skills") or []],
+        "seed_skill_ids": [str(item.get("id")) for item in memory_basis.get("seed_skills") or []],
+    }
+    payload = json.dumps(basis, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")

@@ -188,6 +188,39 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
+    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    def test_runtime_skill_cache_avoids_repeated_synthesis(self, model_synthesize):
+        from codex_memory.runtime_skill import RuntimeSkill
+
+        model_synthesize.return_value = RuntimeSkill(
+            name="cached_logo_intake",
+            applies_to="logo design",
+            goal="clarify before design",
+            memory_basis_ids=[],
+            memory_basis_summary="No clean long-term memories matched this task.",
+            strategy=["Ask clarifying questions first.", "Offer directions after clarification."],
+            first_action={"type": "ask_clarifying_questions", "questions": ["品牌名称是什么？"]},
+            avoid=["Do not generate immediately."],
+            confidence=0.8,
+            intent="brand_logo_design",
+            domain="brand_design",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s2")
+                model_synthesize.assert_called_once()
+                injections = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
+                ]
+                self.assertEqual(len(injections), 2)
+                self.assertTrue(any((item["metadata_json"].get("latency") or {}).get("cache_hit") for item in injections))
+            finally:
+                service.close()
+
     def test_logo_request_generates_memory_grounded_intake_skill(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
@@ -560,6 +593,135 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertIn("workflow:", context)
             finally:
                 service.close()
+
+    def test_active_durable_skill_participates_in_runtime_skill_basis(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                candidate = service.ledger.record_cognitive_record(
+                    "skill",
+                    "dynamic_skill",
+                    "dyn:logo",
+                    "Dynamic skill: logo intake workflow.",
+                    "candidate",
+                    "global",
+                    domain="brand_design",
+                    category="workflow",
+                    metadata={
+                        "skill_type": "dynamic_skill",
+                        "title": "Logo intake workflow",
+                        "trigger": ["logo", "品牌"],
+                        "procedure": ["Ask for brand name before visual directions.", "Offer restrained visual directions."],
+                        "success_count": 1,
+                        "failure_count": 0,
+                        "reuse_count": 0,
+                        "review_required": True,
+                    },
+                )
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                self.assertNotIn("Durable skill basis:", context)
+
+                service.promote_dynamic_skill(str(candidate["id"]), note="validated")
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s2")
+
+                self.assertIn("Durable skill basis:", context)
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection" and (item.get("metadata_json") or {}).get("session_id") == "s2"
+                ][0]
+                metadata = injection["metadata_json"]
+                self.assertEqual(metadata["durable_skill_ids"], [candidate["id"]])
+                self.assertEqual(metadata["review"]["basis_precedence"], "memory_over_durable_over_seed")
+            finally:
+                service.close()
+
+    def test_durable_skill_feedback_updates_strength_and_can_suppress(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                skill = service.ledger.record_cognitive_record(
+                    "skill",
+                    "dynamic_skill",
+                    "dyn:strategy",
+                    "Dynamic skill: strategy workflow.",
+                    "active",
+                    "global",
+                    domain="brand_design",
+                    metadata={
+                        "skill_type": "dynamic_skill",
+                        "title": "Strategy workflow",
+                        "trigger": ["logo", "品牌"],
+                        "procedure": ["Choose a strategy direction."],
+                        "success_count": 0,
+                        "failure_count": 0,
+                        "reuse_count": 0,
+                    },
+                )
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                service.apply_natural_feedback("这个方向很好", session_id="s1")
+                updated = service.ledger.get_cognitive_record(str(skill["id"]))
+                self.assertEqual(updated["metadata_json"]["reuse_count"], 1)
+                self.assertEqual(updated["metadata_json"]["success_count"], 1)
+
+                for _ in range(3):
+                    service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                    service.apply_natural_feedback("这个方向不对，不要这样", session_id="s1")
+                suppressed = service.ledger.get_cognitive_record(str(skill["id"]))
+                self.assertEqual(suppressed["status"], "suppressed")
+            finally:
+                service.close()
+
+    def test_feedback_classifier_targets_do_not_over_adjust(self):
+        from codex_memory.feedback_classifier import RuntimeSkillFeedbackClassifier
+
+        classifier = RuntimeSkillFeedbackClassifier()
+        self.assertEqual(classifier.classify("很好").feedback_target, "final_result")
+        self.assertFalse(classifier.classify("很好").adjust_seed_skill_strength)
+        self.assertEqual(classifier.classify("这个方向很好").feedback_target, "skill_strategy")
+        self.assertTrue(classifier.classify("这个方向很好").adjust_seed_skill_strength)
+        self.assertEqual(classifier.classify("这个提问方式很好").feedback_target, "first_action")
+        self.assertEqual(classifier.classify("不是我的偏好").feedback_target, "memory_basis")
+        self.assertFalse(classifier.classify("不是我的偏好").adjust_seed_skill_strength)
+        self.assertEqual(classifier.classify("这个模板不适合").feedback_target, "seed_skill")
+        self.assertEqual(classifier.classify("方向对，但问题太多").outcome, "mixed")
+        self.assertFalse(classifier.classify("方向对，但问题太多").adjust_seed_skill_strength)
+
+    def test_priority_runtime_skill_templates_trigger_with_fallback(self):
+        from codex_memory.runtime_skill import RuntimeSkillSynthesizer
+        from codex_memory.skill_need import SkillNeedClassifier
+
+        prompts = [
+            "帮我做品牌定位",
+            "帮我制定营销策略",
+            "帮我调整写作风格",
+            "帮我做产品分析",
+            "帮我写商业计划",
+            "帮我做 pitch deck",
+            "帮我做代码审查",
+            "帮我设计架构方案",
+            "帮我制定研究计划",
+        ]
+        classifier = SkillNeedClassifier(model=None)
+        synthesizer = RuntimeSkillSynthesizer(model=None)
+        for prompt in prompts:
+            decision = classifier.classify(prompt)
+            self.assertTrue(decision.skill_needed, prompt)
+            skill = synthesizer.synthesize(
+                prompt,
+                decision,
+                {
+                    "memories": [],
+                    "durable_skills": [],
+                    "seed_skills": [],
+                    "memory_basis_summary": "No clean long-term memories matched this task.",
+                    "durable_skill_basis_summary": "No active durable skills matched this task.",
+                    "seed_skill_basis_summary": "No seed skills matched this task.",
+                },
+            )
+            self.assertIsNotNone(skill, prompt)
+            self.assertGreaterEqual(len(skill.strategy), 2)
+            self.assertIn(skill.first_action["type"], {"ask_clarifying_questions", "inspect_repository", "proceed_or_clarify"})
 
 
 if __name__ == "__main__":

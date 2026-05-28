@@ -76,6 +76,19 @@ class SkillNeedClassifier:
                 False,
                 "engineering task benefits from inspected context, verification strategy, and workflow guardrails",
             )
+        template = _template_intent(lowered)
+        if template:
+            intent, domain, clarify = template
+            return SkillNeedDecision(
+                True,
+                "generate_runtime_skill",
+                intent,
+                domain,
+                "medium",
+                True,
+                clarify,
+                "templated task benefits from memory-grounded runtime skill",
+            )
         if _matches(lowered, _COMPLEX_TASK_SIGNALS):
             return SkillNeedDecision(
                 True,
@@ -218,3 +231,21 @@ _COMPLEX_TASK_SIGNALS = (
 )
 
 _MODEL_SKILL_CANDIDATE_SIGNALS = _BRAND_DESIGN_SIGNALS + _ENGINEERING_SIGNALS + _COMPLEX_TASK_SIGNALS
+
+
+def _template_intent(text: str) -> tuple[str, str, bool] | None:
+    templates = (
+        (("品牌定位", "positioning"), "brand_positioning", "brand_strategy", True),
+        (("营销", "marketing"), "marketing_strategy", "marketing", False),
+        (("写作", "文案", "writing"), "writing_style", "writing", False),
+        (("产品分析", "product analysis"), "product_analysis", "product", False),
+        (("商业计划", "business plan"), "business_plan", "business", False),
+        (("pitch", "融资", "路演"), "pitch_deck", "business", True),
+        (("代码审查", "code review"), "code_review", "software_engineering", False),
+        (("架构", "architecture"), "architecture_design", "software_engineering", False),
+        (("研究计划", "research plan"), "research_plan", "research", False),
+    )
+    for signals, intent, domain, clarify in templates:
+        if any(signal in text for signal in signals):
+            return intent, domain, clarify
+    return None

@@ -11,6 +11,7 @@ def _config(
     store_raw_events: bool = False,
     enable_runtime_observer: bool = True,
     store_runtime_observation_previews: bool = False,
+    strict_privacy: bool = False,
 ) -> Config:
     return Config(
         model="gpt-5.4-mini",
@@ -23,6 +24,7 @@ def _config(
         store_raw_events=store_raw_events,
         enable_runtime_observer=enable_runtime_observer,
         store_runtime_observation_previews=store_runtime_observation_previews,
+        strict_privacy=strict_privacy,
     )
 
 
@@ -170,6 +172,41 @@ class PrivacyTest(unittest.TestCase):
                 self.assertEqual(observed["reason"], "runtime_observer_disabled")
                 context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t1")
                 self.assertNotIn("Runtime control:", context)
+            finally:
+                service.close()
+
+    def test_strict_privacy_hashes_runtime_observation_and_injection_payloads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp, strict_privacy=True))
+            try:
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                self.assertIn("Runtime Skill:", context)
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
+                ][0]
+                metadata = injection["metadata_json"]
+                self.assertIn("prompt_sha256", metadata)
+                self.assertNotIn("prompt_preview", metadata)
+                self.assertNotIn("strategy", metadata["skill"])
+
+                service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s2", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "cmd": "python3 -m unittest discover -s tests -v",
+                        "stdout": "OK",
+                        "exit_code": 0,
+                        "session_id": "s2",
+                        "turn_id": "t1",
+                        "cwd": tmp,
+                    }
+                )
+                records = service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                rendered = str([item for item in records if item.get("record_type") == "workflow_observation"])
+                self.assertIn("command_sha256", rendered)
+                self.assertNotIn("python3 -m unittest", rendered)
             finally:
                 service.close()
 

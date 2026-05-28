@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .durable_skills import durable_skill_basis_summary, relevant_durable_skills
 from .recall import MemoryRecall
 from .seed_skills import relevant_seed_skills, seed_skill_basis_summary
 
@@ -25,12 +26,15 @@ class CleanMemoryRetriever:
         edges = self.ledger.list_edges([str(item["id"]) for item in candidates if item.get("id")])
         recalled = MemoryRecall(candidates, edges=edges).recall(prompt, limit=limit)
         memories = _merge_memory_lists(recalled.memories, _stable_preferences(candidates), limit)
+        durable_skills = relevant_durable_skills(self.ledger, prompt, cwd=cwd, limit=3)
         seed_skills = relevant_seed_skills(self.ledger, prompt, limit=4)
         return {
             "route": recalled.route,
             "memories": memories,
+            "durable_skills": durable_skills,
             "seed_skills": seed_skills,
             "memory_basis_summary": _basis_summary(memories),
+            "durable_skill_basis_summary": durable_skill_basis_summary(durable_skills),
             "seed_skill_basis_summary": seed_skill_basis_summary(seed_skills),
         }
 

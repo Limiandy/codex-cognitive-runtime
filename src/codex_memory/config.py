@@ -27,6 +27,7 @@ class Config:
     enable_experimental_cli: bool = False
     enable_runtime_observer: bool = True
     store_runtime_observation_previews: bool = False
+    strict_privacy: bool = False
 
 
 def _default_state_dir() -> Path:
@@ -77,6 +78,10 @@ def load_config() -> Config:
         os.environ.get("CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS"),
         bool(data.get("store_runtime_observation_previews", False)),
     )
+    strict_privacy = _bool(
+        os.environ.get("CODEX_MEMORY_STRICT_PRIVACY"),
+        bool(data.get("strict_privacy", False)),
+    )
 
     return Config(
         model=str(model),
@@ -94,7 +99,8 @@ def load_config() -> Config:
         store_raw_events=store_raw_events,
         enable_experimental_cli=enable_experimental_cli,
         enable_runtime_observer=enable_runtime_observer,
-        store_runtime_observation_previews=store_runtime_observation_previews,
+        store_runtime_observation_previews=False if strict_privacy else store_runtime_observation_previews,
+        strict_privacy=strict_privacy,
     )
 
 

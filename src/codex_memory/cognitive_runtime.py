@@ -18,9 +18,10 @@ from .workflow_dag import WorkflowDAG, WorkflowExecutor, WorkflowStep, build_dag
 
 
 class CognitiveRuntime:
-    def __init__(self, ledger: Any, store_observation_previews: bool = False):
+    def __init__(self, ledger: Any, store_observation_previews: bool = False, strict_privacy: bool = False):
         self.ledger = ledger
         self.store_observation_previews = store_observation_previews
+        self.strict_privacy = strict_privacy
         self.state = RuntimeStateMachine()
         self.reasoning = ReasoningPolicyEngine()
 
@@ -234,11 +235,15 @@ class CognitiveRuntime:
         summary = redact_secrets(normalized.to_dict())
         if not self.store_observation_previews:
             summary = _redact_observation_previews(summary)
+        command = str(redact_secrets(normalized.command))[:300]
+        if self.strict_privacy:
+            command = _hash_text(command)
+            summary = _strict_observation_summary(summary)
         return {
             "matched_step_id": matched_step_id,
             "tool_name": str(redact_secrets(normalized.tool_name)),
             "tool_kind": normalized.tool_kind,
-            "command": str(redact_secrets(normalized.command))[:300],
+            "command": command,
             "summary": summary,
             "test_failed": bool(normalized.evidence_summary.get("failed")) if matched_step_id == "execute_and_verify" else False,
         }
@@ -1030,6 +1035,22 @@ def _redact_observation_previews(summary: dict[str, Any]) -> dict[str, Any]:
         redacted[field] = ""
     redacted["preview_storage"] = "redacted"
     return redacted
+
+
+def _strict_observation_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    strict = dict(summary)
+    command = str(strict.get("command") or "")
+    strict["command_sha256"] = hashlib.sha256(command.encode("utf-8", errors="replace")).hexdigest() if command else None
+    strict["command"] = ""
+    files = [str(item) for item in strict.get("files_changed") or [] if item]
+    strict["files_changed_sha256"] = [_hash_text(path) for path in files]
+    strict["files_changed"] = []
+    strict["strict_privacy"] = True
+    return strict
+
+
+def _hash_text(text: str) -> str:
+    return hashlib.sha256(str(text or "").encode("utf-8", errors="replace")).hexdigest() if text else ""
 
 
 def _step_completed(metadata: dict[str, Any], step_id: str) -> bool:

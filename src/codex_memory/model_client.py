@@ -140,6 +140,17 @@ class CodexMiniClient:
                     "requires_clarification": False,
                     "reason": "fake classifier engineering task",
                 }
+            if any(signal in target for signal in ("品牌定位", "营销", "写作", "产品分析", "商业计划", "pitch", "融资", "架构", "研究计划", "strategy", "plan", "design")):
+                return {
+                    "skill_needed": True,
+                    "mode": "generate_runtime_skill",
+                    "intent": "complex_task",
+                    "domain": "general",
+                    "complexity": "medium",
+                    "requires_memory": True,
+                    "requires_clarification": False,
+                    "reason": "fake classifier complex task",
+                }
             return {
                 "skill_needed": False,
                 "mode": "direct_answer",
