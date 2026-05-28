@@ -63,6 +63,27 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_negative_preference_near_duplicate_is_found_before_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="不要主动使用 emoji。",
+                    memory_type="user_preference",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="global",
+                    evidence=[Evidence(source="user_message", quote="不要主动使用 emoji。")],
+                    reason="test",
+                )
+                service.ledger.add_candidate(candidate, "active", {"status": "active"})
+                matches = service.ledger.find_active_duplicates("用户不希望我主动使用 emoji。", "user_preference", "global")
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_architecture_near_duplicate_is_found_before_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
