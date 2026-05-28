@@ -112,6 +112,13 @@ class GovernanceTest(unittest.TestCase):
                     project_key=project_key,
                 )
                 self.assertEqual(len(matches), 1)
+                matches = service.ledger.find_active_duplicates(
+                    "项目架构要求 MCP 与 hook 保持两条不重叠路径，二者不能互相调用。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
             finally:
                 service.close()
 
