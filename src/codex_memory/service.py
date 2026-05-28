@@ -13,9 +13,12 @@ from .ledger import Ledger, project_key_for_cwd
 from . import logger
 from .local_store import LocalCognitiveStore
 from .model_client import CodexMiniClient
+from .memory_retriever import CleanMemoryRetriever
 from .recall import MemoryRecall
 from .review import MemoryReviewer
+from .runtime_skill import RuntimeSkillInjector, RuntimeSkillSynthesizer
 from .security import sanitize_payload, summarize_payload, summarize_candidate
+from .skill_need import SkillNeedClassifier
 from .skills import SkillEngine
 
 
@@ -218,11 +221,20 @@ class MemoryService:
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
+        skill_decision = SkillNeedClassifier().classify(prompt)
+        runtime_skill_context = ""
+        if skill_decision.skill_needed:
+            memory_basis = CleanMemoryRetriever(self.ledger).retrieve(prompt, cwd=cwd, session_id=session_id, limit=limit)
+            runtime_skill = RuntimeSkillSynthesizer().synthesize(prompt, skill_decision, memory_basis)
+            runtime_skill_context = RuntimeSkillInjector().format(runtime_skill)
         runtime_context = ""
         if self.config.enable_runtime_observer:
-            runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id, turn_id=turn_id)
+            active_workflow = self.runtime.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd)
+            if active_workflow or skill_decision.domain == "software_engineering":
+                runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id, turn_id=turn_id)
         logger.debug("memory recall completed", prompt_chars=len(prompt), route=result.route, recall_id=recall_id, budget=budget, memory_count=len(result.memories))
-        return "\n\n".join(part for part in (result.context, runtime_context) if part)
+        memory_context = "" if runtime_skill_context else result.context
+        return "\n\n".join(part for part in (runtime_skill_context, memory_context, runtime_context) if part)
 
     def search_context(
         self,
