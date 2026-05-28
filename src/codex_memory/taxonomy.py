@@ -144,7 +144,19 @@ def _best_match(tokens: set[str], lowered: str, mapping: dict[str, set[str]]) ->
 
 
 def _compact_text(text: str) -> str:
-    return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", (text or "").lower())
+    lowered = (text or "").lower()
+    for old, new in (
+        ("默认使用中文", "默认中文"),
+        ("默认用中文", "默认中文"),
+        ("使用中文", "中文"),
+        ("用中文", "中文"),
+        ("并且", ""),
+        ("而且", ""),
+        ("以及", ""),
+        ("且", ""),
+    ):
+        lowered = lowered.replace(old, new)
+    return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", lowered)
 
 
 def _near_duplicate_anchors(left: str, right: str) -> set[str]:
