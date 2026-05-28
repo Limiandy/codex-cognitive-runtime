@@ -10,7 +10,7 @@ from .ontology import cognitive_layer_for_memory, ontology_snapshot
 from .observation import normalize_tool_observation
 from .recall import MemoryRecall
 from .reasoning_policy import ReasoningPolicyEngine
-from .security import summarize_payload
+from .security import redact_secrets, summarize_payload
 from .state_machine import RuntimeStateMachine
 from .taxonomy import classify, near_duplicate_text, tokenize
 from .workflow_dag import WorkflowDAG, WorkflowExecutor, WorkflowStep, build_dag
@@ -230,14 +230,14 @@ class CognitiveRuntime:
             matched_step_id = "execute_change"
         if normalized.tool_kind == "verify":
             matched_step_id = "execute_and_verify"
-        summary = normalized.to_dict()
+        summary = redact_secrets(normalized.to_dict())
         if not self.store_observation_previews:
             summary = _redact_observation_previews(summary)
         return {
             "matched_step_id": matched_step_id,
-            "tool_name": normalized.tool_name,
+            "tool_name": str(redact_secrets(normalized.tool_name)),
             "tool_kind": normalized.tool_kind,
-            "command": normalized.command[:300],
+            "command": str(redact_secrets(normalized.command))[:300],
             "summary": summary,
             "test_failed": bool(normalized.evidence_summary.get("failed")) if matched_step_id == "execute_and_verify" else False,
         }

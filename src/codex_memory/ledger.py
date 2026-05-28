@@ -1405,7 +1405,15 @@ class Ledger:
             cutoff = (datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=older_than_days)).isoformat().replace("+00:00", "Z")
         record_types = {"workflow_observation", "recipe_recommendation", "recipe_reuse"}
         ids: list[str] = []
-        counts = {"workflow_observation": 0, "recipe_recommendation": 0, "recipe_reuse": 0, "resolved_workflow_violation": 0, "verification_recipe": 0}
+        workflow_metadata_updates: list[tuple[str, dict[str, Any]]] = []
+        counts = {
+            "workflow_observation": 0,
+            "recipe_recommendation": 0,
+            "recipe_reuse": 0,
+            "resolved_workflow_violation": 0,
+            "workflow_metadata_observations": 0,
+            "verification_recipe": 0,
+        }
         rows = self.conn.execute(
             """
             SELECT id,layer,record_type,status,created_at,metadata_json
@@ -1429,6 +1437,16 @@ class Ledger:
             elif layer == "audit" and record_type == "workflow_violation" and (row["status"] == "resolved" or metadata.get("resolved_at")):
                 should_delete = True
                 count_key = "resolved_workflow_violation"
+            elif layer == "workflow" and record_type == "observed_workflow":
+                patch: dict[str, Any] = {}
+                if metadata.get("observations"):
+                    patch["observations"] = []
+                if metadata.get("recommended_recipe_ids"):
+                    patch["recommended_recipe_ids"] = []
+                if patch:
+                    patch["pruned_runtime_metadata_at"] = _now()
+                    workflow_metadata_updates.append((str(row["id"]), patch))
+                    counts["workflow_metadata_observations"] += 1
             elif include_recipes and layer == "skill" and record_type == "verification_recipe":
                 should_delete = True
                 count_key = "verification_recipe"
@@ -1439,6 +1457,16 @@ class Ledger:
             for record_id in ids:
                 self.conn.execute("DELETE FROM cognitive_records WHERE id=?", (record_id,))
                 self.conn.execute("DELETE FROM cognitive_edges WHERE source_id=? OR target_id=?", (record_id, record_id))
+            for record_id, patch in workflow_metadata_updates:
+                record = self.get_cognitive_record(record_id)
+                if not record:
+                    continue
+                metadata = dict(record.get("metadata_json") or {})
+                metadata.update(patch)
+                self.conn.execute(
+                    "UPDATE cognitive_records SET metadata_json=?, updated_at=? WHERE id=?",
+                    (json.dumps(metadata, ensure_ascii=False), _now(), record_id),
+                )
         return {
             "pruned_runtime_records": len(ids),
             "counts": counts,

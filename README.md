@@ -166,7 +166,7 @@ You can also export, prune processed event payloads, or wipe the Ledger through 
 ./scripts/codex-memory wipe --yes
 ```
 
-`prune-events` only deletes processed rows from the `events` table. It does not remove cognitive runtime observations, workflow violations, learned recipes, or reviewed memories. Use `prune-runtime` to remove runtime audit records such as workflow observations and recipe reuse events. Learned verification recipes are kept unless you pass `--include-recipes`. Use `wipe --yes` to clear the local Ledger completely.
+`prune-events` only deletes processed rows from the `events` table. It does not remove cognitive runtime observations, workflow violations, learned recipes, or reviewed memories. Use `prune-runtime` to remove runtime audit records such as workflow observations and recipe reuse events; it also clears observation copies embedded in observed workflow metadata. Learned verification recipes are kept unless you pass `--include-recipes`. Use `wipe --yes` to clear the local Ledger completely.
 
 ## Privacy
 
@@ -174,7 +174,7 @@ Codex Memory stores events in `~/.codex-memory/ledger.sqlite3`. By default, even
 
 Reviewed memory content and evidence can still be stored when they pass review gates. Use `./scripts/codex-memory queue`, `promote`, `reject`, and `delete` to inspect and manage memory records.
 
-Runtime observation is a separate privacy surface from event payload storage. When the observer is enabled, Codex Memory may store structured workflow observations in the local Ledger, including tool command strings, changed file paths, exit codes, source field names, failure flags, and stdout/stderr hashes and lengths. By default, stdout/stderr text previews are not stored in runtime observations or verification recipes.
+Runtime observation is a separate privacy surface from event payload storage. When the observer is enabled, Codex Memory may store structured workflow observations in the local Ledger, including redacted tool command strings, changed file paths, exit codes, source field names, failure flags, and stdout/stderr hashes and lengths. By default, stdout/stderr text previews are not stored in runtime observations or verification recipes.
 
 User opt-out phrases such as "不要记忆" or "do not remember" skip durable memory candidate extraction. They do not mean "do not write any local audit event": sanitized hook events may still be stored so the local workflow guard and audit trail can function. Disable the runtime observer or prune/wipe local data if you need stricter local retention.
 

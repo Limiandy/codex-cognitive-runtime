@@ -115,6 +115,29 @@ class PrivacyTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_runtime_observation_redacts_secret_like_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "cmd": "python3 -m unittest discover -s tests -v --api_key=sk-secretsecretsecret",
+                        "stdout": "OK",
+                        "exit_code": 0,
+                        "session_id": "s1",
+                        "turn_id": "t1",
+                        "cwd": tmp,
+                    }
+                )
+                records = service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                rendered = str([item for item in records if item.get("record_type") == "workflow_observation"])
+                self.assertNotIn("sk-secretsecretsecret", rendered)
+                self.assertIn("[REDACTED]", rendered)
+            finally:
+                service.close()
+
     def test_runtime_observation_preview_storage_requires_explicit_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp, store_runtime_observation_previews=True))

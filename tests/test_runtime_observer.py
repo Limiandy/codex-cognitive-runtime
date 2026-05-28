@@ -476,11 +476,16 @@ class RuntimeObserverTest(unittest.TestCase):
 
                 self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=50) if item.get("record_type") == "workflow_observation"])
                 self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=50) if item.get("record_type") == "verification_recipe"])
+                workflow_records = [item for item in service.ledger.list_cognitive_records(layer="workflow", status="completed", limit=50) if item.get("record_type") == "observed_workflow"]
+                self.assertTrue((workflow_records[0].get("metadata_json") or {}).get("observations"))
 
                 pruned = service.prune_runtime()
                 self.assertGreater(pruned["counts"]["workflow_observation"], 0)
+                self.assertGreater(pruned["counts"]["workflow_metadata_observations"], 0)
                 self.assertFalse([item for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=50) if item.get("record_type") == "workflow_observation"])
                 self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=50) if item.get("record_type") == "verification_recipe"])
+                workflow_records = [item for item in service.ledger.list_cognitive_records(layer="workflow", status="completed", limit=50) if item.get("record_type") == "observed_workflow"]
+                self.assertEqual((workflow_records[0].get("metadata_json") or {}).get("observations"), [])
 
                 pruned_with_recipes = service.prune_runtime(include_recipes=True)
                 self.assertEqual(pruned_with_recipes["counts"]["verification_recipe"], 1)
