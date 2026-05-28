@@ -70,6 +70,7 @@ class AgencySkillSeeder:
                         "license": "MIT",
                         "license_detected": license_detected,
                         "trust_level": "external_seed",
+                        "trust_state": "trusted" if commit else "unverified",
                         "source_verified": bool(commit),
                         "content_sha256": _sha256(skill["content"]),
                         "imported_at": imported_at,
@@ -94,6 +95,8 @@ def relevant_seed_skills(ledger: Any, prompt: str, limit: int = 4) -> list[dict[
             continue
         metadata = record.get("metadata_json") or {}
         if metadata.get("trust_level") != "external_seed":
+            continue
+        if metadata.get("trust_state") in {"suppressed", "deprecated", "disabled"}:
             continue
         success_count = int(metadata.get("success_count") or 0)
         failure_count = int(metadata.get("failure_count") or 0)

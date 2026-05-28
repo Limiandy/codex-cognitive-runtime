@@ -7,6 +7,8 @@ from .model_client import ModelError
 from .security import SECRET_PATTERNS, redact_secrets
 from .skill_need import SkillNeedDecision
 
+RUNTIME_SKILL_MODEL_TIMEOUT_SECONDS = 12
+
 
 @dataclass(frozen=True)
 class RuntimeSkill:
@@ -181,7 +183,12 @@ class RuntimeSkillSynthesizer:
             "confidence": 0.0,
         }
         try:
-            result = self.model.complete_json(prompt_text, schema)
+            result = self.model.complete_json(prompt_text, schema, timeout_seconds=RUNTIME_SKILL_MODEL_TIMEOUT_SECONDS)
+        except TypeError:
+            try:
+                result = self.model.complete_json(prompt_text, schema)
+            except (ModelError, ValueError, TypeError):
+                return None
         except (ModelError, ValueError, TypeError):
             return None
         if not isinstance(result, dict):

@@ -65,6 +65,7 @@ class MemoryService:
             feedback = self.apply_natural_feedback(
                 prompt,
                 str(payload.get("session_id") or "") or None,
+                str(payload.get("turn_id") or "") or None,
             )
             if feedback.get("updated"):
                 logger.info("natural memory feedback applied", event_id=event_id, feedback=feedback)
@@ -280,9 +281,14 @@ class MemoryService:
         logger.debug("memory recall outcome recorded", session_id=session_id, turn_id=turn_id, result=result)
         return result
 
-    def apply_natural_feedback(self, prompt: str, session_id: str | None = None) -> dict[str, Any]:
+    def apply_natural_feedback(
+        self,
+        prompt: str,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+    ) -> dict[str, Any]:
         result = MemoryGovernance(self.ledger).apply_natural_feedback(prompt, session_id=session_id)
-        skill_feedback = self._record_runtime_skill_natural_feedback(prompt, session_id=session_id)
+        skill_feedback = self._record_runtime_skill_natural_feedback(prompt, session_id=session_id, turn_id=turn_id)
         if skill_feedback:
             result["runtime_skill_feedback"] = skill_feedback
         logger.debug("natural memory feedback checked", session_id=session_id, result=result)
@@ -320,20 +326,32 @@ class MemoryService:
                 "source": "workflow_stop",
                 "workflow_id": result.get("workflow_id"),
                 "event_id": result.get("event_id"),
+                "matched_reason": "session_turn_workflow_stop" if payload.get("turn_id") else "session_workflow_stop",
             },
         )
 
-    def _record_runtime_skill_natural_feedback(self, prompt: str, session_id: str | None = None) -> dict[str, Any] | None:
+    def _record_runtime_skill_natural_feedback(
+        self,
+        prompt: str,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+    ) -> dict[str, Any] | None:
         outcome = _runtime_skill_feedback_sentiment(prompt)
         if not outcome:
             return None
-        injection = self.ledger.latest_runtime_skill_injection(session_id=session_id)
+        injection = self.ledger.latest_runtime_skill_injection(session_id=session_id, turn_id=turn_id, max_age_minutes=30)
         if not injection:
             return None
+        matched_reason = "same_turn_recent_feedback" if turn_id else "same_session_recent_feedback"
         return self.ledger.record_runtime_skill_feedback(
             str(injection["id"]),
             outcome,
-            {"source": "natural_feedback", "prompt_preview": prompt[:160]},
+            {
+                "source": "natural_feedback",
+                "prompt_preview": prompt[:160],
+                "matched_reason": matched_reason,
+                "injection_created_at": injection.get("created_at"),
+            },
         )
 
     def consolidate_memories(self) -> dict[str, Any]:
@@ -551,7 +569,7 @@ def _memory_storage_opt_out(prompt: str) -> bool:
 
 def _runtime_skill_feedback_sentiment(prompt: str) -> str | None:
     lowered = prompt.lower()
-    positive = ("很好", "对", "正是", "可以", "有用", "useful", "good", "works")
+    positive = ("很好", "正是", "可以", "有用", "useful", "good", "works")
     negative = ("不对", "不是", "不要这样", "没用", "wrong", "not useful", "bad")
     if any(signal in lowered for signal in negative):
         return "negative"

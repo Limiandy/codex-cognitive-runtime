@@ -6,6 +6,8 @@ from typing import Any
 from .model_client import ModelError
 from .security import redact_secrets
 
+RUNTIME_SKILL_MODEL_TIMEOUT_SECONDS = 12
+
 
 @dataclass(frozen=True)
 class SkillNeedDecision:
@@ -107,7 +109,12 @@ class SkillNeedClassifier:
             "reason": "short reason",
         }
         try:
-            result = self.model.complete_json(request, schema)
+            result = self.model.complete_json(request, schema, timeout_seconds=RUNTIME_SKILL_MODEL_TIMEOUT_SECONDS)
+        except TypeError:
+            try:
+                result = self.model.complete_json(request, schema)
+            except (ModelError, ValueError, TypeError):
+                return None
         except (ModelError, ValueError, TypeError):
             return None
         if not isinstance(result, dict):

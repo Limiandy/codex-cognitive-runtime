@@ -120,6 +120,46 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_runtime_skill_model_calls_use_short_timeout(self):
+        class TimeoutModel:
+            def __init__(self):
+                self.timeouts = []
+
+            def complete_json(self, prompt, schema, timeout_seconds=None):
+                self.timeouts.append(timeout_seconds)
+                if "Classify runtime skill need" in prompt:
+                    return {
+                        "skill_needed": True,
+                        "mode": "generate_runtime_skill",
+                        "intent": "brand_logo_design",
+                        "domain": "brand_design",
+                        "complexity": "medium",
+                        "requires_memory": True,
+                        "requires_clarification": True,
+                        "reason": "test",
+                    }
+                return {
+                    "name": "timeout_checked_logo",
+                    "applies_to": "logo design",
+                    "goal": "Clarify before design.",
+                    "memory_basis_ids": [],
+                    "seed_skill_ids": [],
+                    "strategy": ["Ask questions first.", "Offer directions after clarification."],
+                    "first_action": {"type": "ask_clarifying_questions", "questions": ["品牌名称是什么？"]},
+                    "avoid": ["Do not generate immediately."],
+                    "confidence": 0.8,
+                }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            service.model = TimeoutModel()
+            try:
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                self.assertIn("Runtime Skill: timeout_checked_logo", context)
+                self.assertEqual(service.model.timeouts, [12, 12])
+            finally:
+                service.close()
+
     @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_generation_uses_model_synthesizer(self, model_synthesize):
         from codex_memory.runtime_skill import RuntimeSkill
@@ -197,6 +237,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 seed_metadata = seed_record["metadata_json"]
                 self.assertEqual(seed_metadata["trust_level"], "external_seed")
                 self.assertEqual(seed_metadata["license"], "MIT")
+                self.assertEqual(seed_metadata["trust_state"], "unverified")
                 self.assertIn("MIT", seed_metadata["license_detected"])
                 self.assertEqual(len(seed_metadata["content_sha256"]), 64)
                 self.assertFalse(seed_metadata["source_verified"])
@@ -254,6 +295,53 @@ class RuntimeSkillTest(unittest.TestCase):
                     if item.get("record_type") == "runtime_skill_injection"
                 ][0]
                 self.assertEqual(injection["metadata_json"]["feedback_status"], "positive")
+                self.assertEqual(injection["metadata_json"]["feedback_dimensions"]["skill_relevance"], "positive")
+            finally:
+                service.close()
+
+    def test_natural_feedback_ignores_old_runtime_skill_injection(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path))
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ][0]
+                service.ledger.conn.execute(
+                    "UPDATE cognitive_records SET created_at=? WHERE id=?",
+                    ("2020-01-01T00:00:00Z", injection["id"]),
+                )
+                service.ledger.conn.commit()
+
+                feedback = service.apply_natural_feedback("很好，正是这个方向", session_id="s1")
+
+                self.assertNotIn("runtime_skill_feedback", feedback)
+                seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
+                self.assertEqual(seed["metadata_json"]["reuse_count"], 0)
+            finally:
+                service.close()
+
+    def test_negative_feedback_suppresses_seed_skill_after_repeated_failures(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path))
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                for _ in range(3):
+                    service.apply_natural_feedback("不对，不要这样", session_id="s1")
+
+                seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
+                metadata = seed["metadata_json"]
+                self.assertEqual(metadata["failure_count"], 3)
+                self.assertEqual(metadata["trust_state"], "suppressed")
+                self.assertFalse(relevant_seed_skills(service.ledger, "帮我画一个品牌 logo"))
             finally:
                 service.close()
 

@@ -657,7 +657,12 @@ class Ledger:
             source_kind="runtime_skill_injection",
         )
 
-    def latest_runtime_skill_injection(self, session_id: str | None = None, turn_id: str | None = None) -> dict[str, Any] | None:
+    def latest_runtime_skill_injection(
+        self,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        max_age_minutes: int | None = None,
+    ) -> dict[str, Any] | None:
         where = ["layer='audit'", "record_type='runtime_skill_injection'", "status='active'"]
         params: list[Any] = []
         if session_id:
@@ -672,6 +677,8 @@ class Ledger:
             metadata = record.get("metadata_json") or {}
             if turn_id and metadata.get("turn_id") != turn_id:
                 continue
+            if max_age_minutes is not None and _record_age_minutes(record) > max_age_minutes:
+                continue
             return record
         return None
 
@@ -685,11 +692,13 @@ class Ledger:
         if not injection:
             return None
         metadata = dict(injection.get("metadata_json") or {})
+        dimensions = _runtime_skill_feedback_dimensions(outcome, evidence)
         metadata.update(
             {
                 "feedback_status": outcome,
                 "feedback_at": _now(),
                 "feedback_source": evidence.get("source"),
+                "feedback_dimensions": dimensions,
             }
         )
         self.conn.execute(
@@ -713,6 +722,7 @@ class Ledger:
             metadata={
                 "injection_id": injection_id,
                 "outcome": outcome,
+                "dimensions": dimensions,
                 "evidence": evidence,
                 "seed_skill_ids": metadata.get("seed_skill_ids") or [],
             },
@@ -733,6 +743,10 @@ class Ledger:
         metadata["success_count"] = int(metadata.get("success_count") or 0) + (1 if success else 0)
         metadata["failure_count"] = int(metadata.get("failure_count") or 0) + (0 if success else 1)
         metadata["last_feedback_at"] = _now()
+        if metadata["failure_count"] >= 3 and metadata["failure_count"] > metadata["success_count"]:
+            metadata["trust_state"] = "suppressed"
+        elif metadata.get("trust_state") == "suppressed" and metadata["success_count"] >= metadata["failure_count"]:
+            metadata["trust_state"] = "trusted" if metadata.get("source_verified") else "unverified"
         self.adjust_cognitive_record_strength(seed_id, 0.05 if success else -0.1, metadata)
 
     def record_runtime_violation(
@@ -1711,6 +1725,45 @@ def _id(prefix: str) -> str:
 
 def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _record_age_minutes(record: dict[str, Any]) -> float:
+    created_at = str(record.get("created_at") or "")
+    if not created_at:
+        return float("inf")
+    try:
+        created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return float("inf")
+    return (datetime.now(timezone.utc) - created).total_seconds() / 60
+
+
+def _runtime_skill_feedback_dimensions(outcome: str, evidence: dict[str, Any]) -> dict[str, str]:
+    source = str(evidence.get("source") or "")
+    unknown = "unknown"
+    dimensions = {
+        "skill_relevance": unknown,
+        "first_action_quality": unknown,
+        "memory_basis_quality": unknown,
+        "seed_skill_quality": unknown,
+        "execution_compliance": unknown,
+        "final_result_quality": unknown,
+    }
+    if source == "workflow_stop":
+        if outcome == "success":
+            dimensions["execution_compliance"] = "passed"
+            dimensions["final_result_quality"] = "positive"
+        elif outcome == "failure":
+            dimensions["execution_compliance"] = "failed"
+            dimensions["final_result_quality"] = "negative"
+    elif source == "natural_feedback":
+        if outcome == "positive":
+            dimensions["skill_relevance"] = "positive"
+            dimensions["final_result_quality"] = "positive"
+        elif outcome == "negative":
+            dimensions["skill_relevance"] = "negative"
+            dimensions["final_result_quality"] = "negative"
+    return dimensions
 
 
 def _days_from_now(days: int | None) -> str | None:

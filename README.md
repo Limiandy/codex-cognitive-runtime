@@ -31,7 +31,7 @@ Runtime Skill lifecycle:
 4. Review the Runtime Skill for allowed basis ids, missing clarification, secret-like content, and unsupported user or organization claims.
 5. Inject the reviewed skill and record a local audit event.
 6. Observe workflow or natural feedback.
-7. Feed success/failure back into seed skill strength and dynamic skill candidates.
+7. Feed success/failure dimensions back into seed skill strength and dynamic skill candidates.
 
 ## Commands
 
@@ -49,6 +49,7 @@ Runtime Skill lifecycle:
 ```
 
 Set `CODEX_MEMORY_MODEL` to override the default model. The default is `gpt-5.4-mini`.
+Runtime Skill classification and synthesis use a shorter model timeout than durable memory extraction and fall back to deterministic skills when the model is slow or unavailable.
 
 ## Support Matrix
 
@@ -153,9 +154,9 @@ Seed skills can be imported to provide a cold-start skill basis before the local
 
 By default this imports agent skill markdown from [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents) on demand and records each entry as a local `seed_skill` cognitive record with source path, commit, content hash, trust level, feedback counters, and MIT license metadata. The source content is not vendored into this repository. Use `--source /path/to/agency-agents` for an already cloned checkout, `--category design` to import one category, and `--limit N` for a smaller trial import.
 
-Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis. Seed skills with repeated failures are automatically suppressed from future Runtime Skill basis retrieval.
+Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis. Seed skills stay active for cold start but carry `trust_level`, `trust_state`, source hash, license metadata, and feedback counters; repeated failures automatically suppress them from future Runtime Skill basis retrieval.
 
-Runtime Skill injections are recorded as local audit records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
+Runtime Skill injections are recorded as local audit records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Feedback is associated with the same turn when available, or with the latest same-session injection within a short recent window. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
 
 ## Uninstall
 

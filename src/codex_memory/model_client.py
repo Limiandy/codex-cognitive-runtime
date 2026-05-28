@@ -21,7 +21,12 @@ class CodexMiniClient:
     def __init__(self, config: Config):
         self.config = config
 
-    def complete_json(self, prompt: str, schema_hint: dict[str, Any] | None = None) -> dict[str, Any]:
+    def complete_json(
+        self,
+        prompt: str,
+        schema_hint: dict[str, Any] | None = None,
+        timeout_seconds: int | float | None = None,
+    ) -> dict[str, Any]:
         if os.environ.get("CODEX_MEMORY_FAKE_MODEL"):
             result = self._fake_response(prompt)
             logger.debug("model fake response", prompt_chars=len(prompt), schema_keys=list((schema_hint or {}).keys()), result=sanitize_model_result(result))
@@ -54,7 +59,7 @@ class CodexMiniClient:
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                timeout=90,
+                timeout=timeout_seconds or 90,
             )
             if proc.returncode != 0:
                 logger.error("model failed", model=self.config.model, stderr=_safe_error(proc.stderr), stdout=_safe_error(proc.stdout))
