@@ -62,6 +62,7 @@ def main() -> int:
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
+    parser.add_argument("--hook-timeout", type=int, default=90)
     parser.add_argument("--state-dir", default="/private/tmp/codex-memory-real-chain-state")
     parser.add_argument("--log-dir", default="/private/tmp/codex-memory-real-chain-logs")
     parser.add_argument("--clear-before", action="store_true")
@@ -86,7 +87,7 @@ def main() -> int:
         turn_id = f"real-chain-turn-{turn_number:04d}"
         prompt = f"[real-{turn_number:04d}/{kind}] {text}"
         before = event_ids(state_dir)
-        user_result = call_hook("user_message", payload(session_id, turn_id, prompt, cwd, state_dir), state_dir, log_dir)
+        user_result = call_hook("user_message", payload(session_id, turn_id, prompt, cwd, state_dir), state_dir, log_dir, args.hook_timeout)
         event_id = newest_event_id(state_dir, before)
         processed = wait_event_processed(state_dir, event_id, args.wait_timeout) if event_id else False
         assistant_message = assistant_response(assistant_mode, user_result)
@@ -100,6 +101,7 @@ def main() -> int:
             },
             state_dir,
             log_dir,
+            args.hook_timeout,
         )
         governed = None
         if turn_number % args.govern_every == 0:
@@ -143,22 +145,31 @@ def payload(session_id: str, turn_id: str, prompt: str, cwd: str, state_dir: Pat
     }
 
 
-def call_hook(hook: str, data: dict[str, Any], state_dir: Path, log_dir: Path) -> dict[str, Any]:
+def call_hook(hook: str, data: dict[str, Any], state_dir: Path, log_dir: Path, timeout: int) -> dict[str, Any]:
     env = os.environ.copy()
     env.pop("CODEX_MEMORY_FAKE_MODEL", None)
     env["PLUGIN_ROOT"] = str(PLUGIN_ROOT)
     env["CODEX_MEMORY_STATE_DIR"] = str(state_dir)
     env["CODEX_MEMORY_LOG_DIR"] = str(log_dir)
     env["CODEX_MEMORY_LOG_LEVEL"] = "DEBUG"
-    proc = subprocess.run(
-        [str(HOOK), hook],
-        input=json.dumps(data, ensure_ascii=False),
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
-        timeout=30,
-    )
+    try:
+        proc = subprocess.run(
+            [str(HOOK), hook],
+            input=json.dumps(data, ensure_ascii=False),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "error": "hook_timeout",
+            "hook": hook,
+            "timeout_seconds": timeout,
+            "stdout": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+            "stderr": (exc.stderr or "")[-2000:] if isinstance(exc.stderr, str) else "",
+        }
     if proc.returncode != 0:
         return {"error": proc.stderr.strip() or proc.stdout.strip(), "returncode": proc.returncode}
     try:
@@ -334,11 +345,17 @@ def write_report(
         and data["policy_hits"] >= 1
         and any(effect["source_recalled_before_policy"] > 0 and effect["source_recalled_after_policy"] == 0 for effect in data["policy_effects"])
     )
+    hook_error_count = sum(
+        1
+        for item in rounds
+        if item.get("user_hook_output", {}).get("error") or item.get("session_end_output", {}).get("error")
+    )
     passed = (
         not partial
         and data["events"]["pending"] == 0
         and data["events"]["failed"] == 0
         and data["false_active_count"] == 0
+        and hook_error_count == 0
         and (data["policy_count"] == 0 or policy_repair_proven)
     )
     report = {
@@ -354,6 +371,7 @@ def write_report(
         "log_dir": str(log_dir),
         "metrics": data,
         "policy_repair_proven": policy_repair_proven,
+        "hook_error_count": hook_error_count,
         "snapshots": snapshots,
         "round_samples": rounds[:10] + rounds[-10:],
     }
@@ -373,6 +391,7 @@ def summary(report: dict[str, Any]) -> dict[str, Any]:
         "false_active_count": metrics_data["false_active_count"],
         "policy_count": metrics_data["policy_count"],
         "policy_hits": metrics_data["policy_hits"],
+        "hook_error_count": report.get("hook_error_count", 0),
         "recall_event_count": metrics_data["recall_event_count"],
         "avg_injected": metrics_data["avg_injected"],
         "policy_effects": metrics_data["policy_effects"],

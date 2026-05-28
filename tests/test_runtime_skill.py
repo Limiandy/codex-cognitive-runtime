@@ -1052,6 +1052,9 @@ class RuntimeSkillTest(unittest.TestCase):
             "[real-0010/temporary_debug] 这次只需要临时打开 debug 日志，之后可以关闭。",
             "[real-0014/governance_living_policy] 治理规则不能是死的，要能通过动态 policy 自我修复准入和准出。",
             "[real-0026/water_gate] 水利工程经验：闸门调度异常时先核对上下游水位、传感器读数和执行机构状态。",
+            "[real-0035/project_boundary] 项目架构决策：MCP 和 hook 必须是两条不重叠的路径，不能互相调用。",
+            "[real-0037/project_boundary_conflict] 项目架构变更：MCP 和 hook 应该互相调用，形成统一链路。",
+            "[real-0040/fact_model] 事实：codex-memory 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。",
         ]:
             decision = classifier.classify(prompt)
             self.assertFalse(decision.skill_needed, prompt)
