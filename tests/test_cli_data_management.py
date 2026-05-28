@@ -162,6 +162,17 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertTrue(payload["ok"])
             self.assertEqual(payload["skill_count"], 1)
             self.assertEqual(payload["created"][0]["id"], "agency-agents:design/design-brand-guardian.md")
+            listed = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "list"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual(json.loads(listed.stdout)[0]["status"], "candidate")
 
     def test_seed_skills_rejects_non_mit_source(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
@@ -192,7 +203,7 @@ class CliDataManagementTest(unittest.TestCase):
             env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
 
             seed = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path), "--category", "design"],
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path), "--category", "design", "--activate"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -241,7 +252,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(restore.returncode, 0, restore.stderr)
             restored_payload = json.loads(restore.stdout)
             self.assertEqual(restored_payload["metadata_json"]["trust_state"], "unverified")
-            self.assertEqual(restored_payload["status"], "active")
+            self.assertEqual(restored_payload["status"], "candidate")
 
             context = subprocess.run(
                 [sys.executable, "-m", "codex_memory.cli", "search", "帮我画一个品牌 logo"],

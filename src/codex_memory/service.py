@@ -401,14 +401,15 @@ class MemoryService:
         if not injection:
             return None
         matched_reason = "same_turn_recent_feedback" if turn_id else "same_session_recent_feedback"
+        prompt_evidence = _feedback_prompt_evidence(prompt, self.config.strict_privacy)
         return self.ledger.record_runtime_skill_feedback(
             str(injection["id"]),
             decision.outcome,
             {
                 "source": "natural_feedback",
-                "prompt_preview": prompt[:160],
                 "matched_reason": matched_reason,
                 "injection_created_at": injection.get("created_at"),
+                **prompt_evidence,
                 **decision.to_evidence(),
             },
         )
@@ -464,8 +465,9 @@ class MemoryService:
         limit: int | None = None,
         category: str | None = None,
         dry_run: bool = False,
+        activate: bool = False,
     ) -> dict[str, Any]:
-        return AgencySkillSeeder(self.ledger).seed(source=source, repo_url=repo_url, limit=limit, category=category, dry_run=dry_run)
+        return AgencySkillSeeder(self.ledger).seed(source=source, repo_url=repo_url, limit=limit, category=category, dry_run=dry_run, activate=activate)
 
     def list_runtime_skills(self, limit: int = 50) -> list[dict[str, Any]]:
         return [
@@ -526,6 +528,8 @@ class MemoryService:
         elif trust_state == "suppressed":
             patch["suppressed_at"] = _utc_now()
             status = "suppressed"
+        elif trust_state == "unverified":
+            status = "active" if (record.get("metadata_json") or {}).get("source_verified") else "candidate"
         elif trust_state not in {"trusted", "unverified"}:
             status = str(record.get("status") or "active")
         return self.ledger.set_cognitive_record_status(skill_id, status, patch)
@@ -559,6 +563,9 @@ class MemoryService:
 
     def suppress_dynamic_skill(self, skill_id: str, reason: str = "") -> dict[str, Any] | None:
         return DurableSkillManager(self.ledger).suppress(skill_id, reason)
+
+    def dynamic_skill_stats(self) -> dict[str, Any]:
+        return DurableSkillManager(self.ledger).stats()
 
     def skill_promote(self, skill_id: str) -> dict[str, Any] | None:
         return SkillEngine(self.ledger).promote(skill_id)
@@ -607,6 +614,24 @@ class MemoryService:
                     record["content"] = ""
                     metadata = record.get("metadata_json") or {}
                     metadata["content_export"] = "omitted_by_strict_privacy"
+                    record["metadata_json"] = metadata
+                if record.get("layer") == "runtime_skill":
+                    metadata = record.get("metadata_json") or {}
+                    skill = metadata.get("skill") if isinstance(metadata.get("skill"), dict) else None
+                    if skill:
+                        metadata["skill"] = {
+                            "skill_type": skill.get("skill_type"),
+                            "name": skill.get("name"),
+                            "intent": skill.get("intent"),
+                            "domain": skill.get("domain"),
+                            "confidence": skill.get("confidence"),
+                            "memory_basis_ids": skill.get("memory_basis_ids") or [],
+                            "durable_skill_ids": skill.get("durable_skill_ids") or [],
+                            "seed_skill_ids": skill.get("seed_skill_ids") or [],
+                            "content_export": "omitted_by_strict_privacy",
+                        }
+                    if "prompt_preview" in metadata:
+                        metadata.pop("prompt_preview", None)
                     record["metadata_json"] = metadata
         return data
 
@@ -809,12 +834,36 @@ def _elapsed_ms(started: float) -> int:
 def _runtime_skill_cache_key(prompt: str, memory_basis: dict[str, Any]) -> str:
     basis = {
         "prompt": prompt,
-        "memory_ids": [str(item.get("id")) for item in memory_basis.get("memories") or []],
-        "durable_skill_ids": [str(item.get("id")) for item in memory_basis.get("durable_skills") or []],
-        "seed_skill_ids": [str(item.get("id")) for item in memory_basis.get("seed_skills") or []],
+        "memories": [_basis_cache_marker(item, include_trust=False) for item in memory_basis.get("memories") or []],
+        "durable_skills": [_basis_cache_marker(item, include_trust=True) for item in memory_basis.get("durable_skills") or []],
+        "seed_skills": [_basis_cache_marker(item, include_trust=True) for item in memory_basis.get("seed_skills") or []],
     }
     payload = json.dumps(basis, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _feedback_prompt_evidence(prompt: str, strict_privacy: bool) -> dict[str, Any]:
+    if strict_privacy:
+        return {
+            "prompt_sha256": hashlib.sha256(str(prompt or "").encode("utf-8", errors="replace")).hexdigest(),
+            "prompt_chars": len(str(prompt or "")),
+        }
+    return {"prompt_preview": str(prompt or "")[:160]}
+
+
+def _basis_cache_marker(item: dict[str, Any], include_trust: bool) -> dict[str, Any]:
+    metadata = item.get("metadata_json") or {}
+    marker = {
+        "id": str(item.get("id")),
+        "updated_at": item.get("updated_at"),
+        "status": item.get("status"),
+        "strength": item.get("strength"),
+    }
+    if include_trust:
+        marker["trust_state"] = metadata.get("trust_state")
+        marker["success_count"] = metadata.get("success_count")
+        marker["failure_count"] = metadata.get("failure_count")
+    return marker
 
 
 def _utc_now() -> str:

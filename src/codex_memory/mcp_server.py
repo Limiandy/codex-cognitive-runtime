@@ -181,6 +181,10 @@ TOOLS = {
         "description": "List dynamic durable skill candidates or active skills.",
         "inputSchema": {"type": "object", "properties": {"status": {"type": "string"}, "limit": {"type": "integer", "default": 20}}},
     },
+    "codex_memory_dynamic_skill_stats": {
+        "description": "Summarize durable dynamic skill reuse, feedback, and review state.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
     "codex_memory_promote_dynamic_skill": {
         "description": "Promote a dynamic skill candidate to active durable skill.",
         "inputSchema": {"type": "object", "properties": {"skill_id": {"type": "string"}, "note": {"type": "string", "default": ""}}, "required": ["skill_id"]},
@@ -280,6 +284,7 @@ def main() -> int:
         ),
         "codex_memory_seed_skills": lambda args: _with_service(lambda service: service.list_seed_skills(_limit(args.get("limit", 20)))),
         "codex_memory_dynamic_skills": lambda args: _with_service(lambda service: service.list_dynamic_skills(status=args.get("status"), limit=_limit(args.get("limit", 20)))),
+        "codex_memory_dynamic_skill_stats": lambda args: _with_service(lambda service: service.dynamic_skill_stats()),
         "codex_memory_promote_dynamic_skill": lambda args: _with_service(
             lambda service: service.promote_dynamic_skill(_id_arg(args["skill_id"], "skill_id"), note=str(args.get("note") or ""))
         ),

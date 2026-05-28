@@ -189,7 +189,13 @@ class PrivacyTest(unittest.TestCase):
                 metadata = injection["metadata_json"]
                 self.assertIn("prompt_sha256", metadata)
                 self.assertNotIn("prompt_preview", metadata)
+                self.assertIn("cwd_sha256", metadata)
+                self.assertNotIn("cwd", metadata)
                 self.assertNotIn("strategy", metadata["skill"])
+                feedback = service.apply_natural_feedback("很好", session_id="s1")
+                evidence = feedback["runtime_skill_feedback"]["metadata_json"]["evidence"]
+                self.assertIn("prompt_sha256", evidence)
+                self.assertNotIn("prompt_preview", evidence)
 
                 service.start_task_from_prompt({"prompt": "修复这个 bug", "session_id": "s2", "turn_id": "t1", "cwd": tmp})
                 service.observe_tool_use(

@@ -52,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_benchmark = sub.add_parser("runtime-benchmark")
     runtime_benchmark.add_argument("--fixture", default=None)
     runtime_benchmark.add_argument("--synthetic", action="store_true")
+    runtime_benchmark.add_argument("--fail-under-defaults", action="store_true")
     runtime_status = sub.add_parser("runtime-status")
     runtime_status.add_argument("--cwd", default=None)
     runtime_status.add_argument("--session-id", default=None)
@@ -111,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     seed_skills.add_argument("--limit", type=int, default=None)
     seed_skills.add_argument("--category", default=None)
     seed_skills.add_argument("--dry-run", action="store_true")
+    seed_skills.add_argument("--activate", action="store_true")
     seed_skills.add_argument("seed_cmd", nargs="?", choices=["list", "show", "disable", "restore", "suppress", "stats"])
     seed_skills.add_argument("seed_id", nargs="?")
 
@@ -127,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     runtime_skills.add_argument("--limit", type=int, default=50)
 
     dynamic_skills = sub.add_parser("dynamic-skills")
-    dynamic_skills.add_argument("dynamic_cmd", choices=["list", "show", "promote", "reject", "deprecate", "suppress"])
+    dynamic_skills.add_argument("dynamic_cmd", choices=["list", "show", "promote", "reject", "deprecate", "suppress", "stats"])
     dynamic_skills.add_argument("dynamic_id", nargs="?")
     dynamic_skills.add_argument("--status", default=None)
     dynamic_skills.add_argument("--note", default="")
@@ -221,7 +223,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "status":
             return _print(service.status())
         if args.cmd == "runtime-benchmark":
-            return _print(run_runtime_skill_benchmark(fixture_path=args.fixture, synthetic=args.synthetic))
+            result = run_runtime_skill_benchmark(fixture_path=args.fixture, synthetic=args.synthetic, fail_under_defaults=args.fail_under_defaults)
+            if args.fail_under_defaults and not result.get("passed_thresholds"):
+                return _print_error(result, code=1)
+            return _print(result)
         if args.cmd == "runtime-status":
             status = service.runtime_status(cwd=args.cwd, session_id=args.session_id, turn_id=args.turn_id)
             if args.pretty:
@@ -274,7 +279,7 @@ def main(argv: list[str] | None = None) -> int:
                 return _print(_require_result(service.set_seed_skill_trust_state(args.seed_id or "", "suppressed"), "seed_skill_not_found"))
             if args.seed_cmd == "stats":
                 return _print(service.seed_skill_stats())
-            return _print(service.seed_skills(source=args.source, repo_url=args.repo_url, limit=args.limit, category=args.category, dry_run=args.dry_run))
+            return _print(service.seed_skills(source=args.source, repo_url=args.repo_url, limit=args.limit, category=args.category, dry_run=args.dry_run, activate=args.activate))
         if args.cmd == "runtime-skills":
             if args.runtime_cmd == "list":
                 return _print(service.list_runtime_skills(limit=args.limit))
@@ -297,6 +302,8 @@ def main(argv: list[str] | None = None) -> int:
                 return _print(_require_result(service.deprecate_dynamic_skill(args.dynamic_id or "", note=args.note), "dynamic_skill_not_found"))
             if args.dynamic_cmd == "suppress":
                 return _print(_require_result(service.suppress_dynamic_skill(args.dynamic_id or "", reason=args.reason), "dynamic_skill_not_found"))
+            if args.dynamic_cmd == "stats":
+                return _print(service.dynamic_skill_stats())
         if args.cmd == "expire":
             return _print(service.expire_due_memories())
         if args.cmd == "reconcile":

@@ -249,6 +249,9 @@ class RuntimeSkillReviewer:
             reasons.append("filtered_unknown_durable_skill")
         if len(seed_ids) != len(skill.seed_skill_ids):
             reasons.append("filtered_unknown_seed_skill")
+        if seed_ids and _basis_conflict(skill.memory_basis_summary + " " + skill.durable_skill_basis_summary, skill.seed_skill_basis_summary):
+            seed_ids = []
+            reasons.append("seed_skill_conflicts_with_higher_priority_basis")
         if skill.confidence < 0.55:
             return {"status": "dropped", "reasons": [*reasons, "low_confidence"], "risk_flags": risk_flags, "skill": None}
         if _has_secret_like_text(skill):
@@ -472,6 +475,17 @@ def _claims_user_or_org_facts(skill: RuntimeSkill) -> bool:
         "your company",
     )
     return any(signal in text for signal in signals)
+
+
+def _basis_conflict(higher_priority_text: str, seed_text: str) -> bool:
+    high = higher_priority_text.lower()
+    seed = seed_text.lower()
+    conflict_pairs = (
+        (("不喜欢复杂渐变", "避免复杂渐变", "no gradient", "avoid gradient"), ("gradient", "渐变")),
+        (("不要问太多", "少问问题", "avoid too many questions"), ("ask many", "many questions", "问很多", "大量问题")),
+        (("极简", "minimal", "克制"), ("complex", "复杂", "noisy", "繁复")),
+    )
+    return any(any(item in high for item in negatives) and any(item in seed for item in positives) for negatives, positives in conflict_pairs)
 
 
 def _default_questions(decision: SkillNeedDecision) -> list[str]:

@@ -27,7 +27,7 @@ class DurableSkillManager:
         return record
 
     def promote(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
-        return self._set_status(skill_id, "active", note=note, source="manual_promote", extra={"review_required": False})
+        return self._set_status(skill_id, "active", note=note, source="manual_promote", extra={"review_required": False, "last_promoted_at": _utc_now()})
 
     def reject(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
         return self._set_status(skill_id, "rejected", note=note, source="manual_reject")
@@ -38,6 +38,27 @@ class DurableSkillManager:
     def suppress(self, skill_id: str, reason: str = "") -> dict[str, Any] | None:
         return self._set_status(skill_id, "suppressed", note=reason, source="runtime_suppress", extra={"suppressed_reason": reason})
 
+    def stats(self) -> dict[str, Any]:
+        skills = self.list(status=None, limit=1000)
+        by_status: dict[str, int] = {}
+        needs_review = []
+        for skill in skills:
+            status = str(skill.get("status") or "unknown")
+            by_status[status] = by_status.get(status, 0) + 1
+            metadata = skill.get("metadata_json") or {}
+            failure_count = int(metadata.get("failure_count") or 0)
+            success_count = int(metadata.get("success_count") or 0)
+            if metadata.get("review_required") or (failure_count >= 3 and failure_count > success_count):
+                needs_review.append(skill)
+        return {
+            "count": len(skills),
+            "by_status": by_status,
+            "top_by_reuse": _top(skills, "reuse_count"),
+            "top_by_success": _top(skills, "success_count"),
+            "top_by_failure": _top(skills, "failure_count"),
+            "needs_review": needs_review[:20],
+        }
+
     def _set_status(self, skill_id: str, status: str, note: str, source: str, extra: dict[str, Any] | None = None) -> dict[str, Any] | None:
         record = self.get(skill_id)
         if not record:
@@ -46,9 +67,12 @@ class DurableSkillManager:
         patch = {
             "review_note": note,
             "reviewed_at": now,
+            "last_reviewed_at": now,
             "review_source": source,
             "last_status_change_at": now,
         }
+        current = record.get("metadata_json") or {}
+        patch["skill_version"] = int(current.get("skill_version") or current.get("version") or 1) + (1 if status == "active" else 0)
         patch.update(extra or {})
         return self.ledger.set_cognitive_record_status(skill_id, status, patch)
 
@@ -110,3 +134,7 @@ def durable_skill_basis_summary(skills: list[dict[str, Any]]) -> str:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _top(skills: list[dict[str, Any]], field: str) -> list[dict[str, Any]]:
+    return sorted(skills, key=lambda item: int((item.get("metadata_json") or {}).get(field) or 0), reverse=True)[:10]

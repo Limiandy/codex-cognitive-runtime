@@ -24,6 +24,7 @@ class AgencySkillSeeder:
         limit: int | None = None,
         category: str | None = None,
         dry_run: bool = False,
+        activate: bool = False,
     ) -> dict[str, Any]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(source).expanduser().resolve() if source else _clone_repo(repo_url, Path(tmp) / "agency-agents")
@@ -46,12 +47,13 @@ class AgencySkillSeeder:
             created = []
             imported_at = _utc_now()
             for skill in skills:
+                active = bool(commit) or activate
                 record = self.ledger.record_cognitive_record(
                     "skill",
                     "seed_skill",
                     f"agency-agents:{skill['path']}",
                     skill["content"],
-                    "active",
+                    "active" if active else "candidate",
                     "global",
                     domain=skill["category"],
                     category="seed_skill",

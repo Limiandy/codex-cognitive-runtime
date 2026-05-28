@@ -721,8 +721,14 @@ class Ledger:
             "prompt_sha256": hashlib.sha256(prompt_text.encode("utf-8", errors="replace")).hexdigest(),
             "prompt_chars": len(prompt_text),
         }
+        location_metadata: dict[str, Any] = {"cwd": cwd, "project_key": project_key}
         if not strict_privacy:
             prompt_metadata["prompt_preview"] = prompt_text[:500]
+        else:
+            location_metadata = {
+                "cwd_sha256": hashlib.sha256(str(cwd or "").encode("utf-8", errors="replace")).hexdigest() if cwd else None,
+                "project_key_sha256": hashlib.sha256(str(project_key or "").encode("utf-8", errors="replace")).hexdigest() if project_key else None,
+            }
         stored_skill = skill
         if strict_privacy:
             stored_skill = {
@@ -757,8 +763,7 @@ class Ledger:
                 "seed_skill_ids": [str(item) for item in skill.get("seed_skill_ids") or []],
                 "session_id": session_id,
                 "turn_id": turn_id,
-                "cwd": cwd,
-                "project_key": project_key,
+                **location_metadata,
                 "shape_version": 2,
             },
             source_kind="runtime_skill_injection",
@@ -804,10 +809,8 @@ class Ledger:
         metadata = dict(injection.get("metadata_json") or {})
         feedback_target = str(evidence.get("feedback_target") or _runtime_skill_feedback_target(outcome, evidence))
         evidence = {**evidence, "feedback_target": feedback_target}
-        dimensions = _runtime_skill_feedback_dimensions(outcome, evidence)
         classifier_dimensions = evidence.get("classifier_dimensions") if isinstance(evidence.get("classifier_dimensions"), dict) else {}
-        if classifier_dimensions:
-            dimensions.update({key: value for key, value in classifier_dimensions.items() if value})
+        dimensions = dict(classifier_dimensions) if classifier_dimensions else _runtime_skill_feedback_dimensions(outcome, evidence)
         metadata.update(
             {
                 "feedback_status": outcome,
@@ -1901,6 +1904,7 @@ def _runtime_skill_feedback_dimensions(outcome: str, evidence: dict[str, Any]) -
         "first_action_quality": unknown,
         "memory_basis_quality": unknown,
         "seed_skill_quality": unknown,
+        "durable_skill_quality": unknown,
         "execution_compliance": unknown,
         "final_result_quality": unknown,
     }
@@ -1911,20 +1915,31 @@ def _runtime_skill_feedback_dimensions(outcome: str, evidence: dict[str, Any]) -
         elif outcome == "failure":
             dimensions["execution_compliance"] = "failed"
             dimensions["final_result_quality"] = "negative"
-    elif source == "natural_feedback":
+    elif source in {"natural_feedback", "manual_cli"}:
+        value = "positive" if outcome == "positive" else "negative" if outcome == "negative" else "mixed" if outcome == "mixed" else unknown
         if target == "first_action":
-            dimensions["first_action_quality"] = "positive" if outcome == "positive" else "negative" if outcome == "negative" else unknown
+            dimensions["first_action_quality"] = value
         elif target == "skill_strategy":
-            dimensions["skill_relevance"] = "positive" if outcome == "positive" else "negative" if outcome == "negative" else unknown
-            dimensions["seed_skill_quality"] = dimensions["skill_relevance"]
+            dimensions["skill_relevance"] = value
+            dimensions["seed_skill_quality"] = value
+        elif target == "seed_skill":
+            dimensions["seed_skill_quality"] = value
+        elif target == "durable_skill":
+            dimensions["durable_skill_quality"] = value
+        elif target == "memory_basis":
+            dimensions["memory_basis_quality"] = value
+        elif target == "final_result":
+            dimensions["final_result_quality"] = value
         if outcome == "positive":
-            if dimensions["skill_relevance"] == unknown:
+            if target == "skill_strategy" and dimensions["skill_relevance"] == unknown:
                 dimensions["skill_relevance"] = "positive"
-            dimensions["final_result_quality"] = "positive"
+            if target == "final_result":
+                dimensions["final_result_quality"] = "positive"
         elif outcome == "negative":
-            if dimensions["skill_relevance"] == unknown:
+            if target == "skill_strategy" and dimensions["skill_relevance"] == unknown:
                 dimensions["skill_relevance"] = "negative"
-            dimensions["final_result_quality"] = "negative"
+            if target == "final_result":
+                dimensions["final_result_quality"] = "negative"
     return dimensions
 
 
@@ -1961,8 +1976,10 @@ def _normalized_seed_skill_state(status: str, metadata: dict[str, Any]) -> tuple
     if status == "suppressed":
         normalized["trust_state"] = "suppressed"
         return "suppressed", normalized
-    if trust_state in {"trusted", "unverified"} and status != "active":
+    if trust_state == "trusted" and status != "active":
         return "active", normalized
+    if trust_state == "unverified" and status not in {"active", "candidate"}:
+        return "candidate", normalized
     return status or "active", normalized
 
 

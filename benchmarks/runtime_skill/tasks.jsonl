@@ -1,22 +1,31 @@
-{"kind":"task","category":"direct_answer","prompt":"现在天气怎么样？","skill_needed":false}
-{"kind":"task","category":"direct_answer","prompt":"把 hello 翻译成中文","skill_needed":false}
-{"kind":"task","category":"direct_answer","prompt":"UTC+8 现在几点？","skill_needed":false}
-{"kind":"task","category":"direct_answer","prompt":"解释一下 API 这个词","skill_needed":false}
-{"kind":"task","category":"creative_design","prompt":"帮我设计一个品牌 logo 方向","skill_needed":true}
-{"kind":"task","category":"creative_design","prompt":"帮我做一套视觉识别方案","skill_needed":true}
-{"kind":"task","category":"creative_design","prompt":"给我的品牌设计一个极简标志","skill_needed":true}
-{"kind":"task","category":"planning_business","prompt":"帮我制定一个产品营销策略","skill_needed":true}
-{"kind":"task","category":"planning_business","prompt":"帮我写一份融资 pitch 的结构","skill_needed":true}
-{"kind":"task","category":"planning_business","prompt":"帮我做商业计划梳理","skill_needed":true}
-{"kind":"task","category":"engineering","prompt":"帮我修复这个 bug 并运行测试","skill_needed":true}
-{"kind":"task","category":"engineering","prompt":"帮我做代码审查并指出风险","skill_needed":true}
-{"kind":"task","category":"engineering","prompt":"帮我设计这个模块的架构方案","skill_needed":true}
-{"kind":"task","category":"ambiguous","prompt":"测试","skill_needed":false}
-{"kind":"task","category":"ambiguous","prompt":"fix","skill_needed":false}
-{"kind":"task","category":"ambiguous","prompt":"代码","skill_needed":false}
-{"kind":"feedback","category":"feedback","prompt":"很好","target":"final_result"}
-{"kind":"feedback","category":"feedback","prompt":"这个方向很好","target":"skill_strategy"}
-{"kind":"feedback","category":"feedback","prompt":"这个提问方式很好","target":"first_action"}
-{"kind":"feedback","category":"feedback","prompt":"不是我的偏好","target":"memory_basis"}
-{"kind":"feedback","category":"feedback","prompt":"这个模板不适合","target":"seed_skill"}
-{"kind":"feedback","category":"feedback","prompt":"这个长期技能不适合","target":"durable_skill"}
+{"kind":"task","category":"direct_answer","repeat":10,"prompt":"现在天气怎么样？ #{n}","skill_needed":false,"expected_intent":"simple_query","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"direct_answer","repeat":10,"prompt":"把 hello 翻译成中文 #{n}","skill_needed":false,"expected_intent":"simple_query","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"direct_answer","repeat":10,"prompt":"UTC+8 现在几点？ #{n}","skill_needed":false,"expected_intent":"simple_query","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"direct_answer","repeat":10,"prompt":"解释一下 API 这个词 #{n}","skill_needed":false,"expected_intent":"simple_query","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"direct_answer","repeat":10,"prompt":"美元兑人民币汇率是多少？ #{n}","skill_needed":false,"expected_intent":"simple_query","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"creative_design","repeat":10,"prompt":"帮我设计一个品牌 logo 方向 #{n}","skill_needed":true,"expected_intent":"brand_logo_design","expected_domain":"brand_design","requires_clarification":true}
+{"kind":"task","category":"creative_design","repeat":10,"prompt":"帮我做一套视觉识别方案 #{n}","skill_needed":true,"expected_intent":"brand_logo_design","expected_domain":"brand_design","requires_clarification":true}
+{"kind":"task","category":"creative_design","repeat":10,"prompt":"给我的品牌设计一个极简标志 #{n}","skill_needed":true,"expected_intent":"brand_logo_design","expected_domain":"brand_design","requires_clarification":true}
+{"kind":"task","category":"creative_design","repeat":10,"prompt":"帮我设计一个 logo，不要直接出图 #{n}","skill_needed":true,"expected_intent":"brand_logo_design","expected_domain":"brand_design","requires_clarification":true}
+{"kind":"task","category":"creative_design","repeat":10,"prompt":"品牌视觉方向需要重新规划 #{n}","skill_needed":true,"expected_intent":"brand_logo_design","expected_domain":"brand_design","requires_clarification":true}
+{"kind":"task","category":"planning_business","repeat":10,"prompt":"帮我制定一个产品营销策略 #{n}","skill_needed":true,"expected_intent":"marketing_strategy","expected_domain":"marketing","requires_clarification":false}
+{"kind":"task","category":"planning_business","repeat":10,"prompt":"帮我写一份融资 pitch 的结构 #{n}","skill_needed":true,"expected_intent":"pitch_deck","expected_domain":"business","requires_clarification":false}
+{"kind":"task","category":"planning_business","repeat":10,"prompt":"帮我做商业计划梳理 #{n}","skill_needed":true,"expected_intent":"business_plan","expected_domain":"business","requires_clarification":false}
+{"kind":"task","category":"planning_business","repeat":10,"prompt":"帮我分析这个产品定位 #{n}","skill_needed":true,"expected_intent":"brand_positioning","expected_domain":"brand_strategy","requires_clarification":false}
+{"kind":"task","category":"planning_business","repeat":10,"prompt":"帮我制定研究计划 #{n}","skill_needed":true,"expected_intent":"research_plan","expected_domain":"research","requires_clarification":false}
+{"kind":"task","category":"engineering","repeat":10,"prompt":"帮我修复这个 bug 并运行测试 #{n}","skill_needed":true,"expected_intent":"software_engineering_change","expected_domain":"software_engineering","requires_clarification":false}
+{"kind":"task","category":"engineering","repeat":10,"prompt":"帮我做代码审查并指出风险 #{n}","skill_needed":true,"expected_intent":"code_review","expected_domain":"software_engineering","requires_clarification":false}
+{"kind":"task","category":"engineering","repeat":10,"prompt":"帮我设计这个模块的架构方案 #{n}","skill_needed":true,"expected_intent":"architecture_design","expected_domain":"software_engineering","requires_clarification":false}
+{"kind":"task","category":"engineering","repeat":10,"prompt":"实现这个功能并跑 lint #{n}","skill_needed":true,"expected_intent":"software_engineering_change","expected_domain":"software_engineering","requires_clarification":false}
+{"kind":"task","category":"engineering","repeat":10,"prompt":"debug 这个测试失败 #{n}","skill_needed":true,"expected_intent":"software_engineering_change","expected_domain":"software_engineering","requires_clarification":false}
+{"kind":"task","category":"ambiguous","repeat":10,"prompt":"测试","skill_needed":false,"expected_intent":"ambiguous_short_prompt","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"ambiguous","repeat":10,"prompt":"fix","skill_needed":false,"expected_intent":"ambiguous_short_prompt","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"ambiguous","repeat":10,"prompt":"代码","skill_needed":false,"expected_intent":"ambiguous_short_prompt","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"ambiguous","repeat":10,"prompt":"debug","skill_needed":false,"expected_intent":"ambiguous_short_prompt","expected_domain":"general","requires_clarification":false}
+{"kind":"task","category":"ambiguous","repeat":10,"prompt":"lint","skill_needed":false,"expected_intent":"ambiguous_short_prompt","expected_domain":"general","requires_clarification":false}
+{"kind":"feedback","category":"feedback","repeat":10,"prompt":"很好 #{n}","target":"final_result","expected_dimensions":{"final_result_quality":"positive"},"adjust_seed_skill_strength":false,"adjust_durable_skill_strength":false}
+{"kind":"feedback","category":"feedback","repeat":8,"prompt":"这个方向很好 #{n}","target":"skill_strategy","expected_dimensions":{"skill_relevance":"positive"},"adjust_seed_skill_strength":true,"adjust_durable_skill_strength":true}
+{"kind":"feedback","category":"feedback","repeat":8,"prompt":"这个提问方式很好 #{n}","target":"first_action","expected_dimensions":{"first_action_quality":"positive"},"adjust_seed_skill_strength":true,"adjust_durable_skill_strength":true}
+{"kind":"feedback","category":"feedback","repeat":8,"prompt":"不是我的偏好 #{n}","target":"memory_basis","expected_dimensions":{"memory_basis_quality":"negative"},"adjust_seed_skill_strength":false,"adjust_durable_skill_strength":false}
+{"kind":"feedback","category":"feedback","repeat":8,"prompt":"这个模板不适合 #{n}","target":"seed_skill","expected_dimensions":{"seed_skill_quality":"negative"},"adjust_seed_skill_strength":true,"adjust_durable_skill_strength":false}
+{"kind":"feedback","category":"feedback","repeat":8,"prompt":"这个长期技能不适合 #{n}","target":"durable_skill","expected_dimensions":{"durable_skill_quality":"negative"},"adjust_seed_skill_strength":false,"adjust_durable_skill_strength":true}

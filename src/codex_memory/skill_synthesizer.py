@@ -33,6 +33,7 @@ class SkillSynthesizer:
         title = _title(user_goal, verify_commands[-1])
         skill_metadata = {
             "version": 1,
+            "skill_version": 1,
             "skill_type": "dynamic_skill",
             "title": title,
             "trigger": _triggers(user_goal, verify_commands),
@@ -45,6 +46,8 @@ class SkillSynthesizer:
                 "Do not treat failed verification output as success.",
             ],
             "source_workflow_ids": [workflow_id],
+            "source_runtime_skill_ids": [],
+            "source_feedback_ids": [],
             "source_memory_ids": source_memory_ids,
             "source_recipe_ids": [],
             "task_type": metadata.get("task_type"),
