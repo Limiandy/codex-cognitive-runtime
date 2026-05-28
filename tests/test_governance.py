@@ -293,6 +293,37 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_governance_policy_near_duplicate_is_found_before_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="治理规则不能静态固化，需通过动态 policy 自我修复准入和准出机制。",
+                    memory_type="project_context",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="memory_system",
+                    category="governance",
+                    subcategory="policy",
+                    triggers=["治理规则", "动态 policy", "自我修复"],
+                    evidence=[Evidence(source="user_message", quote="治理规则不能静态固化，需通过动态 policy 自我修复准入和准出机制。")],
+                    reason="test",
+                )
+                project_key = str(Path(tmp).resolve()).lower()
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                matches = service.ledger.find_active_duplicates(
+                    "治理规则应保持“活的”状态，通过动态 policy 自我修复准入和准出，而不是静态死规则。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_manual_review_actions(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
