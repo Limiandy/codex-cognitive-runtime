@@ -130,7 +130,7 @@ class GovernanceTest(unittest.TestCase):
             try:
                 candidate = MemoryCandidate(
                     content="管理平台项目应把权限、审计日志、批量操作和导出流程作为基础能力来设计。",
-                    memory_type="project_context",
+                    memory_type="experience",
                     proposed_action="store",
                     confidence=0.95,
                     importance=0.9,
@@ -148,6 +148,13 @@ class GovernanceTest(unittest.TestCase):
                 matches = service.ledger.find_active_duplicates(
                     "管理平台项目中，权限、审计日志、批量操作和导出流程要作为基础能力统一设计。",
                     "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+                matches = service.ledger.find_active_duplicates(
+                    "管理平台项目中，权限、审计日志、批量操作和导出流程要作为基础能力统一设计。",
+                    "experience",
                     "project",
                     project_key=project_key,
                 )

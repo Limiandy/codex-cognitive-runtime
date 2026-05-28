@@ -1509,13 +1509,15 @@ class Ledger:
         session_id: str | None = None,
     ) -> list[dict[str, Any]]:
         normalized = _normalize(content)
+        memory_types = _duplicate_memory_types(memory_type)
+        placeholders = ",".join("?" for _ in memory_types)
         rows = self.conn.execute(
             f"""
             SELECT * FROM memories
-            WHERE status='active' AND memory_type=? AND scope=? AND {_scope_filter(scope)}
+            WHERE status='active' AND memory_type IN ({placeholders}) AND scope=? AND {_scope_filter(scope)}
             ORDER BY created_at DESC
             """,
-            (memory_type, scope, *_scope_params(scope, project_key, session_id)),
+            (*memory_types, scope, *_scope_params(scope, project_key, session_id)),
         ).fetchall()
         matches = []
         for row in rows:
@@ -2556,6 +2558,16 @@ def re_split(text: str) -> list[str]:
     import re
 
     return re.findall(r"[\w\u4e00-\u9fff]+", text)
+
+
+def _duplicate_memory_types(memory_type: str) -> tuple[str, ...]:
+    if memory_type == "project_context":
+        return ("project_context", "experience", "fact")
+    if memory_type == "experience":
+        return ("experience", "project_context")
+    if memory_type == "fact":
+        return ("fact", "project_context")
+    return (memory_type,)
 
 
 def _polarity(text: str) -> int:
