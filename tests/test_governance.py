@@ -193,6 +193,41 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_react_portal_near_duplicate_is_found_before_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="React 门户项目中需要明确状态边界、接口缓存策略和首屏加载预算。",
+                    memory_type="project_context",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="software_engineering",
+                    category="architecture",
+                    subcategory="project_type",
+                    triggers=["React", "门户", "接口缓存"],
+                    evidence=[Evidence(source="user_message", quote="React 门户项目中需要明确状态边界、接口缓存策略和首屏加载预算。")],
+                    reason="test",
+                )
+                project_key = str(Path(tmp).resolve()).lower()
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                for content in (
+                    "React 门户项目要求在设计时明确状态边界、接口缓存和首屏加载预算。",
+                    "React 门户项目中，状态边界、接口缓存和首屏加载预算需要提前明确。",
+                ):
+                    matches = service.ledger.find_active_duplicates(
+                        content,
+                        "project_context",
+                        "project",
+                        project_key=project_key,
+                    )
+                    self.assertEqual(len(matches), 1, content)
+            finally:
+                service.close()
+
     def test_manual_review_actions(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
