@@ -11,13 +11,14 @@ This is a local developer alpha. It is intended for developers who can inspect l
 - `memory-ledger`: local SQLite audit trail at `~/.codex-memory/ledger.sqlite3`.
 - `cognitive-runtime`: observes `UserPromptSubmit`, `PostToolUse`, and `Stop` events to maintain workflow state and inject next-step control signals.
 - `workflow-guard`: detects engineering workflow violations such as code changes without verification evidence.
+- `skill-synthesizer`: turns successful observed workflows and related experience memories into reusable dynamic skills.
 - `mcp`: exposes `codex_memory_status`, `codex_memory_search`, `codex_memory_ingest`, and `codex_memory_queue`.
 
 The local SQLite Ledger is the only runtime store and source of truth.
 
 The runtime observes Codex tool use; it does not execute shell commands, edit files, or run tests by itself.
 
-Current Runtime MVP supports observed engineering workflows: task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
+Current Runtime MVP supports observed engineering workflows: task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, dynamic skill synthesis, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
 
 The runtime observer is enabled by default. Disable it with `CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER=0` if you only want reviewed memory storage without workflow guard behavior.
 

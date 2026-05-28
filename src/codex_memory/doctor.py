@@ -271,7 +271,7 @@ def _privacy_report(config: Config) -> dict[str, Any]:
             "runtime_observer_enabled": config.enable_runtime_observer,
             "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
             "runtime_observation_storage": "commands, file paths, exit code, source fields, output hashes/lengths, and failure flags; stdout/stderr previews only when explicitly enabled",
-            "retention_policy": "manual; prune-events only removes events; use wipe or remove the state directory to remove cognitive runtime observations and recipes",
+            "retention_policy": "manual; prune-events only removes events; prune-runtime removes runtime audit records and embedded workflow observation copies; wipe removes the full local Ledger",
             "recent_event_count": len(events),
             "recent_events": [
                 {

@@ -232,6 +232,15 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertIn("unittest", recipe_metadata["recipe"][0])
                 self.assertEqual(recipe_metadata["exit_code"], None)
                 self.assertIn("verification_stdout_preview", recipe_metadata)
+                dynamic_skills = [item for item in skills if item.get("record_type") == "dynamic_skill"]
+                self.assertTrue(dynamic_skills)
+                skill_metadata = dynamic_skills[0].get("metadata_json") or {}
+                self.assertEqual(skill_metadata["skill_type"], "dynamic_skill")
+                self.assertEqual(skill_metadata["source_workflow_ids"], [workflow_id])
+                self.assertIn("procedure", skill_metadata)
+                self.assertIn("verification", skill_metadata)
+                self.assertIn("anti_patterns", skill_metadata)
+                self.assertIn("python3 -m unittest discover -s tests -v", skill_metadata["verification"])
             finally:
                 service.close()
 
@@ -314,6 +323,8 @@ class RuntimeObserverTest(unittest.TestCase):
                 second = service.start_task_from_prompt({"prompt": "实现另一个功能", "session_id": "s1", "turn_id": "t2", "cwd": tmp})
                 self.assertTrue(second["started"])
                 context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
+                self.assertIn("Recommended dynamic skill:", context)
+                self.assertIn("Python unittest change workflow", context)
                 self.assertIn("Recommended verification recipe:", context)
                 self.assertIn("python3 -m unittest discover -s tests -v", context)
             finally:

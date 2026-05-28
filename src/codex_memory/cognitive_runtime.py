@@ -11,6 +11,7 @@ from .observation import normalize_tool_observation
 from .recall import MemoryRecall
 from .reasoning_policy import ReasoningPolicyEngine
 from .security import redact_secrets, summarize_payload
+from .skill_synthesizer import SkillSynthesizer
 from .state_machine import RuntimeStateMachine
 from .taxonomy import classify, near_duplicate_text, tokenize
 from .workflow_dag import WorkflowDAG, WorkflowExecutor, WorkflowStep, build_dag
@@ -561,6 +562,19 @@ class CognitiveRuntime:
                 meta = violation.get("metadata_json") or {}
                 lines.append(f"- {meta.get('violation_type')}: {meta.get('severity')}")
             lines.append("Required next action: resolve the violation before final answer.")
+        dynamic_skills = self._recommended_dynamic_skills(metadata, limit=1)
+        if dynamic_skills:
+            self.ledger.patch_cognitive_record_metadata(str(workflow["id"]), {"recommended_dynamic_skill_ids": [str(skill["id"]) for skill in dynamic_skills]})
+            lines.append("Recommended dynamic skill:")
+            for skill in dynamic_skills:
+                meta = skill.get("metadata_json") or {}
+                lines.append(f"- {meta.get('title') or skill.get('content')} (source: {(meta.get('source_workflow_ids') or [''])[0]})")
+                procedure = [str(item) for item in meta.get("procedure") or [] if item]
+                if procedure:
+                    lines.append("  procedure: " + " | ".join(procedure[:3]))
+                anti_patterns = [str(item) for item in meta.get("anti_patterns") or [] if item]
+                if anti_patterns:
+                    lines.append("  avoid: " + " | ".join(anti_patterns[:2]))
         recipes = self._recommended_verification_recipes(metadata, limit=2)
         if recipes:
             self.ledger.record_recipe_recommendation(str(workflow["id"]), [str(recipe["id"]) for recipe in recipes])
@@ -586,6 +600,21 @@ class CognitiveRuntime:
             recipes.append(record)
         recipes.sort(key=lambda item: (float(item.get("strength") or 1), float(item.get("importance") or 0)), reverse=True)
         return recipes[:limit]
+
+    def _recommended_dynamic_skills(self, workflow_metadata: dict[str, Any], limit: int = 1) -> list[dict[str, Any]]:
+        project_key = workflow_metadata.get("project_key")
+        skills = []
+        for record in self.ledger.list_cognitive_records(layer="skill", status="active", limit=100):
+            if record.get("record_type") != "dynamic_skill":
+                continue
+            if project_key and record.get("project_key") not in {None, project_key}:
+                continue
+            metadata = record.get("metadata_json") or {}
+            if not metadata.get("procedure"):
+                continue
+            skills.append(record)
+        skills.sort(key=lambda item: (float(item.get("strength") or 1), float(item.get("importance") or 0)), reverse=True)
+        return skills[:limit]
 
     def _learn_from_successful_workflow(self, workflow: dict[str, Any]) -> None:
         metadata = workflow.get("metadata_json") or {}
@@ -635,6 +664,7 @@ class CognitiveRuntime:
             },
             source_kind="workflow_learning",
         )
+        SkillSynthesizer(self.ledger).synthesize_from_workflow(workflow)
 
     def _record_recipe_reuse(self, workflow: dict[str, Any], observation: dict[str, Any]) -> None:
         metadata = workflow.get("metadata_json") or {}

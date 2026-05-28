@@ -68,6 +68,7 @@ class DoctorTest(unittest.TestCase):
             self.assertEqual(result["privacy"]["event_storage"], "sanitized")
             self.assertEqual(result["privacy"]["runtime_observation_previews"], "redacted")
             self.assertIn("runtime_observation_storage", result["privacy"])
+            self.assertIn("prune-runtime", result["privacy"]["retention_policy"])
             self.assertIn("ledger_path", result["privacy"])
 
     def test_raw_event_storage_is_warn_not_fatal(self):

@@ -1443,6 +1443,8 @@ class Ledger:
                     patch["observations"] = []
                 if metadata.get("recommended_recipe_ids"):
                     patch["recommended_recipe_ids"] = []
+                if metadata.get("recommended_dynamic_skill_ids"):
+                    patch["recommended_dynamic_skill_ids"] = []
                 if patch:
                     patch["pruned_runtime_metadata_at"] = _now()
                     workflow_metadata_updates.append((str(row["id"]), patch))
