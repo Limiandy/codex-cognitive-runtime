@@ -60,6 +60,8 @@ class GovernanceTest(unittest.TestCase):
                 self.assertEqual(len(matches), 1)
                 matches = service.ledger.find_active_duplicates("默认用中文回答，且尽量简洁。", "user_preference", "global")
                 self.assertEqual(len(matches), 1)
+                matches = service.ledger.find_active_duplicates("默认使用中文回答，并尽量简洁。", "user_preference", "global")
+                self.assertEqual(len(matches), 1)
             finally:
                 service.close()
 
