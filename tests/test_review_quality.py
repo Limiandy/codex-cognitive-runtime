@@ -48,6 +48,19 @@ class ReviewQualityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(_reviewer(tmp).review(_candidate())["status"], "active")
 
+    def test_final_gate_quarantines_overbroad_injection_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户偏好：所有项目都应每次注入完整流程提醒。",
+                    confidence=0.95,
+                    importance=0.78,
+                    evidence=[Evidence(source="user_message", quote="经验：所有项目都应该每次注入完整流程提醒。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("overbroad_injection_preference", result["reasons"])
+
     def test_final_gate_quarantines_temporary_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

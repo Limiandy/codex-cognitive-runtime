@@ -165,6 +165,8 @@ class MemoryReviewer:
                 blockers.append("preference_session_scope_not_active")
             if not _explicit_preference(candidate):
                 blockers.append("preference_requires_explicit_signal")
+            if _overbroad_injection_preference(candidate.content):
+                blockers.append("overbroad_injection_preference")
         elif candidate.memory_type == "project_context":
             if candidate.scope == "session":
                 blockers.append("project_context_session_scope_not_active")
@@ -220,6 +222,13 @@ def _has_strong_evidence(candidate: MemoryCandidate) -> bool:
 def _explicit_preference(candidate: MemoryCandidate) -> bool:
     text = f"{candidate.content}\n" + "\n".join(e.quote for e in candidate.evidence)
     return any(pattern.search(text) for pattern in EXPLICIT_PREFERENCE_PATTERNS)
+
+
+def _overbroad_injection_preference(content: str) -> bool:
+    text = content.lower()
+    if not any(term in text for term in ("每次", "所有项目", "所有测试建议", "每次回答")):
+        return False
+    return any(term in text for term in ("注入", "完整流程", "流程提醒", "测试建议", "长期注入"))
 
 
 def _is_resume_point(content: str) -> bool:
