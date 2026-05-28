@@ -170,6 +170,16 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertIn("极简", context)
                 self.assertIn("高端 B2B SaaS", context)
                 self.assertNotIn("Codex Memory context:", context)
+                injections = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ]
+                self.assertEqual(len(injections), 1)
+                metadata = injections[0].get("metadata_json") or {}
+                self.assertEqual(metadata["skill"]["name"], "brand_logo_design_intake")
+                self.assertTrue(metadata["memory_basis_ids"])
+                self.assertEqual(metadata["session_id"], "s1")
             finally:
                 service.close()
 
@@ -188,6 +198,13 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertIn("Seed skill basis:", context)
                 self.assertIn("Brand Guardian", context)
                 self.assertIn("No clean long-term memory matched", context)
+                injections = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ]
+                metadata = injections[0].get("metadata_json") or {}
+                self.assertEqual(metadata["seed_skill_ids"], ["agency-agents:design/design-brand-guardian.md"])
             finally:
                 service.close()
 

@@ -224,10 +224,20 @@ class MemoryService:
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
         skill_decision = SkillNeedClassifier(self.model).classify(prompt)
         runtime_skill_context = ""
+        runtime_skill = None
         if skill_decision.skill_needed:
             memory_basis = CleanMemoryRetriever(self.ledger).retrieve(prompt, cwd=cwd, session_id=session_id, limit=limit)
             runtime_skill = RuntimeSkillSynthesizer(self.model).synthesize(prompt, skill_decision, memory_basis)
             runtime_skill_context = RuntimeSkillInjector().format(runtime_skill)
+            if runtime_skill_context and runtime_skill:
+                self.ledger.record_runtime_skill_injection(
+                    prompt,
+                    runtime_skill.to_dict(),
+                    session_id=session_id,
+                    turn_id=turn_id,
+                    cwd=cwd,
+                    project_key=project_key_for_cwd(cwd) if cwd else None,
+                )
         runtime_context = ""
         if self.config.enable_runtime_observer:
             active_workflow = self.runtime.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd)

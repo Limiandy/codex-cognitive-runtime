@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .schema import MemoryCandidate
+from .security import redact_secrets
 from .taxonomy import enrich_candidate, near_duplicate_text
 
 
@@ -617,6 +618,43 @@ class Ledger:
                 "observation": observation,
             },
             source_kind="runtime_observation",
+        )
+
+    def record_runtime_skill_injection(
+        self,
+        prompt: str,
+        skill: dict[str, Any],
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        cwd: str | None = None,
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        skill_name = str(skill.get("name") or "runtime_skill")
+        return self.record_cognitive_record(
+            "audit",
+            "runtime_skill_injection",
+            None,
+            f"Runtime skill injection: {skill_name}",
+            "active",
+            "session",
+            domain=str(skill.get("domain") or "") or None,
+            category="runtime_skill",
+            subcategory=str(skill.get("intent") or "") or None,
+            confidence=float(skill.get("confidence") or 0.0),
+            importance=0.62,
+            project_key=project_key,
+            session_id=session_id,
+            metadata={
+                "prompt_preview": str(redact_secrets(prompt or ""))[:500],
+                "skill": skill,
+                "memory_basis_ids": [str(item) for item in skill.get("memory_basis_ids") or []],
+                "seed_skill_ids": [str(item) for item in skill.get("seed_skill_ids") or []],
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "cwd": cwd,
+                "project_key": project_key,
+            },
+            source_kind="runtime_skill_injection",
         )
 
     def record_runtime_violation(

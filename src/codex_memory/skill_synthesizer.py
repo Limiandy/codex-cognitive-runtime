@@ -54,6 +54,7 @@ class SkillSynthesizer:
             "failure_count": 0,
             "reuse_count": 0,
             "last_used_at": None,
+            "review_required": True,
             "created_at": _utc_now(),
         }
         content = _content(title, procedure, verify_commands)
@@ -62,7 +63,7 @@ class SkillSynthesizer:
             "dynamic_skill",
             f"dynamic_skill:{workflow_id}",
             content,
-            "active",
+            "candidate",
             "project" if metadata.get("project_key") else "session",
             domain="software_engineering",
             category="workflow",

@@ -19,7 +19,7 @@ The local SQLite Ledger is the only runtime store and source of truth.
 
 The runtime observes Codex tool use; it does not execute shell commands, edit files, or run tests by itself.
 
-Current Runtime MVP supports runtime skill generation from clean long-term memory, observed engineering workflows, task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, dynamic skill synthesis, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
+Current Runtime MVP supports runtime skill generation from clean long-term memory, seed skill cold start, runtime skill injection audit, observed engineering workflows, task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, dynamic skill candidate synthesis, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
 
 The runtime observer is enabled by default. Disable it with `CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER=0` if you only want reviewed memory storage without workflow guard behavior.
 
@@ -144,6 +144,8 @@ Seed skills can be imported to provide a cold-start skill basis before the local
 By default this imports agent skill markdown from [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents) on demand and records each entry as a local `seed_skill` cognitive record with source path, commit, and MIT license metadata. The source content is not vendored into this repository. Use `--source /path/to/agency-agents` for an already cloned checkout, `--category design` to import one category, and `--limit N` for a smaller trial import.
 
 Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis.
+
+Runtime Skill injections are recorded as local audit records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
 
 ## Uninstall
 
