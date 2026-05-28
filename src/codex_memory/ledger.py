@@ -2568,10 +2568,50 @@ def _duplicate_memory_types(memory_type: str) -> tuple[str, ...]:
 
 def _polarity(text: str) -> int:
     lowered = text.lower()
+    architecture_polarity = _architecture_relation_polarity(lowered)
+    if architecture_polarity:
+        return architecture_polarity
     negative = ("不", "不是", "不能", "不要", "禁用", "关闭", "disable", "not ", "never")
     positive = ("要", "应该", "应把", "应将", "应当", "应分", "应作为", "应支持", "应采用", "必须", "启用", "打开", "enable", "always")
     if any(item in lowered for item in negative):
         return -1
     if any(item in lowered for item in positive):
+        return 1
+    return 0
+
+
+def _architecture_relation_polarity(lowered: str) -> int:
+    if not ("mcp" in lowered and "hook" in lowered):
+        return 0
+    separated = (
+        "不重叠",
+        "不互相调用",
+        "不能互相调用",
+        "不得互相调用",
+        "不允许互相调用",
+        "不能调用",
+        "不得调用",
+        "不允许调用",
+        "路径隔离",
+        "路径分离",
+        "两条路径",
+        "两条不重叠",
+        "不能互调",
+        "不得互调",
+        "不允许互调",
+    )
+    if any(item in lowered for item in separated):
+        return -1
+    integrated = (
+        "互相调用",
+        "互调",
+        "统一链路",
+        "形成统一链路",
+        "合并链路",
+        "单一链路",
+        "同一链路",
+        "链路统一",
+    )
+    if any(item in lowered for item in integrated):
         return 1
     return 0

@@ -124,6 +124,69 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_mcp_hook_architecture_conflict_is_quarantined(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                project_key = str(Path(tmp).resolve()).lower()
+                existing = MemoryCandidate(
+                    content="项目架构决策：MCP 和 hook 必须是两条不重叠的路径，彼此不能互相调用。",
+                    memory_type="project_context",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="memory_system",
+                    category="architecture",
+                    subcategory="mcp_hook",
+                    triggers=["MCP", "hook", "不重叠"],
+                    evidence=[Evidence(source="user_message", quote="项目架构决策：MCP 和 hook 必须是两条不重叠的路径，彼此不能互相调用。")],
+                    reason="test",
+                )
+                service.ledger.add_candidate(existing, "active", {"status": "active"}, project_key=project_key)
+                conflicts = service.ledger.find_active_conflicts(
+                    "项目架构目标是让 MCP 和 hook 互相调用，形成统一链路。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(conflicts), 1)
+
+                conflicting = MemoryCandidate(
+                    content="项目架构目标是让 MCP 和 hook 互相调用，形成统一链路。",
+                    memory_type="project_context",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="memory_system",
+                    category="architecture",
+                    subcategory="mcp_hook",
+                    triggers=["MCP", "hook", "互相调用"],
+                    evidence=[Evidence(source="user_message", quote="项目架构目标是让 MCP 和 hook 互相调用，形成统一链路。")],
+                    reason="test",
+                )
+                service.engine.extract = lambda event_type, payload: [conflicting]
+                result = service.ingest_event(
+                    "manual",
+                    {
+                        "text": "项目架构目标是让 MCP 和 hook 互相调用，形成统一链路。",
+                        "cwd": str(Path(tmp).resolve()),
+                    },
+                )
+                statuses = [item["status"] for item in result["results"]]
+                self.assertIn("quarantined", statuses)
+                active = [
+                    item
+                    for item in service.list_memories(status="active")
+                    if "MCP" in str(item.get("content")) and "hook" in str(item.get("content"))
+                ]
+                self.assertEqual(len(active), 1)
+            finally:
+                service.close()
+
     def test_project_type_near_duplicate_is_found_before_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
