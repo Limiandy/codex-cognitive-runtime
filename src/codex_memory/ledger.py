@@ -2561,19 +2561,15 @@ def re_split(text: str) -> list[str]:
 
 
 def _duplicate_memory_types(memory_type: str) -> tuple[str, ...]:
-    if memory_type == "project_context":
+    if memory_type in {"project_context", "experience", "fact"}:
         return ("project_context", "experience", "fact")
-    if memory_type == "experience":
-        return ("experience", "project_context")
-    if memory_type == "fact":
-        return ("fact", "project_context")
     return (memory_type,)
 
 
 def _polarity(text: str) -> int:
     lowered = text.lower()
     negative = ("不", "不是", "不能", "不要", "禁用", "关闭", "disable", "not ", "never")
-    positive = ("要", "应该", "应把", "应将", "应当", "必须", "启用", "打开", "enable", "always")
+    positive = ("要", "应该", "应把", "应将", "应当", "应分", "应作为", "应支持", "应采用", "必须", "启用", "打开", "enable", "always")
     if any(item in lowered for item in negative):
         return -1
     if any(item in lowered for item in positive):

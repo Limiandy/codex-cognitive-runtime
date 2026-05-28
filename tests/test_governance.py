@@ -162,6 +162,37 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_fact_experience_near_duplicate_is_found_before_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="hook 内部调用 `codex exec` 时必须设置 `internal` 标记，否则会递归触发。",
+                    memory_type="experience",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="memory_system",
+                    category="lesson",
+                    subcategory="hook_recursion",
+                    triggers=["hook", "codex exec", "internal"],
+                    evidence=[Evidence(source="user_message", quote="hook 内部调用 `codex exec` 时必须设置 `internal` 标记，否则会递归触发。")],
+                    reason="test",
+                )
+                project_key = str(Path(tmp).resolve()).lower()
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                matches = service.ledger.find_active_duplicates(
+                    "在 hook 内部调用 `codex exec` 时必须设置 `internal` 标记，否则会递归触发 hook。",
+                    "fact",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_manual_review_actions(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
