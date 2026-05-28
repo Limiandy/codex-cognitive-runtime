@@ -170,6 +170,8 @@ class MemoryReviewer:
         elif candidate.memory_type == "project_context":
             if candidate.scope == "session":
                 blockers.append("project_context_session_scope_not_active")
+            if _mcp_hook_mutual_call_claim(candidate.content):
+                blockers.append("mcp_hook_mutual_call_requires_manual_review")
         elif candidate.memory_type == "experience":
             if not any(pattern.search(candidate.content) for pattern in EXPERIENCE_PATTERNS):
                 blockers.append("experience_requires_lesson_signal")
@@ -229,6 +231,15 @@ def _overbroad_injection_preference(content: str) -> bool:
     if not any(term in text for term in ("每次", "所有项目", "所有测试建议", "每次回答")):
         return False
     return any(term in text for term in ("注入", "完整流程", "流程提醒", "测试建议", "长期注入"))
+
+
+def _mcp_hook_mutual_call_claim(content: str) -> bool:
+    text = content.lower()
+    if not ("mcp" in text and "hook" in text):
+        return False
+    if any(term in text for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不能调用", "路径隔离", "不重叠")):
+        return False
+    return any(term in text for term in ("互相调用", "互调", "统一链路", "合并链路", "单一链路", "同一链路"))
 
 
 def _is_resume_point(content: str) -> bool:

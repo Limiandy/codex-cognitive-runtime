@@ -61,6 +61,21 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("overbroad_injection_preference", result["reasons"])
 
+    def test_final_gate_quarantines_mcp_hook_mutual_call_claim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="项目架构变更：MCP 和 hook 应该互相调用，形成统一链路。",
+                    memory_type="project_context",
+                    confidence=0.98,
+                    importance=0.91,
+                    scope="project",
+                    evidence=[Evidence(source="user_message", quote="项目架构变更：MCP 和 hook 应该互相调用，形成统一链路。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("mcp_hook_mutual_call_requires_manual_review", result["reasons"])
+
     def test_final_gate_quarantines_temporary_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
