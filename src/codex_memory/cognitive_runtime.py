@@ -992,23 +992,72 @@ def _observed_workflow_steps() -> list[dict[str, Any]]:
 
 def _is_engineering_task(prompt: str) -> bool:
     lowered = prompt.lower()
-    signals = (
+    if _looks_like_non_action_statement(lowered):
+        return False
+    action_signals = (
         "修复",
         "实现",
-        "改",
-        "代码",
-        "测试",
-        "bug",
-        "报错",
-        "feature",
+        "修改",
+        "改一下",
+        "调整",
+        "重构",
+        "排查",
+        "解决",
+        "运行",
+        "执行",
+        "添加",
+        "删除",
+        "update",
+        "edit",
         "implement",
         "fix",
         "debug",
         "refactor",
-        "test",
+    )
+    verification_signals = (
+        "跑测试",
+        "运行测试",
+        "执行测试",
+        "测试失败",
+        "单测失败",
+        "pytest",
+        "unittest",
+        "npm test",
         "lint",
     )
-    return any(signal in lowered for signal in signals)
+    issue_signals = ("bug", "报错", "失败")
+    request_signals = ("帮我", "请", "看一下", "查一下", "定位", "分析")
+    return (
+        any(signal in lowered for signal in action_signals)
+        or any(signal in lowered for signal in verification_signals)
+        or (any(signal in lowered for signal in issue_signals) and any(signal in lowered for signal in request_signals))
+    )
+
+
+def _looks_like_non_action_statement(lowered: str) -> bool:
+    stripped = _strip_leading_label(lowered.strip())
+    prefixes = (
+        "经验：",
+        "经验:",
+        "偏好：",
+        "偏好:",
+        "规则：",
+        "规则:",
+        "原则：",
+        "原则:",
+        "记住：",
+        "记住:",
+        "请记住",
+        "临时测试：",
+        "临时测试:",
+    )
+    return stripped.startswith(prefixes)
+
+
+def _strip_leading_label(text: str) -> str:
+    if text.startswith("[") and "]" in text[:120]:
+        return text.split("]", 1)[1].strip()
+    return text
 
 
 def _optional_str(value: Any) -> str | None:

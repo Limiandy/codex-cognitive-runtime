@@ -42,6 +42,8 @@ class SkillNeedClassifier:
         lowered = text.lower()
         if not text:
             return _direct("empty", "empty prompt")
+        if _looks_like_non_action_statement(lowered):
+            return _direct("memory_statement", "statement should be reviewed as memory, not executed as a runtime skill")
         if lowered in _AMBIGUOUS_SHORT_SIGNALS:
             return _direct("ambiguous_short_prompt", "short ambiguous prompt should not trigger a runtime skill")
         if _matches(lowered, _DIRECT_FACT_SIGNALS) and not _matches(lowered, _COMPLEX_TASK_SIGNALS + _BRAND_DESIGN_SIGNALS + _ENGINEERING_SIGNALS):
@@ -163,6 +165,32 @@ def _decision_from_model(result: dict[str, Any]) -> SkillNeedDecision | None:
 
 def _matches(text: str, signals: tuple[str, ...]) -> bool:
     return any(signal in text for signal in signals)
+
+
+def _looks_like_non_action_statement(text: str) -> bool:
+    stripped = _strip_leading_label(text.strip())
+    prefixes = (
+        "经验：",
+        "经验:",
+        "偏好：",
+        "偏好:",
+        "规则：",
+        "规则:",
+        "原则：",
+        "原则:",
+        "记住：",
+        "记住:",
+        "请记住",
+        "临时测试：",
+        "临时测试:",
+    )
+    return stripped.startswith(prefixes)
+
+
+def _strip_leading_label(text: str) -> str:
+    if text.startswith("[") and "]" in text[:120]:
+        return text.split("]", 1)[1].strip()
+    return text
 
 
 _DIRECT_FACT_SIGNALS = (

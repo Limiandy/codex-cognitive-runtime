@@ -192,6 +192,21 @@ class RuntimeObserverTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_memory_statement_does_not_start_observed_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                for prompt in [
+                    "经验：工程任务必须先 inspect，再最小修改，最后跑 unittest。",
+                    "[trace-rerun-0098/project_exp] 经验：工程任务必须先 inspect，再最小修改，最后跑 unittest。",
+                    "临时测试：api_key = sk-test-123 只是验证脱敏。",
+                ]:
+                    result = service.start_task_from_prompt({"prompt": prompt, "session_id": "s1", "cwd": tmp})
+                    self.assertFalse(result["started"], prompt)
+                    self.assertEqual(result["reason"], "not_engineering_task")
+            finally:
+                service.close()
+
     def test_stop_records_violation_when_failed_verification_is_claimed_successful(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)

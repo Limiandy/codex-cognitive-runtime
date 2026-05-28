@@ -105,7 +105,23 @@ def run_runtime_skill_benchmark(fixture_path: str | None = None, synthetic: bool
         "seed_adjustment_accuracy": _ratio(seed_adjust_correct, seed_adjust_total),
         "durable_adjustment_accuracy": _ratio(durable_adjust_correct, durable_adjust_total),
     }
-    threshold_failures = {key: {"actual": metrics.get(key, 0.0), "threshold": threshold} for key, threshold in DEFAULT_THRESHOLDS.items() if metrics.get(key, 0.0) < threshold}
+    metric_denominators = {
+        "skill_trigger_recall": trigger_total,
+        "skill_trigger_precision": trigger_correct + trigger_false_positive,
+        "direct_answer_skip_accuracy": direct_total,
+        "intent_accuracy": intent_total,
+        "domain_accuracy": domain_total,
+        "clarification_accuracy": clarification_total,
+        "feedback_attribution_accuracy": len(feedback_cases),
+        "feedback_dimension_accuracy": dimension_total,
+        "seed_adjustment_accuracy": seed_adjust_total,
+        "durable_adjustment_accuracy": durable_adjust_total,
+    }
+    threshold_failures = {
+        key: {"actual": metrics.get(key, 0.0), "threshold": threshold}
+        for key, threshold in DEFAULT_THRESHOLDS.items()
+        if metric_denominators.get(key, 0) > 0 and metrics.get(key, 0.0) < threshold
+    }
     return {
         "task_count": len(tasks),
         "feedback_count": len(feedback_cases),

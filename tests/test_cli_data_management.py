@@ -304,6 +304,19 @@ class CliDataManagementTest(unittest.TestCase):
             )
             self.assertEqual(synthetic.returncode, 0, synthetic.stderr)
             self.assertEqual(json.loads(synthetic.stdout)["source"], "synthetic")
+            synthetic_threshold = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "runtime-benchmark", "--synthetic", "--fail-under-defaults"],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(synthetic_threshold.returncode, 0, synthetic_threshold.stderr)
+            synthetic_threshold_payload = json.loads(synthetic_threshold.stdout)
+            self.assertEqual(synthetic_threshold_payload["source"], "synthetic")
+            self.assertTrue(synthetic_threshold_payload["passed_thresholds"])
 
 
 if __name__ == "__main__":

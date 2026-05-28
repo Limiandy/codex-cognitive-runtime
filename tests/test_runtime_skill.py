@@ -1041,6 +1041,20 @@ class RuntimeSkillTest(unittest.TestCase):
             self.assertTrue(decision.skill_needed, prompt)
             self.assertEqual(decision.domain, "software_engineering")
 
+    def test_memory_statement_does_not_trigger_engineering_runtime_skill(self):
+        from codex_memory.skill_need import SkillNeedClassifier
+
+        classifier = SkillNeedClassifier(model=None)
+        for prompt in [
+            "经验：工程任务必须先 inspect，再最小修改，最后跑 unittest。",
+            "[trace-rerun-0098/project_exp] 经验：工程任务必须先 inspect，再最小修改，最后跑 unittest。",
+            "临时测试：api_key = sk-test-123 只是验证脱敏。",
+        ]:
+            decision = classifier.classify(prompt)
+            self.assertFalse(decision.skill_needed, prompt)
+            self.assertEqual(decision.intent, "memory_statement")
+            self.assertNotEqual(decision.domain, "software_engineering")
+
     def test_runtime_skill_quality_evaluator_flags_unbacked_claims(self):
         from codex_memory.runtime_quality import evaluate_runtime_skill
 
