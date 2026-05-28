@@ -802,9 +802,13 @@ class RuntimeSkillTest(unittest.TestCase):
         self.assertEqual(classifier.classify("这个方向很好").feedback_target, "skill_strategy")
         self.assertTrue(classifier.classify("这个方向很好").adjust_seed_skill_strength)
         self.assertEqual(classifier.classify("这个提问方式很好").feedback_target, "first_action")
+        self.assertEqual(classifier.classify("先问问题是对的").feedback_target, "first_action")
         self.assertEqual(classifier.classify("不是我的偏好").feedback_target, "memory_basis")
+        self.assertEqual(classifier.classify("不是我的组织定位").feedback_target, "memory_basis")
         self.assertFalse(classifier.classify("不是我的偏好").adjust_seed_skill_strength)
         self.assertEqual(classifier.classify("这个模板不适合").feedback_target, "seed_skill")
+        self.assertEqual(classifier.classify("不要用这个模板").feedback_target, "seed_skill")
+        self.assertEqual(classifier.classify("dynamic skill 过时了").feedback_target, "durable_skill")
         self.assertEqual(classifier.classify("方向对，但问题太多").outcome, "mixed")
         self.assertFalse(classifier.classify("方向对，但问题太多").adjust_seed_skill_strength)
 
@@ -1001,6 +1005,19 @@ class RuntimeSkillTest(unittest.TestCase):
             self.assertIsNotNone(skill, prompt)
             self.assertGreaterEqual(len(skill.strategy), 2)
             self.assertIn(skill.first_action["type"], {"ask_clarifying_questions", "inspect_repository", "proceed_or_clarify"})
+
+    def test_runtime_word_does_not_trigger_time_direct_answer_path(self):
+        from codex_memory.skill_need import SkillNeedClassifier
+
+        classifier = SkillNeedClassifier(model=None)
+        for prompt in [
+            "实现runtime benchmark并跑 lint",
+            "实现prune-runtime并跑 lint",
+            "debug 这个runtime observer失败",
+        ]:
+            decision = classifier.classify(prompt)
+            self.assertTrue(decision.skill_needed, prompt)
+            self.assertEqual(decision.domain, "software_engineering")
 
     def test_runtime_skill_quality_evaluator_flags_unbacked_claims(self):
         from codex_memory.runtime_quality import evaluate_runtime_skill

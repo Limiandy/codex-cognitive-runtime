@@ -278,6 +278,20 @@ class CliDataManagementTest(unittest.TestCase):
             benchmark_payload = json.loads(benchmark.stdout)
             self.assertIn("skill_trigger_recall", benchmark_payload)
             self.assertNotEqual(benchmark_payload["source"], "synthetic")
+            self.assertTrue(benchmark_payload["passed_thresholds"])
+            self.assertEqual(
+                benchmark_payload["categories"],
+                {
+                    "direct_answer": 50,
+                    "creative_design": 50,
+                    "planning_business": 50,
+                    "engineering": 50,
+                    "ambiguous": 50,
+                    "feedback": 50,
+                },
+            )
+            fixture_path = Path(benchmark_payload["source"])
+            self.assertFalse(any('"repeat"' in line for line in fixture_path.read_text(encoding="utf-8").splitlines()))
 
             synthetic = subprocess.run(
                 [sys.executable, "-m", "codex_memory.cli", "runtime-benchmark", "--synthetic"],

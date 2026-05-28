@@ -104,11 +104,11 @@ class RuntimeSkillFeedbackClassifier:
 def _target(text: str) -> str:
     if _has_any(text, ("模板", "agent", "seed", "种子")):
         return "seed_skill"
-    if _has_any(text, ("durable", "dynamic", "长期技能", "持久技能")):
+    if _has_any(text, ("durable", "dynamic", "长期技能", "持久技能", "持久")):
         return "durable_skill"
-    if _has_any(text, ("偏好", "记忆", "memory", "不是我的偏好")):
+    if _has_any(text, ("偏好", "记忆", "memory", "不是我的偏好", "组织定位")):
         return "memory_basis"
-    if _has_any(text, ("提问", "问题", "question", "clarify", "澄清")):
+    if _has_any(text, ("提问", "问题", "question", "clarify", "澄清", "first action", "先问")):
         return "first_action"
     if _has_any(text, ("方向", "策略", "方法", "流程", "workflow", "strategy")):
         return "skill_strategy"
@@ -121,9 +121,9 @@ def _target_signal_count(text: str) -> int:
     targets = set()
     for target, signals in (
         ("seed_skill", ("模板", "agent", "seed", "种子")),
-        ("durable_skill", ("durable", "dynamic", "长期技能", "持久技能")),
-        ("memory_basis", ("偏好", "记忆", "memory", "不是我的偏好")),
-        ("first_action", ("提问", "问题", "question", "clarify", "澄清")),
+        ("durable_skill", ("durable", "dynamic", "长期技能", "持久技能", "持久")),
+        ("memory_basis", ("偏好", "记忆", "memory", "不是我的偏好", "组织定位")),
+        ("first_action", ("提问", "问题", "question", "clarify", "澄清", "first action", "先问")),
         ("skill_strategy", ("方向", "策略", "方法", "流程", "workflow", "strategy")),
         ("execution", ("执行", "验证", "测试", "verification", "test")),
     ):
@@ -198,8 +198,8 @@ def _has_any(text: str, signals: tuple[str, ...]) -> bool:
 def _has_positive(text: str) -> bool:
     if any(signal in text for signal in ("很好", "不错", "可以", "正是", "有用", "useful", "good", "great", "right", "correct")):
         return True
-    return "对" in text and "不对" not in text and "方向对" in text
+    return "对" in text and "不对" not in text and _target_signal_count(text) > 0
 
 
 _POSITIVE = ("很好", "不错", "可以", "对", "正是", "有用", "useful", "good", "great", "right", "correct")
-_NEGATIVE = ("不对", "不是", "不要这样", "没用", "wrong", "bad", "not useful", "不适合", "太多", "不好")
+_NEGATIVE = ("不对", "不是", "不要这样", "不要用", "没用", "wrong", "bad", "not useful", "不适合", "太多", "太泛", "不好", "错误", "错了", "不符合", "过时")

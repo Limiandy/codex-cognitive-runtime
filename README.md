@@ -189,7 +189,7 @@ Runtime and seed skill governance:
 ./scripts/codex-memory seed-skills stats
 ```
 
-Runtime Skill feedback attribution is rule-first. Ambiguous or multi-target feedback can use a short model check; set `CODEX_MEMORY_FEEDBACK_MODEL=0` to keep attribution purely deterministic. `runtime-benchmark` reads the maintained benchmark fixture by default and supports `--synthetic` for the generated regression set.
+Runtime Skill feedback attribution is rule-first. Ambiguous or multi-target feedback can use a short model check; set `CODEX_MEMORY_FEEDBACK_MODEL=0` to keep attribution purely deterministic. `runtime-benchmark` reads the maintained explicit benchmark fixture by default and supports `--synthetic` for the generated regression set.
 
 ## Uninstall
 

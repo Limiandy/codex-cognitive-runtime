@@ -44,7 +44,7 @@ class SkillNeedClassifier:
             return _direct("empty", "empty prompt")
         if lowered in _AMBIGUOUS_SHORT_SIGNALS:
             return _direct("ambiguous_short_prompt", "short ambiguous prompt should not trigger a runtime skill")
-        if _matches(lowered, _DIRECT_FACT_SIGNALS) and not _matches(lowered, _COMPLEX_TASK_SIGNALS):
+        if _matches(lowered, _DIRECT_FACT_SIGNALS) and not _matches(lowered, _COMPLEX_TASK_SIGNALS + _BRAND_DESIGN_SIGNALS + _ENGINEERING_SIGNALS):
             return _direct("simple_query", "simple realtime/factual request")
         if self.model is not None and _matches(lowered, _MODEL_SKILL_CANDIDATE_SIGNALS):
             modeled = self._model_classify(text)
