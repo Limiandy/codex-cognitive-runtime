@@ -1,6 +1,6 @@
 # Codex Memory
 
-Codex Memory is a local cognitive runtime for Codex. It observes real Codex work through hooks, maintains task workflow state, detects missing verification or process violations, and turns reviewed outcomes into reusable memory, knowledge, and skills.
+Codex Memory turns clean long-term memory and trusted seed skills into task-specific Runtime Skills for Codex, then observes outcomes to improve future skill selection. For engineering work, it also guards workflows against missing inspection, missing verification, and false completion claims.
 
 This is a local developer alpha. It is intended for developers who can inspect local Codex configuration and recover their own environment. It does not guarantee compatibility across Codex CLI versions and is not recommended for sensitive production environments.
 

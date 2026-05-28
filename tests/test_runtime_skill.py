@@ -85,6 +85,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertNotIn("Runtime Skill:", context)
                 self.assertNotIn("Codex Cognitive Runtime context:", context)
                 self.assertEqual(context, "")
+                recalls = service.ledger.conn.execute("SELECT COUNT(*) FROM recall_events").fetchone()[0]
+                self.assertEqual(recalls, 0)
             finally:
                 service.close()
 
@@ -299,6 +301,26 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_generic_natural_feedback_records_feedback_without_seed_adjustment(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path))
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                feedback = service.apply_natural_feedback("很好", session_id="s1")
+
+                self.assertEqual(feedback["runtime_skill_feedback"]["metadata_json"]["outcome"], "positive")
+                seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
+                metadata = seed["metadata_json"]
+                self.assertEqual(metadata["reuse_count"], 0)
+                self.assertEqual(metadata["success_count"], 0)
+                evidence = feedback["runtime_skill_feedback"]["metadata_json"]["evidence"]
+                self.assertFalse(evidence["adjust_seed_skill_strength"])
+            finally:
+                service.close()
+
     def test_natural_feedback_ignores_old_runtime_skill_injection(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
             source_path = Path(source)
@@ -335,7 +357,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.seed_skills(source=str(source_path))
                 service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
                 for _ in range(3):
-                    service.apply_natural_feedback("不对，不要这样", session_id="s1")
+                    service.apply_natural_feedback("这个方法不对，不要这样", session_id="s1")
 
                 seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
                 metadata = seed["metadata_json"]

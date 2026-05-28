@@ -222,11 +222,21 @@ class MemoryService:
     ) -> str:
         budget = MemoryGovernance(self.ledger).injection_budget(prompt, limit)
         limit = int(budget["limit"])
+        skill_decision = SkillNeedClassifier(self.model).classify(prompt)
+        active_workflow = self.runtime.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd) if self.config.enable_runtime_observer else None
+        if (
+            not skill_decision.skill_needed
+            and not skill_decision.requires_memory
+            and not active_workflow
+            and _prompt_can_skip_recall(prompt, skill_decision.intent)
+        ):
+            logger.debug("prompt context skipped", prompt_chars=len(prompt), reason="direct_answer_without_memory_need")
+            return ""
+
         memories = self.ledger.list_recallable_memories(cwd=cwd, session_id=session_id, limit=200)
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
-        skill_decision = SkillNeedClassifier(self.model).classify(prompt)
         runtime_skill_context = ""
         runtime_skill = None
         if skill_decision.skill_needed:
@@ -257,7 +267,6 @@ class MemoryService:
                 )
         runtime_context = ""
         if self.config.enable_runtime_observer:
-            active_workflow = self.runtime.active_workflow_for_session(session_id=session_id, turn_id=turn_id, cwd=cwd)
             if active_workflow or skill_decision.domain == "software_engineering":
                 runtime_context = self.runtime.injection_context(prompt, limit=limit, cwd=cwd, session_id=session_id, turn_id=turn_id)
         logger.debug("memory recall completed", prompt_chars=len(prompt), route=result.route, recall_id=recall_id, budget=budget, memory_count=len(result.memories))
@@ -351,6 +360,7 @@ class MemoryService:
                 "prompt_preview": prompt[:160],
                 "matched_reason": matched_reason,
                 "injection_created_at": injection.get("created_at"),
+                "adjust_seed_skill_strength": _natural_feedback_mentions_skill_or_direction(prompt),
             },
         )
 
@@ -576,3 +586,61 @@ def _runtime_skill_feedback_sentiment(prompt: str) -> str | None:
     if any(signal in lowered for signal in positive):
         return "positive"
     return None
+
+
+def _prompt_asks_for_memory(prompt: str) -> bool:
+    lowered = prompt.lower()
+    signals = (
+        "偏好",
+        "记忆",
+        "记得",
+        "上次",
+        "之前",
+        "我的",
+        "memory",
+        "remember",
+        "preference",
+        "previous",
+    )
+    return any(signal in lowered for signal in signals)
+
+
+def _prompt_can_skip_recall(prompt: str, intent: str) -> bool:
+    if _prompt_asks_for_memory(prompt):
+        return False
+    if intent == "ambiguous_short_prompt":
+        return True
+    lowered = prompt.lower()
+    simple_signals = (
+        "天气",
+        "几点",
+        "现在时间",
+        "汇率",
+        "翻译",
+        "解释这个词",
+        "什么意思",
+        "weather",
+        "time",
+        "exchange rate",
+        "translate",
+        "define",
+    )
+    return any(signal in lowered for signal in simple_signals)
+
+
+def _natural_feedback_mentions_skill_or_direction(prompt: str) -> bool:
+    lowered = prompt.lower()
+    signals = (
+        "方向",
+        "方法",
+        "策略",
+        "提问",
+        "流程",
+        "skill",
+        "strategy",
+        "method",
+        "approach",
+        "question",
+        "workflow",
+    )
+    return any(signal in lowered for signal in signals)

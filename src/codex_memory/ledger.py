@@ -728,7 +728,8 @@ class Ledger:
             },
             source_kind="runtime_skill_feedback",
         )
-        if outcome in {"positive", "success", "negative", "failure"}:
+        should_adjust_seed_strength = bool(evidence.get("adjust_seed_skill_strength", True))
+        if should_adjust_seed_strength and outcome in {"positive", "success", "negative", "failure"}:
             success = outcome in {"positive", "success"}
             for seed_id in metadata.get("seed_skill_ids") or []:
                 self._record_seed_skill_feedback(str(seed_id), success)
