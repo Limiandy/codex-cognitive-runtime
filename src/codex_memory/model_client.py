@@ -100,6 +100,51 @@ class CodexMiniClient:
             return {"ranked_ids": [], "reason": "fake rank"}
         if "search intent" in lowered:
             return {"should_search": True, "queries": ["memory"]}
+        if "classify runtime skill need" in lowered:
+            target = lowered.split("user request:", 1)[-1]
+            if any(signal in target for signal in ("天气", "weather", "几点", "time", "汇率", "translate", "翻译")):
+                return {
+                    "skill_needed": False,
+                    "mode": "direct_answer",
+                    "intent": "simple_query",
+                    "domain": "general",
+                    "complexity": "low",
+                    "requires_memory": False,
+                    "requires_clarification": False,
+                    "reason": "fake classifier direct answer",
+                }
+            if any(signal in target for signal in ("logo", "标志", "品牌", "视觉识别")):
+                return {
+                    "skill_needed": True,
+                    "mode": "generate_runtime_skill",
+                    "intent": "brand_logo_design",
+                    "domain": "brand_design",
+                    "complexity": "medium",
+                    "requires_memory": True,
+                    "requires_clarification": True,
+                    "reason": "fake classifier brand design",
+                }
+            if any(signal in target for signal in ("修复", "实现", "代码", "bug", "fix", "implement", "debug", "test")):
+                return {
+                    "skill_needed": True,
+                    "mode": "generate_runtime_skill",
+                    "intent": "software_engineering_change",
+                    "domain": "software_engineering",
+                    "complexity": "medium",
+                    "requires_memory": True,
+                    "requires_clarification": False,
+                    "reason": "fake classifier engineering task",
+                }
+            return {
+                "skill_needed": False,
+                "mode": "direct_answer",
+                "intent": "direct_answer",
+                "domain": "general",
+                "complexity": "low",
+                "requires_memory": False,
+                "requires_clarification": False,
+                "reason": "fake classifier no skill",
+            }
         if "consolidate memory cluster" in lowered:
             if "dynamic_cross_project" in lowered:
                 return {

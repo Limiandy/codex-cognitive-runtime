@@ -221,7 +221,7 @@ class MemoryService:
         edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(prompt, limit=limit)
         recall_id = self.ledger.record_recall(prompt, result.route, result.memories, cwd=cwd, session_id=session_id, turn_id=turn_id)
-        skill_decision = SkillNeedClassifier().classify(prompt)
+        skill_decision = SkillNeedClassifier(self.model).classify(prompt)
         runtime_skill_context = ""
         if skill_decision.skill_needed:
             memory_basis = CleanMemoryRetriever(self.ledger).retrieve(prompt, cwd=cwd, session_id=session_id, limit=limit)

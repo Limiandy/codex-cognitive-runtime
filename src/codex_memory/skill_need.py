@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
+
+from .model_client import ModelError
+from .security import redact_secrets
 
 
 @dataclass(frozen=True)
@@ -28,6 +32,9 @@ class SkillNeedDecision:
 
 
 class SkillNeedClassifier:
+    def __init__(self, model: Any | None = None):
+        self.model = model
+
     def classify(self, prompt: str) -> SkillNeedDecision:
         text = " ".join(str(prompt or "").split())
         lowered = text.lower()
@@ -37,6 +44,14 @@ class SkillNeedClassifier:
             return _direct("ambiguous_short_prompt", "short ambiguous prompt should not trigger a runtime skill")
         if _matches(lowered, _DIRECT_FACT_SIGNALS) and not _matches(lowered, _COMPLEX_TASK_SIGNALS):
             return _direct("simple_query", "simple realtime/factual request")
+        if self.model is not None and _matches(lowered, _MODEL_SKILL_CANDIDATE_SIGNALS):
+            modeled = self._model_classify(text)
+            if modeled:
+                return modeled
+        return self._fallback_classify(text)
+
+    def _fallback_classify(self, text: str) -> SkillNeedDecision:
+        lowered = text.lower()
         if _matches(lowered, _BRAND_DESIGN_SIGNALS):
             return SkillNeedDecision(
                 True,
@@ -72,9 +87,58 @@ class SkillNeedClassifier:
             )
         return _direct("direct_answer", "request is simple enough to answer without a runtime skill")
 
+    def _model_classify(self, prompt: str) -> SkillNeedDecision | None:
+        request = (
+            "Classify runtime skill need for the current user request. "
+            "A runtime skill is a short, task-specific execution strategy grounded in clean long-term memory. "
+            "Return skill_needed=false for simple factual, realtime, translation, calculation, or one-off direct-answer requests. "
+            "Return skill_needed=true for multi-step creative, planning, product, design, writing, or software engineering tasks. "
+            "Do not generate the skill itself.\n\n"
+            f"User request:\n{redact_secrets(prompt)[:1200]}"
+        )
+        schema = {
+            "skill_needed": True,
+            "mode": "generate_runtime_skill|direct_answer",
+            "intent": "short intent label",
+            "domain": "brand_design|software_engineering|general|other",
+            "complexity": "low|medium|high",
+            "requires_memory": True,
+            "requires_clarification": False,
+            "reason": "short reason",
+        }
+        try:
+            result = self.model.complete_json(request, schema)
+        except (ModelError, ValueError, TypeError):
+            return None
+        if not isinstance(result, dict):
+            return None
+        return _decision_from_model(result)
+
 
 def _direct(intent: str, reason: str) -> SkillNeedDecision:
     return SkillNeedDecision(False, "direct_answer", intent, "general", "low", False, False, reason)
+
+
+def _decision_from_model(result: dict[str, Any]) -> SkillNeedDecision | None:
+    mode = str(result.get("mode") or "").strip() or ("generate_runtime_skill" if result.get("skill_needed") else "direct_answer")
+    skill_needed = bool(result.get("skill_needed")) and mode != "direct_answer"
+    complexity = str(result.get("complexity") or "medium").strip().lower()
+    if complexity not in {"low", "medium", "high"}:
+        complexity = "medium"
+    intent = str(result.get("intent") or ("complex_task" if skill_needed else "direct_answer")).strip()[:80]
+    domain = str(result.get("domain") or "general").strip()[:80]
+    if not intent or not domain:
+        return None
+    return SkillNeedDecision(
+        skill_needed,
+        "generate_runtime_skill" if skill_needed else "direct_answer",
+        intent,
+        domain,
+        complexity,
+        bool(result.get("requires_memory")) if skill_needed else False,
+        bool(result.get("requires_clarification")),
+        str(result.get("reason") or "model classified runtime skill need")[:240],
+    )
 
 
 def _matches(text: str, signals: tuple[str, ...]) -> bool:
@@ -145,3 +209,5 @@ _COMPLEX_TASK_SIGNALS = (
     "design",
     "proposal",
 )
+
+_MODEL_SKILL_CANDIDATE_SIGNALS = _BRAND_DESIGN_SIGNALS + _ENGINEERING_SIGNALS + _COMPLEX_TASK_SIGNALS

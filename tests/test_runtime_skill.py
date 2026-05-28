@@ -1,10 +1,13 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from codex_memory.config import Config
 from codex_memory.schema import Evidence, MemoryCandidate
 from codex_memory.service import MemoryService
+from codex_memory.skill_need import SkillNeedDecision
 
 
 def _service(tmp):
@@ -37,6 +40,12 @@ def _candidate(content, memory_type="user_preference", scope="global"):
 
 
 class RuntimeSkillTest(unittest.TestCase):
+    def setUp(self):
+        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+
+    def tearDown(self):
+        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+
     def test_simple_weather_query_does_not_generate_runtime_skill(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
@@ -45,6 +54,38 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertNotIn("Runtime Skill:", context)
                 self.assertNotIn("Codex Cognitive Runtime context:", context)
                 self.assertEqual(context, "")
+            finally:
+                service.close()
+
+    @patch("codex_memory.skill_need.SkillNeedClassifier._model_classify")
+    def test_ambiguous_short_prompt_does_not_call_model(self, model_classify):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("测试", cwd=tmp, session_id="s1")
+                self.assertEqual(context, "")
+                model_classify.assert_not_called()
+            finally:
+                service.close()
+
+    @patch("codex_memory.skill_need.SkillNeedClassifier._model_classify")
+    def test_complex_task_uses_model_skill_need_decision(self, model_classify):
+        model_classify.return_value = SkillNeedDecision(
+            True,
+            "generate_runtime_skill",
+            "brand_logo_design",
+            "brand_design",
+            "medium",
+            True,
+            True,
+            "model classified brand design",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("请帮我设计一套视觉识别方向", cwd=tmp, session_id="s1")
+                self.assertIn("Runtime Skill: brand_logo_design_intake", context)
+                model_classify.assert_called_once()
             finally:
                 service.close()
 
