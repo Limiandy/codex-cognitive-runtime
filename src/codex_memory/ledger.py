@@ -657,6 +657,84 @@ class Ledger:
             source_kind="runtime_skill_injection",
         )
 
+    def latest_runtime_skill_injection(self, session_id: str | None = None, turn_id: str | None = None) -> dict[str, Any] | None:
+        where = ["layer='audit'", "record_type='runtime_skill_injection'", "status='active'"]
+        params: list[Any] = []
+        if session_id:
+            where.append("session_id=?")
+            params.append(session_id)
+        rows = self.conn.execute(
+            "SELECT * FROM cognitive_records WHERE " + " AND ".join(where) + " ORDER BY created_at DESC LIMIT 50",
+            params,
+        ).fetchall()
+        for row in rows:
+            record = _cognitive_record_row_to_dict(row)
+            metadata = record.get("metadata_json") or {}
+            if turn_id and metadata.get("turn_id") != turn_id:
+                continue
+            return record
+        return None
+
+    def record_runtime_skill_feedback(
+        self,
+        injection_id: str,
+        outcome: str,
+        evidence: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        injection = self.get_cognitive_record(injection_id)
+        if not injection:
+            return None
+        metadata = dict(injection.get("metadata_json") or {})
+        metadata.update(
+            {
+                "feedback_status": outcome,
+                "feedback_at": _now(),
+                "feedback_source": evidence.get("source"),
+            }
+        )
+        self.conn.execute(
+            "UPDATE cognitive_records SET metadata_json=?, updated_at=? WHERE id=?",
+            (json.dumps(metadata, ensure_ascii=False), _now(), injection_id),
+        )
+        feedback = self.record_cognitive_record(
+            "audit",
+            "runtime_skill_feedback",
+            None,
+            f"Runtime skill feedback: {outcome}",
+            "active",
+            "session",
+            domain=injection.get("domain"),
+            category="runtime_skill",
+            subcategory=outcome,
+            confidence=0.7,
+            importance=0.58,
+            project_key=injection.get("project_key"),
+            session_id=injection.get("session_id"),
+            metadata={
+                "injection_id": injection_id,
+                "outcome": outcome,
+                "evidence": evidence,
+                "seed_skill_ids": metadata.get("seed_skill_ids") or [],
+            },
+            source_kind="runtime_skill_feedback",
+        )
+        if outcome in {"positive", "success", "negative", "failure"}:
+            success = outcome in {"positive", "success"}
+            for seed_id in metadata.get("seed_skill_ids") or []:
+                self._record_seed_skill_feedback(str(seed_id), success)
+        return feedback
+
+    def _record_seed_skill_feedback(self, seed_id: str, success: bool) -> None:
+        seed = self.get_cognitive_record(seed_id)
+        if not seed or seed.get("record_type") != "seed_skill":
+            return
+        metadata = dict(seed.get("metadata_json") or {})
+        metadata["reuse_count"] = int(metadata.get("reuse_count") or 0) + 1
+        metadata["success_count"] = int(metadata.get("success_count") or 0) + (1 if success else 0)
+        metadata["failure_count"] = int(metadata.get("failure_count") or 0) + (0 if success else 1)
+        metadata["last_feedback_at"] = _now()
+        self.adjust_cognitive_record_strength(seed_id, 0.05 if success else -0.1, metadata)
+
     def record_runtime_violation(
         self,
         workflow_id: str,

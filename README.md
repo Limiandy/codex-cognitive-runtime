@@ -23,6 +23,16 @@ Current Runtime MVP supports runtime skill generation from clean long-term memor
 
 The runtime observer is enabled by default. Disable it with `CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER=0` if you only want reviewed memory storage without workflow guard behavior.
 
+Runtime Skill lifecycle:
+
+1. Decide whether the request needs a task-specific skill.
+2. Retrieve reviewed clean memories and trusted seed skills.
+3. Generate a temporary Runtime Skill.
+4. Review the Runtime Skill for allowed basis ids, missing clarification, secret-like content, and unsupported user or organization claims.
+5. Inject the reviewed skill and record a local audit event.
+6. Observe workflow or natural feedback.
+7. Feed success/failure back into seed skill strength and dynamic skill candidates.
+
 ## Commands
 
 ```bash
@@ -141,9 +151,9 @@ Seed skills can be imported to provide a cold-start skill basis before the local
 ./scripts/codex-memory seed-skills
 ```
 
-By default this imports agent skill markdown from [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents) on demand and records each entry as a local `seed_skill` cognitive record with source path, commit, and MIT license metadata. The source content is not vendored into this repository. Use `--source /path/to/agency-agents` for an already cloned checkout, `--category design` to import one category, and `--limit N` for a smaller trial import.
+By default this imports agent skill markdown from [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents) on demand and records each entry as a local `seed_skill` cognitive record with source path, commit, content hash, trust level, feedback counters, and MIT license metadata. The source content is not vendored into this repository. Use `--source /path/to/agency-agents` for an already cloned checkout, `--category design` to import one category, and `--limit N` for a smaller trial import.
 
-Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis.
+Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis. Seed skills with repeated failures are automatically suppressed from future Runtime Skill basis retrieval.
 
 Runtime Skill injections are recorded as local audit records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
 

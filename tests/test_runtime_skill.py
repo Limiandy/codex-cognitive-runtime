@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from codex_memory.config import Config
+from codex_memory.seed_skills import relevant_seed_skills
 from codex_memory.schema import Evidence, MemoryCandidate
 from codex_memory.service import MemoryService
 from codex_memory.skill_need import SkillNeedDecision
@@ -190,7 +191,15 @@ class RuntimeSkillTest(unittest.TestCase):
             service = _service(tmp)
             try:
                 seeded = service.seed_skills(source=str(source_path))
+                self.assertTrue(seeded["ok"])
                 self.assertEqual(seeded["skill_count"], 2)
+                seed_record = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
+                seed_metadata = seed_record["metadata_json"]
+                self.assertEqual(seed_metadata["trust_level"], "external_seed")
+                self.assertEqual(seed_metadata["license"], "MIT")
+                self.assertIn("MIT", seed_metadata["license_detected"])
+                self.assertEqual(len(seed_metadata["content_sha256"]), 64)
+                self.assertFalse(seed_metadata["source_verified"])
 
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
 
@@ -205,6 +214,170 @@ class RuntimeSkillTest(unittest.TestCase):
                 ]
                 metadata = injections[0].get("metadata_json") or {}
                 self.assertEqual(metadata["seed_skill_ids"], ["agency-agents:design/design-brand-guardian.md"])
+            finally:
+                service.close()
+
+    def test_seed_skills_with_too_many_failures_are_not_retrieved(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path))
+                service.ledger.patch_cognitive_record_metadata(
+                    "agency-agents:design/design-brand-guardian.md",
+                    {"failure_count": 3, "success_count": 0},
+                )
+                skills = relevant_seed_skills(service.ledger, "帮我画一个品牌 logo")
+                self.assertFalse([item for item in skills if item["id"] == "agency-agents:design/design-brand-guardian.md"])
+            finally:
+                service.close()
+
+    def test_natural_feedback_updates_runtime_skill_and_seed_skill_counts(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path))
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                feedback = service.apply_natural_feedback("很好，正是这个方向", session_id="s1")
+                self.assertEqual(feedback["runtime_skill_feedback"]["metadata_json"]["outcome"], "positive")
+                seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
+                metadata = seed["metadata_json"]
+                self.assertEqual(metadata["reuse_count"], 1)
+                self.assertEqual(metadata["success_count"], 1)
+                self.assertEqual(metadata["failure_count"], 0)
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ][0]
+                self.assertEqual(injection["metadata_json"]["feedback_status"], "positive")
+            finally:
+                service.close()
+
+    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    def test_runtime_skill_reviewer_filters_unknown_basis_ids(self, model_synthesize):
+        from codex_memory.runtime_skill import RuntimeSkill
+
+        model_synthesize.return_value = RuntimeSkill(
+            name="bad_basis_logo",
+            applies_to="logo design",
+            goal="clarify before design",
+            memory_basis_ids=["mem_unknown"],
+            memory_basis_summary="No clean long-term memories matched this task.",
+            strategy=["Ask clarifying questions first.", "Offer directions after clarification."],
+            first_action={"type": "ask_clarifying_questions", "questions": ["品牌名称是什么？"]},
+            seed_skill_ids=["agency-agents:missing.md"],
+            confidence=0.8,
+            intent="brand_logo_design",
+            domain="brand_design",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ][0]
+                metadata = injection["metadata_json"]
+                self.assertEqual(metadata["memory_basis_ids"], [])
+                self.assertEqual(metadata["seed_skill_ids"], [])
+                self.assertIn("filtered_unknown_memory_basis", metadata["review"]["reasons"])
+            finally:
+                service.close()
+
+    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    def test_runtime_skill_reviewer_corrects_missing_clarification_action(self, model_synthesize):
+        from codex_memory.runtime_skill import RuntimeSkill
+
+        model_synthesize.return_value = RuntimeSkill(
+            name="logo_without_questions",
+            applies_to="logo design",
+            goal="clarify before design",
+            memory_basis_ids=[],
+            memory_basis_summary="No clean long-term memories matched this task.",
+            strategy=["Ask clarifying questions first.", "Offer directions after clarification."],
+            first_action={"type": "proceed_or_clarify", "questions": []},
+            confidence=0.8,
+            intent="brand_logo_design",
+            domain="brand_design",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                self.assertIn("First action: ask_clarifying_questions", context)
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ][0]
+                self.assertEqual(injection["metadata_json"]["review"]["status"], "fallback")
+            finally:
+                service.close()
+
+    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    def test_runtime_skill_reviewer_fallbacks_unbacked_preference_claims(self, model_synthesize):
+        from codex_memory.runtime_skill import RuntimeSkill
+
+        model_synthesize.return_value = RuntimeSkill(
+            name="unbacked_preference_logo",
+            applies_to="logo design",
+            goal="Use according to your preferences to shape the logo.",
+            memory_basis_ids=[],
+            memory_basis_summary="No clean long-term memories matched this task.",
+            strategy=["According to your preferences, use a premium brand style.", "Create logo directions."],
+            first_action={"type": "ask_clarifying_questions", "questions": ["品牌名称是什么？"]},
+            confidence=0.8,
+            intent="brand_logo_design",
+            domain="brand_design",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                self.assertIn("Runtime Skill:", context)
+                self.assertNotIn("according to your preferences", context.lower())
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ][0]
+                self.assertIn("removed_unbacked_user_or_org_claims", injection["metadata_json"]["review"]["reasons"])
+            finally:
+                service.close()
+
+    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    def test_runtime_skill_reviewer_drops_secret_like_skill(self, model_synthesize):
+        from codex_memory.runtime_skill import RuntimeSkill
+
+        model_synthesize.return_value = RuntimeSkill(
+            name="secret_skill",
+            applies_to="logo design",
+            goal="clarify before design",
+            memory_basis_ids=[],
+            memory_basis_summary="No clean long-term memories matched this task.",
+            strategy=["Use token api_key=secret-value before acting.", "Ask one question."],
+            first_action={"type": "ask_clarifying_questions", "questions": ["品牌名称是什么？"]},
+            confidence=0.8,
+            intent="brand_logo_design",
+            domain="brand_design",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                self.assertNotIn("Runtime Skill:", context)
+                injections = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ]
+                self.assertEqual(injections, [])
             finally:
                 service.close()
 

@@ -16,7 +16,7 @@ from .model_client import CodexMiniClient
 from .memory_retriever import CleanMemoryRetriever
 from .recall import MemoryRecall
 from .review import MemoryReviewer
-from .runtime_skill import RuntimeSkillInjector, RuntimeSkillSynthesizer
+from .runtime_skill import RuntimeSkillInjector, RuntimeSkillReviewer, RuntimeSkillSynthesizer
 from .security import sanitize_payload, summarize_payload, summarize_candidate
 from .seed_skills import AgencySkillSeeder, DEFAULT_AGENCY_AGENTS_REPO
 from .skill_need import SkillNeedClassifier
@@ -199,6 +199,9 @@ class MemoryService:
             return {"observed": False, "reason": "runtime_observer_disabled", "event_id": event_id, "hook_output": {}}
         result = self.runtime.observe_stop(payload)
         result["event_id"] = event_id
+        feedback = self._record_runtime_skill_workflow_feedback(payload, result)
+        if feedback:
+            result["runtime_skill_feedback"] = feedback
         return result
 
     def _stored_event_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -228,15 +231,28 @@ class MemoryService:
         if skill_decision.skill_needed:
             memory_basis = CleanMemoryRetriever(self.ledger).retrieve(prompt, cwd=cwd, session_id=session_id, limit=limit)
             runtime_skill = RuntimeSkillSynthesizer(self.model).synthesize(prompt, skill_decision, memory_basis)
+            review = RuntimeSkillReviewer().review(runtime_skill, skill_decision, memory_basis)
+            runtime_skill = review.get("skill")
             runtime_skill_context = RuntimeSkillInjector().format(runtime_skill)
             if runtime_skill_context and runtime_skill:
-                self.ledger.record_runtime_skill_injection(
+                injection = self.ledger.record_runtime_skill_injection(
                     prompt,
                     runtime_skill.to_dict(),
                     session_id=session_id,
                     turn_id=turn_id,
                     cwd=cwd,
                     project_key=project_key_for_cwd(cwd) if cwd else None,
+                )
+                self.ledger.patch_cognitive_record_metadata(
+                    str(injection["id"]),
+                    {
+                        "review": {
+                            "status": review.get("status"),
+                            "reasons": review.get("reasons") or [],
+                            "risk_flags": review.get("risk_flags") or [],
+                            "basis_precedence": review.get("basis_precedence"),
+                        }
+                    },
                 )
         runtime_context = ""
         if self.config.enable_runtime_observer:
@@ -266,11 +282,59 @@ class MemoryService:
 
     def apply_natural_feedback(self, prompt: str, session_id: str | None = None) -> dict[str, Any]:
         result = MemoryGovernance(self.ledger).apply_natural_feedback(prompt, session_id=session_id)
+        skill_feedback = self._record_runtime_skill_natural_feedback(prompt, session_id=session_id)
+        if skill_feedback:
+            result["runtime_skill_feedback"] = skill_feedback
         logger.debug("natural memory feedback checked", session_id=session_id, result=result)
         return result
 
     def recall_feedback(self, memory_id: str, outcome: str, note: str = "") -> dict[str, Any]:
         return self.ledger.register_recall_feedback(memory_id, outcome, note)
+
+    def _record_runtime_skill_workflow_feedback(self, payload: dict[str, Any], result: dict[str, Any]) -> dict[str, Any] | None:
+        injection = self.ledger.latest_runtime_skill_injection(
+            session_id=str(payload.get("session_id") or "") or None,
+            turn_id=str(payload.get("turn_id") or "") or None,
+        )
+        if not injection:
+            return None
+        if not result.get("observed"):
+            outcome = "unknown"
+        else:
+            high_violations = [
+                item
+                for item in result.get("violations") or []
+                if (item.get("metadata_json") or {}).get("severity") == "high"
+            ]
+            workflow_id = str(result.get("workflow_id") or "")
+            if high_violations:
+                outcome = "failure"
+            elif workflow_id and self.ledger.latest_state_for("workflow", workflow_id) == "completed":
+                outcome = "success"
+            else:
+                outcome = "unknown"
+        return self.ledger.record_runtime_skill_feedback(
+            str(injection["id"]),
+            outcome,
+            {
+                "source": "workflow_stop",
+                "workflow_id": result.get("workflow_id"),
+                "event_id": result.get("event_id"),
+            },
+        )
+
+    def _record_runtime_skill_natural_feedback(self, prompt: str, session_id: str | None = None) -> dict[str, Any] | None:
+        outcome = _runtime_skill_feedback_sentiment(prompt)
+        if not outcome:
+            return None
+        injection = self.ledger.latest_runtime_skill_injection(session_id=session_id)
+        if not injection:
+            return None
+        return self.ledger.record_runtime_skill_feedback(
+            str(injection["id"]),
+            outcome,
+            {"source": "natural_feedback", "prompt_preview": prompt[:160]},
+        )
 
     def consolidate_memories(self) -> dict[str, Any]:
         result = MemoryConsolidator(self.ledger, self.model, self.reviewer).consolidate()
@@ -483,3 +547,14 @@ def _memory_storage_opt_out(prompt: str) -> bool:
         "don't store",
     )
     return any(signal in lowered for signal in signals)
+
+
+def _runtime_skill_feedback_sentiment(prompt: str) -> str | None:
+    lowered = prompt.lower()
+    positive = ("很好", "对", "正是", "可以", "有用", "useful", "good", "works")
+    negative = ("不对", "不是", "不要这样", "没用", "wrong", "not useful", "bad")
+    if any(signal in lowered for signal in negative):
+        return "negative"
+    if any(signal in lowered for signal in positive):
+        return "positive"
+    return None

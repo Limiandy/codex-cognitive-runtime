@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .model_client import ModelError
-from .security import redact_secrets
+from .security import SECRET_PATTERNS, redact_secrets
 from .skill_need import SkillNeedDecision
 
 
@@ -189,6 +189,65 @@ class RuntimeSkillSynthesizer:
         return _skill_from_model(result, decision, basis_ids, basis_summary, seed_skill_ids, seed_summary)
 
 
+class RuntimeSkillReviewer:
+    def review(self, skill: RuntimeSkill | None, decision: SkillNeedDecision, memory_basis: dict[str, Any]) -> dict[str, Any]:
+        if not skill:
+            return {"status": "dropped", "reasons": ["missing_skill"], "risk_flags": [], "skill": None}
+        reasons = []
+        risk_flags = []
+        allowed_memory_ids = {str(item.get("id")) for item in memory_basis.get("memories") or [] if item.get("id")}
+        allowed_seed_ids = {str(item.get("id")) for item in memory_basis.get("seed_skills") or [] if item.get("id")}
+        memory_ids = [item for item in skill.memory_basis_ids if item in allowed_memory_ids]
+        seed_ids = [item for item in skill.seed_skill_ids if item in allowed_seed_ids]
+        if len(memory_ids) != len(skill.memory_basis_ids):
+            reasons.append("filtered_unknown_memory_basis")
+        if len(seed_ids) != len(skill.seed_skill_ids):
+            reasons.append("filtered_unknown_seed_skill")
+        if skill.confidence < 0.55:
+            return {"status": "dropped", "reasons": [*reasons, "low_confidence"], "risk_flags": risk_flags, "skill": None}
+        if _has_secret_like_text(skill):
+            return {"status": "dropped", "reasons": [*reasons, "secret_like_runtime_skill"], "risk_flags": ["secret_like_runtime_skill"], "skill": None}
+        strategy = [_clean_text(item, 220) for item in skill.strategy if _clean_text(item, 220)][:5]
+        avoid = [_clean_text(item, 180) for item in skill.avoid if _clean_text(item, 180)][:5]
+        if len(strategy) < 2:
+            return {"status": "dropped", "reasons": [*reasons, "insufficient_strategy"], "risk_flags": risk_flags, "skill": None}
+        first_action = dict(skill.first_action or {})
+        goal = skill.goal
+        status = "approved"
+        if decision.requires_clarification and first_action.get("type") != "ask_clarifying_questions":
+            first_action = {"type": "ask_clarifying_questions", "questions": _default_questions(decision)}
+            reasons.append("first_action_corrected_for_clarification")
+            status = "fallback"
+        if not memory_ids and _claims_user_or_org_facts(skill):
+            goal = "Clarify missing task facts before applying any user-specific preference or organization assumption."
+            strategy = [
+                "Ask clarifying questions before assuming user preferences or organization facts.",
+                "Use seed skills only as general guidance until user-specific facts are provided.",
+                "Proceed only after the missing task facts are clear.",
+            ]
+            first_action = {"type": "ask_clarifying_questions", "questions": _default_questions(decision)}
+            avoid = ["Do not claim user preferences or organization positioning without memory basis."]
+            reasons.append("removed_unbacked_user_or_org_claims")
+            status = "fallback"
+        reviewed = replace(
+            skill,
+            goal=goal,
+            memory_basis_ids=memory_ids,
+            seed_skill_ids=seed_ids,
+            strategy=strategy,
+            first_action=first_action,
+            avoid=avoid,
+            confidence=max(0.0, min(1.0, skill.confidence)),
+        )
+        return {
+            "status": status,
+            "reasons": reasons or ["passed_runtime_skill_review"],
+            "risk_flags": risk_flags,
+            "skill": reviewed,
+            "basis_precedence": "memory_over_seed",
+        }
+
+
 class RuntimeSkillInjector:
     def format(self, skill: RuntimeSkill | None) -> str:
         if not skill:
@@ -308,3 +367,43 @@ def _safe_identifier(value: str) -> str:
     text = "".join(ch if ch.isalnum() else "_" for ch in value.strip().lower())
     text = "_".join(part for part in text.split("_") if part)
     return (text or "runtime_skill")[:80]
+
+
+def _has_secret_like_text(skill: RuntimeSkill) -> bool:
+    text = " ".join(
+        [
+            skill.name,
+            skill.applies_to,
+            skill.goal,
+            skill.memory_basis_summary,
+            skill.seed_skill_basis_summary,
+            *skill.strategy,
+            *skill.avoid,
+            str(skill.first_action),
+        ]
+    )
+    return any(pattern.search(text) for pattern in SECRET_PATTERNS)
+
+
+def _claims_user_or_org_facts(skill: RuntimeSkill) -> bool:
+    text = " ".join([skill.goal, skill.memory_basis_summary, *skill.strategy, *skill.avoid]).lower()
+    signals = (
+        "根据你的偏好",
+        "你的偏好",
+        "你的组织",
+        "你的公司",
+        "your preference",
+        "your preferences",
+        "according to your preferences",
+        "your organization",
+        "your company",
+    )
+    return any(signal in text for signal in signals)
+
+
+def _default_questions(decision: SkillNeedDecision) -> list[str]:
+    if decision.intent == "brand_logo_design":
+        return ["品牌名称是什么？", "面向什么行业或产品？", "目标客户是谁？", "有没有颜色、风格或禁忌元素？"]
+    if decision.domain == "software_engineering":
+        return ["要解决的具体错误或目标是什么？", "期望我优先运行哪类验证命令？"]
+    return ["当前任务的目标是什么？", "有哪些必须遵守的偏好、约束或禁忌？"]

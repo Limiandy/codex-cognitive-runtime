@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,6 +31,12 @@ def _fixture(name: str, cwd: str) -> dict:
 
 
 class RuntimeObserverTest(unittest.TestCase):
+    def setUp(self):
+        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+
+    def tearDown(self):
+        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+
     def test_tool_observations_advance_workflow_and_inject_control(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
@@ -218,12 +225,14 @@ class RuntimeObserverTest(unittest.TestCase):
             try:
                 payload = {"prompt": "修复测试失败", "session_id": "s1", "cwd": tmp}
                 workflow_id = service.start_task_from_prompt(payload)["workflow_id"]
+                service.prompt_context("修复测试失败", cwd=tmp, session_id="s1")
                 service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg failing_test tests", "session_id": "s1", "cwd": tmp})
                 service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "cwd": tmp})
                 service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "session_id": "s1", "cwd": tmp})
                 result = service.observe_stop({"session_id": "s1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
 
                 self.assertEqual(result["violations"], [])
+                self.assertEqual(result["runtime_skill_feedback"]["metadata_json"]["outcome"], "success")
                 self.assertEqual(service.ledger.latest_state_for("workflow", workflow_id), "completed")
                 skills = service.ledger.list_cognitive_records(layer="skill", status="active", limit=20)
                 recipes = [item for item in skills if item.get("record_type") == "verification_recipe"]
@@ -244,6 +253,28 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertIn("verification", skill_metadata)
                 self.assertIn("anti_patterns", skill_metadata)
                 self.assertIn("python3 -m unittest discover -s tests -v", skill_metadata["verification"])
+            finally:
+                service.close()
+
+    def test_workflow_violation_records_runtime_skill_failure_feedback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                payload = {"prompt": "实现这个功能", "session_id": "s1", "turn_id": "t1", "cwd": tmp}
+                service.start_task_from_prompt(payload)
+                service.prompt_context("实现这个功能", cwd=tmp, session_id="s1", turn_id="t1")
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg feature src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+
+                result = service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成"})
+
+                self.assertEqual(result["runtime_skill_feedback"]["metadata_json"]["outcome"], "failure")
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
+                    if item.get("record_type") == "runtime_skill_injection"
+                ][0]
+                self.assertEqual(injection["metadata_json"]["feedback_status"], "failure")
             finally:
                 service.close()
 

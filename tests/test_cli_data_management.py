@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 def _write_seed_source(root: Path):
+    (root / "LICENSE").write_text("MIT License\n", encoding="utf-8")
     (root / "design").mkdir(parents=True)
     (root / "design" / "design-brand-guardian.md").write_text(
         """---
@@ -158,8 +159,31 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(seed.returncode, 0, seed.stderr)
             payload = json.loads(seed.stdout)
             self.assertFalse(payload["dry_run"])
+            self.assertTrue(payload["ok"])
             self.assertEqual(payload["skill_count"], 1)
             self.assertEqual(payload["created"][0]["id"], "agency-agents:design/design-brand-guardian.md")
+
+    def test_seed_skills_rejects_non_mit_source(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            (source_path / "LICENSE").write_text("Proprietary\n", encoding="utf-8")
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+
+            seed = subprocess.run(
+                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path)],
+                cwd=".",
+                env=env,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10,
+            )
+            self.assertEqual(seed.returncode, 0, seed.stderr)
+            payload = json.loads(seed.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["error"], "unsupported_seed_skill_license")
+            self.assertEqual(payload["skill_count"], 0)
 
 
 if __name__ == "__main__":

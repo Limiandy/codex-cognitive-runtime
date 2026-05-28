@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import subprocess
 import tempfile
@@ -27,10 +28,23 @@ class AgencySkillSeeder:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(source).expanduser().resolve() if source else _clone_repo(repo_url, Path(tmp) / "agency-agents")
             commit = _git_commit(root)
+            license_detected = _license_detected(root)
+            if "MIT" not in license_detected.upper():
+                return {
+                    "source": str(root),
+                    "repo_url": repo_url,
+                    "commit": commit,
+                    "dry_run": dry_run,
+                    "ok": False,
+                    "error": "unsupported_seed_skill_license",
+                    "license_detected": license_detected,
+                    "skill_count": 0,
+                }
             skills = _load_agent_skills(root, limit=limit, category=category)
             if dry_run:
-                return {"source": str(root), "repo_url": repo_url, "commit": commit, "dry_run": True, "skill_count": len(skills), "skills": [_summary(item) for item in skills[:20]]}
+                return {"source": str(root), "repo_url": repo_url, "commit": commit, "dry_run": True, "ok": True, "license_detected": license_detected, "skill_count": len(skills), "skills": [_summary(item) for item in skills[:20]]}
             created = []
+            imported_at = _utc_now()
             for skill in skills:
                 record = self.ledger.record_cognitive_record(
                     "skill",
@@ -54,12 +68,20 @@ class AgencySkillSeeder:
                         "source_commit": commit,
                         "source_path": skill["path"],
                         "license": "MIT",
+                        "license_detected": license_detected,
+                        "trust_level": "external_seed",
+                        "source_verified": bool(commit),
+                        "content_sha256": _sha256(skill["content"]),
+                        "imported_at": imported_at,
+                        "success_count": 0,
+                        "failure_count": 0,
+                        "reuse_count": 0,
                         "frontmatter": skill["frontmatter"],
                     },
                     source_kind="agency_agents_seed",
                 )
                 created.append({"id": record.get("id"), "name": skill["name"], "path": skill["path"]})
-            return {"source": str(root), "repo_url": repo_url, "commit": commit, "dry_run": False, "skill_count": len(created), "created": created[:50]}
+            return {"source": str(root), "repo_url": repo_url, "commit": commit, "dry_run": False, "ok": True, "license_detected": license_detected, "skill_count": len(created), "created": created[:50]}
 
 
 def relevant_seed_skills(ledger: Any, prompt: str, limit: int = 4) -> list[dict[str, Any]]:
@@ -71,6 +93,12 @@ def relevant_seed_skills(ledger: Any, prompt: str, limit: int = 4) -> list[dict[
         if record.get("record_type") != "seed_skill":
             continue
         metadata = record.get("metadata_json") or {}
+        if metadata.get("trust_level") != "external_seed":
+            continue
+        success_count = int(metadata.get("success_count") or 0)
+        failure_count = int(metadata.get("failure_count") or 0)
+        if failure_count >= 3 and failure_count > success_count:
+            continue
         haystack = " ".join(
             [
                 str(metadata.get("name") or ""),
@@ -82,9 +110,10 @@ def relevant_seed_skills(ledger: Any, prompt: str, limit: int = 4) -> list[dict[
         overlap = len(tokens.intersection(set(tokenize(haystack))))
         if overlap <= 0:
             continue
-        candidates.append((overlap, float(record.get("importance") or 0), record))
-    candidates.sort(key=lambda item: (item[0], item[1], str(item[2].get("updated_at") or "")), reverse=True)
-    return [item[2] for item in candidates[:limit]]
+        feedback_score = success_count - (failure_count * 1.5)
+        candidates.append((overlap, feedback_score, float(record.get("importance") or 0), record))
+    candidates.sort(key=lambda item: (item[0], item[1], item[2], str(item[3].get("updated_at") or "")), reverse=True)
+    return [item[3] for item in candidates[:limit]]
 
 
 def seed_skill_basis_summary(skills: list[dict[str, Any]]) -> str:
@@ -185,3 +214,21 @@ def _content(name: str, description: str, body: str) -> str:
 
 def _summary(skill: dict[str, Any]) -> dict[str, str]:
     return {"name": skill["name"], "description": skill["description"], "path": skill["path"]}
+
+
+def _license_detected(root: Path) -> str:
+    for name in ("LICENSE", "LICENSE.md", "license", "license.md"):
+        path = root / name
+        if path.exists():
+            return path.read_text(encoding="utf-8", errors="replace")[:2000]
+    return ""
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
