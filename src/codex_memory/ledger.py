@@ -631,8 +631,8 @@ class Ledger:
     ) -> dict[str, Any]:
         skill_name = str(skill.get("name") or "runtime_skill")
         return self.record_cognitive_record(
-            "audit",
-            "runtime_skill_injection",
+            "runtime_skill",
+            "injection",
             None,
             f"Runtime skill injection: {skill_name}",
             "active",
@@ -663,7 +663,10 @@ class Ledger:
         turn_id: str | None = None,
         max_age_minutes: int | None = None,
     ) -> dict[str, Any] | None:
-        where = ["layer='audit'", "record_type='runtime_skill_injection'", "status='active'"]
+        where = [
+            "((layer='runtime_skill' AND record_type='injection') OR (layer='audit' AND record_type='runtime_skill_injection'))",
+            "status='active'",
+        ]
         params: list[Any] = []
         if session_id:
             where.append("session_id=?")
@@ -692,6 +695,8 @@ class Ledger:
         if not injection:
             return None
         metadata = dict(injection.get("metadata_json") or {})
+        feedback_target = str(evidence.get("feedback_target") or _runtime_skill_feedback_target(outcome, evidence))
+        evidence = {**evidence, "feedback_target": feedback_target}
         dimensions = _runtime_skill_feedback_dimensions(outcome, evidence)
         metadata.update(
             {
@@ -706,8 +711,8 @@ class Ledger:
             (json.dumps(metadata, ensure_ascii=False), _now(), injection_id),
         )
         feedback = self.record_cognitive_record(
-            "audit",
-            "runtime_skill_feedback",
+            "runtime_skill",
+            "feedback",
             None,
             f"Runtime skill feedback: {outcome}",
             "active",
@@ -1534,13 +1539,18 @@ class Ledger:
         cutoff = None
         if older_than_days is not None:
             cutoff = (datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=older_than_days)).isoformat().replace("+00:00", "Z")
-        record_types = {"workflow_observation", "recipe_recommendation", "recipe_reuse"}
+        audit_record_types = {"workflow_observation", "recipe_recommendation", "recipe_reuse", "runtime_skill_injection", "runtime_skill_feedback"}
+        runtime_skill_record_types = {"injection", "feedback"}
         ids: list[str] = []
         workflow_metadata_updates: list[tuple[str, dict[str, Any]]] = []
         counts = {
             "workflow_observation": 0,
             "recipe_recommendation": 0,
             "recipe_reuse": 0,
+            "runtime_skill_injection": 0,
+            "runtime_skill_feedback": 0,
+            "runtime_skill_layer_injection": 0,
+            "runtime_skill_layer_feedback": 0,
             "resolved_workflow_violation": 0,
             "workflow_metadata_observations": 0,
             "verification_recipe": 0,
@@ -1563,8 +1573,11 @@ class Ledger:
                 metadata = {}
             should_delete = False
             count_key = record_type
-            if layer == "audit" and record_type in record_types:
+            if layer == "audit" and record_type in audit_record_types:
                 should_delete = True
+            elif layer == "runtime_skill" and record_type in runtime_skill_record_types:
+                should_delete = True
+                count_key = f"runtime_skill_layer_{record_type}"
             elif layer == "audit" and record_type == "workflow_violation" and (row["status"] == "resolved" or metadata.get("resolved_at")):
                 should_delete = True
                 count_key = "resolved_workflow_violation"
@@ -1741,6 +1754,7 @@ def _record_age_minutes(record: dict[str, Any]) -> float:
 
 def _runtime_skill_feedback_dimensions(outcome: str, evidence: dict[str, Any]) -> dict[str, str]:
     source = str(evidence.get("source") or "")
+    target = str(evidence.get("feedback_target") or "")
     unknown = "unknown"
     dimensions = {
         "skill_relevance": unknown,
@@ -1758,13 +1772,27 @@ def _runtime_skill_feedback_dimensions(outcome: str, evidence: dict[str, Any]) -
             dimensions["execution_compliance"] = "failed"
             dimensions["final_result_quality"] = "negative"
     elif source == "natural_feedback":
+        if target == "first_action":
+            dimensions["first_action_quality"] = "positive" if outcome == "positive" else "negative" if outcome == "negative" else unknown
+        elif target == "skill_strategy":
+            dimensions["skill_relevance"] = "positive" if outcome == "positive" else "negative" if outcome == "negative" else unknown
+            dimensions["seed_skill_quality"] = dimensions["skill_relevance"]
         if outcome == "positive":
-            dimensions["skill_relevance"] = "positive"
+            if dimensions["skill_relevance"] == unknown:
+                dimensions["skill_relevance"] = "positive"
             dimensions["final_result_quality"] = "positive"
         elif outcome == "negative":
-            dimensions["skill_relevance"] = "negative"
+            if dimensions["skill_relevance"] == unknown:
+                dimensions["skill_relevance"] = "negative"
             dimensions["final_result_quality"] = "negative"
     return dimensions
+
+
+def _runtime_skill_feedback_target(outcome: str, evidence: dict[str, Any]) -> str:
+    source = str(evidence.get("source") or "")
+    if source == "workflow_stop":
+        return "workflow_execution"
+    return "unknown"
 
 
 def _days_from_now(days: int | None) -> str | None:

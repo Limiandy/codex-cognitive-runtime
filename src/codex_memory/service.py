@@ -352,6 +352,7 @@ class MemoryService:
         if not injection:
             return None
         matched_reason = "same_turn_recent_feedback" if turn_id else "same_session_recent_feedback"
+        feedback_target = _natural_feedback_target(prompt)
         return self.ledger.record_runtime_skill_feedback(
             str(injection["id"]),
             outcome,
@@ -360,7 +361,8 @@ class MemoryService:
                 "prompt_preview": prompt[:160],
                 "matched_reason": matched_reason,
                 "injection_created_at": injection.get("created_at"),
-                "adjust_seed_skill_strength": _natural_feedback_mentions_skill_or_direction(prompt),
+                "feedback_target": feedback_target,
+                "adjust_seed_skill_strength": feedback_target in {"skill_strategy", "first_action"},
             },
         )
 
@@ -628,13 +630,15 @@ def _prompt_can_skip_recall(prompt: str, intent: str) -> bool:
     return any(signal in lowered for signal in simple_signals)
 
 
-def _natural_feedback_mentions_skill_or_direction(prompt: str) -> bool:
+def _natural_feedback_target(prompt: str) -> str:
     lowered = prompt.lower()
-    signals = (
+    first_action_signals = ("提问", "问题", "question")
+    if any(signal in lowered for signal in first_action_signals):
+        return "first_action"
+    strategy_signals = (
         "方向",
         "方法",
         "策略",
-        "提问",
         "流程",
         "skill",
         "strategy",
@@ -643,4 +647,6 @@ def _natural_feedback_mentions_skill_or_direction(prompt: str) -> bool:
         "question",
         "workflow",
     )
-    return any(signal in lowered for signal in signals)
+    if any(signal in lowered for signal in strategy_signals):
+        return "skill_strategy"
+    return "final_result"

@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from codex_memory.config import Config
-from codex_memory.seed_skills import relevant_seed_skills
+from codex_memory.seed_skills import is_seed_skill_eligible, relevant_seed_skills
 from codex_memory.schema import Evidence, MemoryCandidate
 from codex_memory.service import MemoryService
 from codex_memory.skill_need import SkillNeedDecision
@@ -215,14 +215,16 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertNotIn("Codex Memory context:", context)
                 injections = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ]
                 self.assertEqual(len(injections), 1)
                 metadata = injections[0].get("metadata_json") or {}
                 self.assertEqual(metadata["skill"]["name"], "brand_logo_design_intake")
                 self.assertTrue(metadata["memory_basis_ids"])
                 self.assertEqual(metadata["session_id"], "s1")
+                self.assertEqual(injections[0]["layer"], "runtime_skill")
+                self.assertEqual(injections[0]["record_type"], "injection")
             finally:
                 service.close()
 
@@ -240,6 +242,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertEqual(seed_metadata["trust_level"], "external_seed")
                 self.assertEqual(seed_metadata["license"], "MIT")
                 self.assertEqual(seed_metadata["trust_state"], "unverified")
+                self.assertTrue(is_seed_skill_eligible(seed_record))
                 self.assertIn("MIT", seed_metadata["license_detected"])
                 self.assertEqual(len(seed_metadata["content_sha256"]), 64)
                 self.assertFalse(seed_metadata["source_verified"])
@@ -252,8 +255,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertIn("No clean long-term memory matched", context)
                 injections = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ]
                 metadata = injections[0].get("metadata_json") or {}
                 self.assertEqual(metadata["seed_skill_ids"], ["agency-agents:design/design-brand-guardian.md"])
@@ -293,11 +296,14 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertEqual(metadata["failure_count"], 0)
                 injection = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ][0]
                 self.assertEqual(injection["metadata_json"]["feedback_status"], "positive")
                 self.assertEqual(injection["metadata_json"]["feedback_dimensions"]["skill_relevance"], "positive")
+                self.assertEqual(feedback["runtime_skill_feedback"]["layer"], "runtime_skill")
+                self.assertEqual(feedback["runtime_skill_feedback"]["record_type"], "feedback")
+                self.assertEqual(feedback["runtime_skill_feedback"]["metadata_json"]["evidence"]["feedback_target"], "skill_strategy")
             finally:
                 service.close()
 
@@ -318,6 +324,25 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertEqual(metadata["success_count"], 0)
                 evidence = feedback["runtime_skill_feedback"]["metadata_json"]["evidence"]
                 self.assertFalse(evidence["adjust_seed_skill_strength"])
+                self.assertEqual(evidence["feedback_target"], "final_result")
+            finally:
+                service.close()
+
+    def test_question_feedback_targets_first_action_and_updates_seed_skill(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path))
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                feedback = service.apply_natural_feedback("这个提问方式很好", session_id="s1")
+
+                metadata = feedback["runtime_skill_feedback"]["metadata_json"]
+                self.assertEqual(metadata["evidence"]["feedback_target"], "first_action")
+                self.assertEqual(metadata["dimensions"]["first_action_quality"], "positive")
+                seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
+                self.assertEqual(seed["metadata_json"]["reuse_count"], 1)
             finally:
                 service.close()
 
@@ -331,8 +356,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
                 injection = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ][0]
                 service.ledger.conn.execute(
                     "UPDATE cognitive_records SET created_at=? WHERE id=?",
@@ -345,6 +370,30 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertNotIn("runtime_skill_feedback", feedback)
                 seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
                 self.assertEqual(seed["metadata_json"]["reuse_count"], 0)
+            finally:
+                service.close()
+
+    def test_latest_runtime_skill_injection_reads_legacy_audit_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                legacy = service.ledger.record_cognitive_record(
+                    "audit",
+                    "runtime_skill_injection",
+                    None,
+                    "legacy runtime skill injection",
+                    "active",
+                    "session",
+                    session_id="s1",
+                    metadata={"turn_id": "t1", "seed_skill_ids": []},
+                    source_kind="runtime_skill_injection",
+                )
+
+                found = service.ledger.latest_runtime_skill_injection(session_id="s1", turn_id="t1")
+
+                self.assertEqual(found["id"], legacy["id"])
+                self.assertEqual(found["layer"], "audit")
+                self.assertEqual(found["record_type"], "runtime_skill_injection")
             finally:
                 service.close()
 
@@ -390,8 +439,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
                 injection = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ][0]
                 metadata = injection["metadata_json"]
                 self.assertEqual(metadata["memory_basis_ids"], [])
@@ -423,8 +472,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertIn("First action: ask_clarifying_questions", context)
                 injection = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ][0]
                 self.assertEqual(injection["metadata_json"]["review"]["status"], "fallback")
             finally:
@@ -454,8 +503,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertNotIn("according to your preferences", context.lower())
                 injection = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ][0]
                 self.assertIn("removed_unbacked_user_or_org_claims", injection["metadata_json"]["review"]["reasons"])
             finally:
@@ -484,8 +533,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertNotIn("Runtime Skill:", context)
                 injections = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ]
                 self.assertEqual(injections, [])
             finally:

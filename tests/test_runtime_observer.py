@@ -271,10 +271,11 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertEqual(result["runtime_skill_feedback"]["metadata_json"]["outcome"], "failure")
                 injection = [
                     item
-                    for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=20)
-                    if item.get("record_type") == "runtime_skill_injection"
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
                 ][0]
                 self.assertEqual(injection["metadata_json"]["feedback_status"], "failure")
+                self.assertEqual(injection["metadata_json"]["feedback_dimensions"]["execution_compliance"], "failed")
             finally:
                 service.close()
 
@@ -529,14 +530,21 @@ class RuntimeObserverTest(unittest.TestCase):
                 service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
 
                 self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=50) if item.get("record_type") == "workflow_observation"])
+                service.prompt_context("继续修复测试失败", cwd=tmp, session_id="s1", turn_id="t1")
+                service.apply_natural_feedback("这个方法很好", session_id="s1", turn_id="t1")
+                self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=50) if item.get("record_type") == "injection"])
+                self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=50) if item.get("record_type") == "feedback"])
                 self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=50) if item.get("record_type") == "verification_recipe"])
                 workflow_records = [item for item in service.ledger.list_cognitive_records(layer="workflow", status="completed", limit=50) if item.get("record_type") == "observed_workflow"]
                 self.assertTrue((workflow_records[0].get("metadata_json") or {}).get("observations"))
 
                 pruned = service.prune_runtime()
                 self.assertGreater(pruned["counts"]["workflow_observation"], 0)
+                self.assertGreater(pruned["counts"]["runtime_skill_layer_injection"], 0)
+                self.assertGreater(pruned["counts"]["runtime_skill_layer_feedback"], 0)
                 self.assertGreater(pruned["counts"]["workflow_metadata_observations"], 0)
                 self.assertFalse([item for item in service.ledger.list_cognitive_records(layer="audit", status="active", limit=50) if item.get("record_type") == "workflow_observation"])
+                self.assertFalse([item for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=50)])
                 self.assertTrue([item for item in service.ledger.list_cognitive_records(layer="skill", status="active", limit=50) if item.get("record_type") == "verification_recipe"])
                 workflow_records = [item for item in service.ledger.list_cognitive_records(layer="workflow", status="completed", limit=50) if item.get("record_type") == "observed_workflow"]
                 self.assertEqual((workflow_records[0].get("metadata_json") or {}).get("observations"), [])

@@ -91,17 +91,11 @@ def relevant_seed_skills(ledger: Any, prompt: str, limit: int = 4) -> list[dict[
         return []
     candidates = []
     for record in ledger.list_cognitive_records(layer="skill", status="active", limit=1000):
-        if record.get("record_type") != "seed_skill":
+        if not is_seed_skill_eligible(record):
             continue
         metadata = record.get("metadata_json") or {}
-        if metadata.get("trust_level") != "external_seed":
-            continue
-        if metadata.get("trust_state") in {"suppressed", "deprecated", "disabled"}:
-            continue
         success_count = int(metadata.get("success_count") or 0)
         failure_count = int(metadata.get("failure_count") or 0)
-        if failure_count >= 3 and failure_count > success_count:
-            continue
         haystack = " ".join(
             [
                 str(metadata.get("name") or ""),
@@ -117,6 +111,19 @@ def relevant_seed_skills(ledger: Any, prompt: str, limit: int = 4) -> list[dict[
         candidates.append((overlap, feedback_score, float(record.get("importance") or 0), record))
     candidates.sort(key=lambda item: (item[0], item[1], item[2], str(item[3].get("updated_at") or "")), reverse=True)
     return [item[3] for item in candidates[:limit]]
+
+
+def is_seed_skill_eligible(record: dict[str, Any]) -> bool:
+    if record.get("status") != "active" or record.get("record_type") != "seed_skill":
+        return False
+    metadata = record.get("metadata_json") or {}
+    if metadata.get("trust_level") != "external_seed":
+        return False
+    if metadata.get("trust_state") in {"suppressed", "deprecated", "disabled"}:
+        return False
+    success_count = int(metadata.get("success_count") or 0)
+    failure_count = int(metadata.get("failure_count") or 0)
+    return failure_count < 3 or failure_count <= success_count
 
 
 def seed_skill_basis_summary(skills: list[dict[str, Any]]) -> str:

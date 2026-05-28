@@ -156,7 +156,9 @@ By default this imports agent skill markdown from [`msitarzewski/agency-agents`]
 
 Seed skills are a bootstrap layer, not a replacement for personal memory. Runtime Skill generation can use them when long-term memories are still empty; as reviewed memories, successful workflows, and user feedback accumulate, user-specific memories and durable skills should become the stronger basis. Seed skills stay active for cold start but carry `trust_level`, `trust_state`, source hash, license metadata, and feedback counters; repeated failures automatically suppress them from future Runtime Skill basis retrieval.
 
-Runtime Skill injections are recorded as local audit records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Feedback is associated with the same turn when available, or with the latest same-session injection within a short recent window. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
+Runtime Skill injections are recorded as local runtime records with the generated skill JSON, memory basis ids, seed skill ids, session/turn metadata, and a redacted prompt preview. Feedback is associated with the same turn when available, or with the latest same-session injection within a short recent window. Successful workflows can synthesize `dynamic_skill` candidates, but those candidates are not recommended until they are promoted to active.
+
+Runtime Skill injection and feedback records are stored as local `runtime_skill` cognitive records. Older alpha Ledgers may still contain legacy audit-layer Runtime Skill records; the runtime keeps reading and pruning both shapes.
 
 ## Uninstall
 
