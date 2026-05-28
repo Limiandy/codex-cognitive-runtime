@@ -1049,6 +1049,9 @@ class RuntimeSkillTest(unittest.TestCase):
             "经验：工程任务必须先 inspect，再最小修改，最后跑 unittest。",
             "[trace-rerun-0098/project_exp] 经验：工程任务必须先 inspect，再最小修改，最后跑 unittest。",
             "临时测试：api_key = sk-test-123 只是验证脱敏。",
+            "[real-0010/temporary_debug] 这次只需要临时打开 debug 日志，之后可以关闭。",
+            "[real-0014/governance_living_policy] 治理规则不能是死的，要能通过动态 policy 自我修复准入和准出。",
+            "[real-0026/water_gate] 水利工程经验：闸门调度异常时先核对上下游水位、传感器读数和执行机构状态。",
         ]:
             decision = classifier.classify(prompt)
             self.assertFalse(decision.skill_needed, prompt)

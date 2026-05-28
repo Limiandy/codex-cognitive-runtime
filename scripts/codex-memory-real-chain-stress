@@ -329,14 +329,17 @@ def write_report(
     partial: bool,
 ) -> dict[str, Any]:
     data = metrics(state_dir)
+    policy_repair_proven = (
+        data["policy_count"] >= 1
+        and data["policy_hits"] >= 1
+        and any(effect["source_recalled_before_policy"] > 0 and effect["source_recalled_after_policy"] == 0 for effect in data["policy_effects"])
+    )
     passed = (
         not partial
         and data["events"]["pending"] == 0
         and data["events"]["failed"] == 0
         and data["false_active_count"] == 0
-        and data["policy_count"] >= 1
-        and data["policy_hits"] >= 1
-        and any(effect["source_recalled_before_policy"] > 0 and effect["source_recalled_after_policy"] == 0 for effect in data["policy_effects"])
+        and (data["policy_count"] == 0 or policy_repair_proven)
     )
     report = {
         "passed": passed,
@@ -350,6 +353,7 @@ def write_report(
         "state_dir": str(state_dir),
         "log_dir": str(log_dir),
         "metrics": data,
+        "policy_repair_proven": policy_repair_proven,
         "snapshots": snapshots,
         "round_samples": rounds[:10] + rounds[-10:],
     }

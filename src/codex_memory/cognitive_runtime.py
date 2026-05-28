@@ -1039,6 +1039,11 @@ def _looks_like_non_action_statement(lowered: str) -> bool:
     prefixes = (
         "经验：",
         "经验:",
+        "治理规则",
+        "水利工程经验",
+        "生活经验",
+        "项目经验",
+        "前端通用经验",
         "偏好：",
         "偏好:",
         "规则：",
@@ -1050,8 +1055,11 @@ def _looks_like_non_action_statement(lowered: str) -> bool:
         "请记住",
         "临时测试：",
         "临时测试:",
+        "这次只需要临时",
     )
-    return stripped.startswith(prefixes)
+    if stripped.startswith(prefixes):
+        return True
+    return any(marker in stripped[:40] for marker in ("经验：", "经验:"))
 
 
 def _strip_leading_label(text: str) -> str:
