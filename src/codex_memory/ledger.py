@@ -2561,7 +2561,7 @@ def re_split(text: str) -> list[str]:
 def _polarity(text: str) -> int:
     lowered = text.lower()
     negative = ("不", "不是", "不能", "不要", "禁用", "关闭", "disable", "not ", "never")
-    positive = ("要", "应该", "必须", "启用", "打开", "enable", "always")
+    positive = ("要", "应该", "应把", "应将", "应当", "必须", "启用", "打开", "enable", "always")
     if any(item in lowered for item in negative):
         return -1
     if any(item in lowered for item in positive):

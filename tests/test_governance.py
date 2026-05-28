@@ -124,6 +124,37 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_project_type_near_duplicate_is_found_before_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="管理平台项目应把权限、审计日志、批量操作和导出流程作为基础能力来设计。",
+                    memory_type="project_context",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="software_engineering",
+                    category="architecture",
+                    subcategory="project_type",
+                    triggers=["管理平台", "权限", "审计日志"],
+                    evidence=[Evidence(source="user_message", quote="管理平台项目应把权限、审计日志、批量操作和导出流程作为基础能力来设计。")],
+                    reason="test",
+                )
+                project_key = str(Path(tmp).resolve()).lower()
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                matches = service.ledger.find_active_duplicates(
+                    "管理平台项目中，权限、审计日志、批量操作和导出流程要作为基础能力统一设计。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_manual_review_actions(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
