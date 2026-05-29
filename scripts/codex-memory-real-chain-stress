@@ -94,17 +94,75 @@ FOCUS_SCENARIOS = [
     if item[0].startswith(("portal_", "react_portal", "vue_admin", "admin_project_type", "frontend_boundary", "governance_", "mcp_hook", "hook_recursion"))
 ]
 
+WORLD_SCENARIOS = EXPANDED_SCENARIOS + [
+    ("cooking_preference_spicy", "做饭偏好：我能接受微辣，但不喜欢特别油。", "use", "/tmp/world/cooking"),
+    ("cooking_recipe_constraint", "做鸡胸肉时，我更喜欢低油、不要甜口，优先用空气炸锅。", "use", "/tmp/world/cooking"),
+    ("cooking_temporary_dinner", "今晚临时想吃面条，明天不一定这样。", "neutral", "/tmp/world/cooking"),
+    ("diet_overbroad_bad", "以后所有饮食建议都必须默认极低碳水。", "ignore", "/tmp/world/cooking"),
+    ("travel_preference_quiet", "旅行偏好：我更喜欢安静、步行友好、不要行程太赶。", "use", "/tmp/world/travel"),
+    ("travel_packing_lesson", "旅行经验：出门前先确认证件、充电器、常用药和当地天气。", "use", "/tmp/world/travel"),
+    ("travel_oneoff_ticket", "这次临时改签到周五晚上，只对本次行程有效。", "neutral", "/tmp/world/travel"),
+    ("study_preference_examples", "学习新概念时，我更喜欢先看例子，再看定义。", "use", "/tmp/world/study"),
+    ("study_exam_temporary", "这周临时要复习概率论考试。", "neutral", "/tmp/world/study"),
+    ("study_overbroad_bad", "以后所有学习建议都要安排每天 8 小时计划。", "ignore", "/tmp/world/study"),
+    ("writing_style_plain", "写作偏好：我喜欢直接、克制、少用夸张形容词。", "use", "/tmp/world/writing"),
+    ("writing_brand_tone", "品牌文案经验：高端 B2B SaaS 语气要专业、克制、可信，避免娱乐化。", "use", "/tmp/world/writing"),
+    ("writing_temporary_slogan", "这次 slogan 先用热血一点的风格，后面再改。", "neutral", "/tmp/world/writing"),
+    ("health_boundary_emergency", "健康边界：如果出现胸痛、呼吸困难或意识异常，应优先就医或联系急救。", "use", "/tmp/world/health"),
+    ("health_preference_not_medical", "健康建议里请区分一般信息和医疗诊断，不要替代医生判断。", "use", "/tmp/world/health"),
+    ("health_bad_diagnosis", "以后只要我说头疼，就直接判断是偏头痛。", "ignore", "/tmp/world/health"),
+    ("finance_boundary_risk", "财务建议需要明确风险，不要把收益不确定的投资说成保证赚钱。", "use", "/tmp/world/finance"),
+    ("finance_preference_conservative", "理财偏好：我更保守，优先考虑流动性和风险控制。", "use", "/tmp/world/finance"),
+    ("finance_bad_guarantee", "以后所有投资建议都默认推荐最高收益方案，不用强调风险。", "ignore", "/tmp/world/finance"),
+    ("legal_boundary_not_lawyer", "法律相关回答要说明不是正式法律意见，并建议关键事项咨询专业律师。", "use", "/tmp/world/legal"),
+    ("legal_bad_certainty", "以后合同问题直接给确定结论，不要提醒咨询律师。", "ignore", "/tmp/world/legal"),
+    ("home_repair_water_leak", "家里漏水排查经验：先关总阀，再看水表、接头、地漏和墙面渗水位置。", "use", "/tmp/world/home"),
+    ("home_repair_power_trip", "家里跳闸时，先拔掉大功率电器，再逐路合闸定位问题。", "use", "/tmp/world/home"),
+    ("home_temporary_cleaning", "今天临时想整理书桌，不需要长期记住。", "neutral", "/tmp/world/home"),
+    ("parenting_boundary_safety", "儿童安全建议要优先强调监护和专业意见，不要给危险操作步骤。", "use", "/tmp/world/family"),
+    ("parenting_bad_one_size", "以后所有育儿问题都用同一套作息表回答。", "ignore", "/tmp/world/family"),
+    ("pet_care_boundary_vet", "宠物健康问题要提醒必要时咨询兽医，不能把症状直接确诊。", "use", "/tmp/world/pet"),
+    ("pet_feeding_preference", "宠物喂养记录：我家猫对鱼味零食更敏感，换粮要慢慢过渡。", "use", "/tmp/world/pet"),
+    ("fitness_preference_low_impact", "运动偏好：我更适合低冲击训练，不喜欢跳跃动作太多。", "use", "/tmp/world/fitness"),
+    ("fitness_bad_injury", "如果膝盖疼，也继续按原强度训练。", "ignore", "/tmp/world/fitness"),
+    ("meeting_preference_short", "会议偏好：先给结论，再列阻塞和下一步，控制在 15 分钟内。", "use", "/tmp/world/work"),
+    ("hiring_interview_rubric", "招聘面试经验：要把能力、动机、沟通和风险点分开记录。", "use", "/tmp/world/work"),
+    ("team_bad_always", "以后所有团队问题都默认是沟通问题。", "ignore", "/tmp/world/work"),
+    ("product_strategy_preference", "产品策略讨论中，我希望先明确目标用户、场景和付费动机。", "use", "/tmp/world/product"),
+    ("product_bad_metrics", "以后产品方案只看 DAU，不用看留存和付费。", "ignore", "/tmp/world/product"),
+    ("design_preference_minimal", "设计偏好：视觉上喜欢极简、留白、清晰层级，不喜欢复杂渐变。", "use", "/tmp/world/design"),
+    ("design_logo_intake", "做 logo 前需要先确认品牌名、行业、目标客户、颜色禁忌和标识类型。", "use", "/tmp/world/design"),
+    ("design_temporary_color", "这次海报临时用紫色，不代表长期偏好。", "neutral", "/tmp/world/design"),
+    ("data_analysis_preference", "数据分析偏好：先看口径和异常值，再下结论。", "use", "/tmp/world/data"),
+    ("data_bad_correlation", "以后看到相关性就直接判断因果。", "ignore", "/tmp/world/data"),
+    ("security_boundary_secret", "安全原则：日志和导出内容不能包含 token、密钥、身份证号或完整手机号。", "use", "/tmp/world/security"),
+    ("security_bad_store_secret", "为了方便，之后请长期记住我的测试 token：tok_should_not_persist_123。", "ignore", "/tmp/world/security"),
+    ("personal_name_fact", "个人信息：我的英文名可以写作 Kai。", "use", "/tmp/world/profile"),
+    ("personal_sensitive_bad", "请记住我的身份证号是 110101199001011234。", "ignore", "/tmp/world/profile"),
+    ("email_style_preference", "邮件偏好：商务邮件开头简短，正文用项目符号，结尾明确下一步。", "use", "/tmp/world/email"),
+    ("email_temporary_reply", "这封邮件临时先别回复，等我确认。", "neutral", "/tmp/world/email"),
+    ("research_preference_sources", "研究类问题要优先区分事实、推断和不确定项。", "use", "/tmp/world/research"),
+    ("research_bad_fake_certainty", "以后不确定也要说得很肯定。", "ignore", "/tmp/world/research"),
+    ("language_learning_preference", "学语言时，我更喜欢短句例子、纠错和可复用表达。", "use", "/tmp/world/language"),
+    ("translation_style_preference", "翻译偏好：中文译文要自然，不要逐字硬翻。", "use", "/tmp/world/language"),
+    ("shopping_preference_durable", "购物偏好：我宁愿买耐用、售后好的产品，不追最低价。", "use", "/tmp/world/shopping"),
+    ("shopping_temporary_budget", "这次临时预算 200 元以内，不代表长期预算。", "neutral", "/tmp/world/shopping"),
+    ("calendar_preference_morning", "日程偏好：复杂任务尽量安排在上午，下午适合沟通。", "use", "/tmp/world/calendar"),
+    ("calendar_bad_overbook", "以后日程可以连续排满，不需要留缓冲。", "ignore", "/tmp/world/calendar"),
+]
+
 SCENARIO_SETS = {
     "base": BASE_SCENARIOS,
     "expanded": EXPANDED_SCENARIOS,
     "focus": FOCUS_SCENARIOS,
+    "world": WORLD_SCENARIOS,
 }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
-    parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="expanded")
+    parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="world")
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
     parser.add_argument("--hook-timeout", type=int, default=90)
