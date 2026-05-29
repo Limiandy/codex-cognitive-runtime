@@ -347,6 +347,37 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_portal_early_design_duplicate_with_early_performance_wording(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="门户项目经验：首页首屏、SEO、缓存和内容发布链路要提前设计。",
+                    memory_type="experience",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="software_engineering",
+                    category="architecture",
+                    subcategory="portal",
+                    triggers=["门户", "首屏", "SEO", "缓存"],
+                    evidence=[Evidence(source="user_message", quote="门户项目经验")],
+                    reason="test",
+                )
+                project_key = str(Path(tmp).resolve()).lower()
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                matches = service.ledger.find_active_duplicates(
+                    "门户项目需要在早期就设计首页首屏性能、SEO、缓存策略和内容发布链路。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_fact_experience_near_duplicate_is_found_before_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
