@@ -380,6 +380,20 @@ class GovernanceTest(unittest.TestCase):
                     project_key=project_key,
                 )
                 self.assertEqual(len(matches), 1)
+                matches = service.ledger.find_active_duplicates(
+                    "治理规则应支持动态 policy 自我修复，准入和准出都不能是静态僵化的。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+                matches = service.ledger.find_active_duplicates(
+                    "治理规则应采用动态 policy 机制，支持对准入和准出规则的自我修复，而不是固定死规则。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
             finally:
                 service.close()
 

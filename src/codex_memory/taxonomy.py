@@ -145,6 +145,7 @@ def _best_match(tokens: set[str], lowered: str, mapping: dict[str, set[str]]) ->
 
 def _compact_text(text: str) -> str:
     lowered = (text or "").lower()
+    lowered = _compact_governance_policy_text(lowered)
     for old, new in (
         ("默认使用中文", "默认中文"),
         ("默认用中文", "默认中文"),
@@ -228,6 +229,17 @@ def _compact_text(text: str) -> str:
     ):
         lowered = lowered.replace(old, new)
     return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", lowered)
+
+
+def _compact_governance_policy_text(lowered: str) -> str:
+    if "治理规则" not in lowered:
+        return lowered
+    has_dynamic_policy = "policy" in lowered and any(term in lowered for term in ("动态", "自我修复", "准入", "准出"))
+    has_admission_exit = "准入" in lowered and "准出" in lowered
+    has_not_static = any(term in lowered for term in ("静态", "固定", "固化", "僵化", "死规则", "不能是死", "不是死"))
+    if has_dynamic_policy and has_admission_exit and has_not_static:
+        return "治理规则动态policy自我修复准入准出"
+    return lowered
 
 
 def _near_duplicate_anchors(left: str, right: str) -> set[str]:
