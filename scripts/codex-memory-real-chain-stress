@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import shutil
 import sqlite3
 import subprocess
@@ -163,6 +164,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="world")
+    parser.add_argument("--sample-mode", choices=("sequential", "random"), default="sequential")
+    parser.add_argument("--random-seed", type=int, default=20260529)
     parser.add_argument("--start-offset", type=int, default=0, help="Skip already-covered scenario positions before starting this run.")
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
@@ -185,8 +188,9 @@ def main() -> int:
     rounds = []
     snapshots = []
     scenarios = SCENARIO_SETS[args.scenario_set]
+    scenario_indices = scenario_order(args, len(scenarios))
     for index in range(args.rounds):
-        scenario_index = (args.start_offset + index) % len(scenarios)
+        scenario_index = scenario_indices[index % len(scenario_indices)]
         kind, text, assistant_mode, cwd = scenarios[scenario_index]
         turn_number = args.start_offset + index + 1
         session_id = "real-chain-stress"
@@ -480,7 +484,10 @@ def write_report(
         "rounds_completed": len(rounds),
         "scenario_set": args.scenario_set,
         "scenario_count": len(SCENARIO_SETS[args.scenario_set]),
+        "sample_mode": args.sample_mode,
+        "random_seed": args.random_seed if args.sample_mode == "random" else None,
         "start_offset": args.start_offset,
+        "scenario_order": [item["scenario_index"] for item in rounds],
         "govern_every": args.govern_every,
         "state_dir": str(state_dir),
         "log_dir": str(log_dir),
@@ -492,6 +499,15 @@ def write_report(
     }
     REPORT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report
+
+
+def scenario_order(args: argparse.Namespace, scenario_count: int) -> list[int]:
+    indices = list(range(scenario_count))
+    if args.sample_mode == "random":
+        rng = random.Random(args.random_seed)
+        rng.shuffle(indices)
+    offset = args.start_offset % scenario_count if scenario_count else 0
+    return indices[offset:] + indices[:offset]
 
 
 def summary(report: dict[str, Any]) -> dict[str, Any]:
