@@ -2585,7 +2585,15 @@ def _polarity(text: str) -> int:
     if _governance_policy_polarity(lowered):
         return 1
     polarity_text = lowered
-    for neutral_phrase in ("而不是后补", "不是后补", "而不是静态死规则", "不是静态死规则"):
+    for neutral_phrase in (
+        "而不是后补",
+        "不是后补",
+        "不能后置",
+        "不应后置",
+        "不要后置",
+        "而不是静态死规则",
+        "不是静态死规则",
+    ):
         polarity_text = polarity_text.replace(neutral_phrase, "")
     negative = (
         "不是",

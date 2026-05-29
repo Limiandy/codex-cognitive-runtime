@@ -350,11 +350,14 @@ def _duplicate_survivor(group: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _polarity(text: str) -> int:
     lowered = text.lower()
+    polarity_text = lowered
+    for neutral_phrase in ("而不是后补", "不是后补", "不能后置", "不应后置", "不要后置"):
+        polarity_text = polarity_text.replace(neutral_phrase, "")
     negative = ("不", "不是", "不能", "不要", "禁用", "关闭", "disable", "not ", "never")
     positive = ("要", "应该", "必须", "启用", "打开", "enable", "always")
-    if any(item in lowered for item in negative):
+    if any(item in polarity_text for item in negative):
         return -1
-    if any(item in lowered for item in positive):
+    if any(item in polarity_text for item in positive):
         return 1
     return 0
 

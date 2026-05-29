@@ -313,6 +313,13 @@ class GovernanceTest(unittest.TestCase):
                     project_key=project_key,
                 )
                 self.assertEqual(len(matches), 1)
+                matches = service.ledger.find_active_duplicates(
+                    "门户项目需要在项目早期一起设计首页首屏、SEO、缓存和内容发布链路，不能后置。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
             finally:
                 service.close()
 
