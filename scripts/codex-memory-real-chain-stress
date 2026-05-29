@@ -164,7 +164,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="world")
-    parser.add_argument("--scenario-file", help="Optional JSONL file with kind/text/assistant_mode/cwd fields.")
+    parser.add_argument("--scenario-file", action="append", help="Optional JSONL file with kind/text/assistant_mode/cwd fields. Repeat or comma-separate to merge files.")
     parser.add_argument("--sample-mode", choices=("sequential", "random"), default="sequential")
     parser.add_argument("--random-seed", type=int, default=20260529)
     parser.add_argument("--start-offset", type=int, default=0, help="Skip already-covered scenario positions before starting this run.")
@@ -510,28 +510,32 @@ def write_report(
 def load_scenarios(args: argparse.Namespace) -> list[tuple[str, str, str, str]]:
     if not args.scenario_file:
         return SCENARIO_SETS[args.scenario_set]
-    path = Path(args.scenario_file)
     scenarios: list[tuple[str, str, str, str]] = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        try:
-            item = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise SystemExit(f"Invalid scenario JSON at {path}:{line_number}: {exc}") from exc
-        try:
-            scenarios.append(
-                (
-                    str(item["kind"]),
-                    str(item["text"]),
-                    str(item.get("assistant_mode") or item.get("mode") or "neutral"),
-                    str(item.get("cwd") or "/tmp/world/misc"),
-                )
-            )
-        except KeyError as exc:
-            raise SystemExit(f"Missing scenario field {exc} at {path}:{line_number}") from exc
+    for raw_path in args.scenario_file:
+        for item_path in str(raw_path).split(","):
+            path = Path(item_path.strip())
+            if not str(path):
+                continue
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                if not line.strip() or line.lstrip().startswith("#"):
+                    continue
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise SystemExit(f"Invalid scenario JSON at {path}:{line_number}: {exc}") from exc
+                try:
+                    scenarios.append(
+                        (
+                            str(item["kind"]),
+                            str(item["text"]),
+                            str(item.get("assistant_mode") or item.get("mode") or "neutral"),
+                            str(item.get("cwd") or "/tmp/world/misc"),
+                        )
+                    )
+                except KeyError as exc:
+                    raise SystemExit(f"Missing scenario field {exc} at {path}:{line_number}") from exc
     if not scenarios:
-        raise SystemExit(f"No scenarios found in {path}")
+        raise SystemExit("No scenarios found in scenario files")
     return scenarios
 
 
