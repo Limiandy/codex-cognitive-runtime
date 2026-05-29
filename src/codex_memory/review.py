@@ -160,6 +160,8 @@ class MemoryReviewer:
             blockers.append("active_requires_cross_session_importance")
         if _has_temporary_language(candidate):
             blockers.append("active_rejects_temporary_language")
+        if _external_action_without_confirmation(candidate):
+            blockers.append("external_action_without_confirmation")
         if candidate.memory_type == "user_preference":
             if candidate.scope == "session":
                 blockers.append("preference_session_scope_not_active")
@@ -240,6 +242,44 @@ def _mcp_hook_mutual_call_claim(content: str) -> bool:
     if any(term in text for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不能调用", "路径隔离", "不重叠")):
         return False
     return any(term in text for term in ("互相调用", "互调", "统一链路", "合并链路", "单一链路", "同一链路"))
+
+
+def _external_action_without_confirmation(candidate: MemoryCandidate) -> bool:
+    text = f"{candidate.content}\n" + "\n".join(e.quote for e in candidate.evidence)
+    lowered = text.lower()
+    no_confirm = (
+        "不用确认",
+        "不需要确认",
+        "无需确认",
+        "不用让我确认",
+        "无需让我确认",
+        "不要确认",
+        "without confirmation",
+        "without asking",
+    )
+    if not any(term in lowered for term in no_confirm):
+        return False
+    external_actions = (
+        "发送",
+        "发邮件",
+        "邮件",
+        "下单",
+        "购买",
+        "付款",
+        "支付",
+        "转账",
+        "删除",
+        "覆盖",
+        "改日程",
+        "日程",
+        "send",
+        "email",
+        "purchase",
+        "pay",
+        "delete",
+        "overwrite",
+    )
+    return any(term in lowered for term in external_actions)
 
 
 def _is_resume_point(content: str) -> bool:

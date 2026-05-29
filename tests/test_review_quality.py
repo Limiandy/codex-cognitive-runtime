@@ -88,6 +88,32 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("active_rejects_temporary_language", result["reasons"])
 
+    def test_final_gate_quarantines_external_action_without_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户希望以后邮件写好后可以直接发送，不需要发送前确认。",
+                    confidence=0.98,
+                    importance=0.9,
+                    evidence=[Evidence(source="user_message", quote="以后邮件写好后可以直接发送，不用让我确认。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("external_action_without_confirmation", result["reasons"])
+
+    def test_final_gate_allows_external_action_confirmation_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="经验：邮件发送前必须确认收件人、正文、附件和发送意图。",
+                    memory_type="experience",
+                    confidence=0.96,
+                    importance=0.88,
+                    evidence=[Evidence(source="user_message", quote="邮件发送前必须确认收件人、正文、附件和发送意图。")],
+                )
+            )
+            self.assertEqual(result["status"], "active")
+
     def test_final_gate_quarantines_task_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

@@ -445,6 +445,9 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
     if "mcp" in content and "hook" in content and any(term in content for term in ("互相调用", "互调", "统一链路", "合并链路")):
         if not any(term in content for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不重叠")):
             reasons.append("mcp_hook_mutual_call")
+    if any(term in content for term in ("不用确认", "不需要确认", "无需确认", "不用让我确认")):
+        if any(term in content for term in ("发送", "邮件", "下单", "购买", "付款", "支付", "删除", "覆盖", "日程")):
+            reasons.append("external_action_without_confirmation")
     return reasons
 
 
