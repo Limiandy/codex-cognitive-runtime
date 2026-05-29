@@ -467,6 +467,7 @@ class GovernanceTest(unittest.TestCase):
                     "React 门户项目要求明确状态边界、接口缓存和首屏加载预算。",
                     "react_portal 项目中，状态边界、接口缓存和首屏加载预算要明确。",
                     "在 react_portal 项目中，需明确状态边界、接口缓存策略和首屏加载预算。",
+                    "在 `react_portal` 项目中，状态边界、接口缓存和首屏加载预算需要明确约束。",
                 ):
                     matches = service.ledger.find_active_duplicates(
                         content,
