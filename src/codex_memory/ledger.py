@@ -2582,7 +2582,22 @@ def _polarity(text: str) -> int:
     architecture_polarity = _architecture_relation_polarity(lowered)
     if architecture_polarity:
         return architecture_polarity
-    negative = ("不", "不是", "不能", "不要", "禁用", "关闭", "disable", "not ", "never")
+    negative = (
+        "不是",
+        "不能",
+        "不要",
+        "不允许",
+        "不希望",
+        "不喜欢",
+        "不推荐",
+        "不应",
+        "不得",
+        "禁用",
+        "关闭",
+        "disable",
+        "not ",
+        "never",
+    )
     positive = ("要", "需", "需要", "应该", "应把", "应将", "应当", "应分", "应作为", "应支持", "应采用", "必须", "启用", "打开", "enable", "always")
     if any(item in lowered for item in negative):
         return -1

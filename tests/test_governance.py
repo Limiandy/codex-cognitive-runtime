@@ -225,6 +225,35 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_project_type_extended_experience_is_not_negative_due_to_different_word(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="项目类型经验：管理平台应将权限、审计日志、批量操作和导出流程作为基础能力来设计；React 门户则要提前明确状态边界、接口缓存策略和首屏加载预算。",
+                    memory_type="experience",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="global",
+                    domain="software_engineering",
+                    category="lesson",
+                    subcategory="project_type",
+                    triggers=["管理平台", "门户", "React"],
+                    evidence=[Evidence(source="user_message", quote="项目类型经验")],
+                    reason="test",
+                )
+                service.ledger.add_candidate(candidate, "active", {"status": "active"})
+                matches = service.ledger.find_active_duplicates(
+                    "项目类型经验：不同项目类型要按场景提前设计基础能力；管理平台侧重权限、审计日志、批量操作、导出流程和接口封装分层，门户侧重首屏、SEO、缓存和内容发布链路，React/Vue 都要先明确状态边界与路由权限边界。",
+                    "project_context",
+                    "global",
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_fact_experience_near_duplicate_is_found_before_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
