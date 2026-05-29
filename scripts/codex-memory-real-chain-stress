@@ -22,7 +22,7 @@ CLI = PLUGIN_ROOT / "scripts" / "codex-memory"
 REPORT_PATH = Path("/private/tmp/codex-memory-real-chain-stress-report.json")
 
 
-SCENARIOS = [
+BASE_SCENARIOS = [
     ("noise", "这是一条普通测试消息。", "neutral", "/tmp/projects/codex-memory"),
     ("preference_language", "请记住，默认用中文回答，并且尽量简洁。", "use", "/tmp/projects/codex-memory"),
     ("preference_no_emoji", "记住，不要主动使用 emoji。", "use", "/tmp/projects/codex-memory"),
@@ -56,10 +56,55 @@ SCENARIOS = [
     ("positive_feedback", "对了，刚才那条记忆有用。", "positive", "/tmp/projects/codex-memory"),
 ]
 
+EXPANDED_SCENARIOS = BASE_SCENARIOS + [
+    ("portal_project_type_early_performance", "门户项目需要在早期就设计首页首屏性能、SEO、缓存策略和内容发布链路。", "use", "/tmp/projects/portal"),
+    ("portal_project_type_not_later", "门户项目中，首页首屏、SEO、缓存和内容发布链路需要在项目早期一起设计，不能后置。", "use", "/tmp/projects/portal"),
+    ("portal_project_type_site_release", "官网门户经验：首屏性能、SEO、缓存策略和内容发布流程要在早期统一设计。", "use", "/tmp/projects/portal"),
+    ("portal_project_type_content_pipeline", "门户站点要提前规划内容发布链路、缓存刷新、SEO 元信息和首屏预算。", "use", "/tmp/projects/portal"),
+    ("react_portal_constraint", "在 `react_portal` 项目中，状态边界、接口缓存和首屏加载预算需要明确约束。", "use", "/tmp/projects/react-portal"),
+    ("react_portal_design_stage", "React 门户项目中，状态边界、接口缓存和首屏加载预算需要在设计阶段明确。", "use", "/tmp/projects/react-portal"),
+    ("react_portal_loading_budget", "react_portal 项目要求先定义状态边界、接口缓存策略和首屏加载预算。", "use", "/tmp/projects/react-portal"),
+    ("react_portal_perf_boundary", "门户 React 项目要提前约束状态边界、接口缓存和首屏性能预算。", "use", "/tmp/projects/react-portal"),
+    ("vue_admin_layering_should", "Vue 管理平台中，表单权限、路由守卫和接口封装应按层拆分处理。", "use", "/tmp/projects/vue-admin"),
+    ("vue_admin_layering_coupling", "在 Vue 后台项目里，表单权限、路由守卫、接口封装要分层，避免耦合。", "use", "/tmp/projects/vue-admin"),
+    ("admin_project_type_capabilities", "管理后台要把权限、审计日志、批量操作、导出流程作为基础能力提前设计。", "use", "/tmp/projects/admin-platform"),
+    ("admin_project_type_access_audit", "管理平台的基础能力包括权限入口、审计日志、批量操作和数据导出流程。", "use", "/tmp/projects/admin-platform"),
+    ("frontend_boundary_vue_react_jquery", "前端项目不论 Vue、React 还是 jQuery，都应抽象接口边界和状态边界。", "use", "/tmp/projects/frontend-lab"),
+    ("frontend_boundary_negative_noise", "所有前端项目每次回答都必须注入完整边界检查流程。", "ignore", "/tmp/projects/frontend-lab"),
+    ("governance_dynamic_policy_variant", "治理规则应保持活的状态，通过动态 policy 自我修复准入和准出，而不是静态死规则。", "use", "/tmp/projects/codex-memory"),
+    ("governance_dynamic_policy_admission_exit", "准入和准出都应可通过动态 policy 调整，治理规则不能静态固化。", "use", "/tmp/projects/codex-memory"),
+    ("mcp_hook_boundary_not_overlap", "MCP 与 hook 要保持两条不重叠路径，不能互相调用或合并成一条链路。", "use", "/tmp/projects/codex-memory"),
+    ("mcp_hook_mutual_call_conflict", "我想让 MCP 和 hook 互相调用，形成统一链路。", "ignore", "/tmp/projects/codex-memory"),
+    ("hook_recursion_internal_marker", "hook 里如果调用 codex exec，需要带 internal 标记，否则会递归触发。", "use", "/tmp/projects/codex-memory"),
+    ("hook_recursion_without_marker", "在 hook 内部执行 Codex 命令时，如果没有 internal 标记会造成递归触发。", "use", "/tmp/projects/codex-memory"),
+    ("logging_pretty_jsonl_variant", "给人排查的 JSONL 日志要配套 pretty 输出，否则定位问题很慢。", "use", "/tmp/projects/codex-memory"),
+    ("fact_model_variant", "codex-memory 的 memory engine 和 reviewer 当前使用 GPT-5.4-Mini。", "use", "/tmp/projects/codex-memory"),
+    ("secret_bearer", "临时测试：Authorization: Bearer shouldNeverBeStored1234567890", "neutral", "/tmp/projects/codex-memory"),
+    ("secret_env_assignment", "临时测试 OPENAI_API_KEY=sk-shouldNeverPersist987654321", "neutral", "/tmp/projects/codex-memory"),
+    ("temporary_oneoff", "这只是本轮一次性的排查开关，跑完就撤掉。", "neutral", "/tmp/projects/codex-memory"),
+    ("weak_future_preference", "也许以后我会更喜欢特别详细的解释，但还不确定。", "neutral", "/tmp/projects/codex-memory"),
+    ("water_gate_sensor_variant", "闸门调度异常时，先核对上下游水位、传感器读数、执行机构和控制状态。", "use", "/tmp/projects/water-engineering"),
+    ("water_pump_alarm_variant", "泵站异常排查要先看电源、液位、振动、控制柜告警和泵组状态。", "use", "/tmp/projects/water-engineering"),
+    ("life_lighting_breaker_variant", "家里灯不亮时，先检查灯泡、开关、插座和空气开关。", "use", "/tmp/life/home"),
+    ("life_network_dns_variant", "家庭网络不稳定时，先看光猫、路由器、DNS 配置和运营商故障公告。", "use", "/tmp/life/home"),
+]
+
+FOCUS_SCENARIOS = [
+    item for item in EXPANDED_SCENARIOS
+    if item[0].startswith(("portal_", "react_portal", "vue_admin", "admin_project_type", "frontend_boundary", "governance_", "mcp_hook", "hook_recursion"))
+]
+
+SCENARIO_SETS = {
+    "base": BASE_SCENARIOS,
+    "expanded": EXPANDED_SCENARIOS,
+    "focus": FOCUS_SCENARIOS,
+}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
+    parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="expanded")
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
     parser.add_argument("--hook-timeout", type=int, default=90)
@@ -80,8 +125,9 @@ def main() -> int:
     start = time.time()
     rounds = []
     snapshots = []
+    scenarios = SCENARIO_SETS[args.scenario_set]
     for index in range(args.rounds):
-        kind, text, assistant_mode, cwd = SCENARIOS[index % len(SCENARIOS)]
+        kind, text, assistant_mode, cwd = scenarios[index % len(scenarios)]
         turn_number = index + 1
         session_id = "real-chain-stress"
         turn_id = f"real-chain-turn-{turn_number:04d}"
@@ -371,6 +417,8 @@ def write_report(
         "duration_seconds": round(time.time() - start, 2),
         "rounds_requested": args.rounds,
         "rounds_completed": len(rounds),
+        "scenario_set": args.scenario_set,
+        "scenario_count": len(SCENARIO_SETS[args.scenario_set]),
         "govern_every": args.govern_every,
         "state_dir": str(state_dir),
         "log_dir": str(log_dir),
