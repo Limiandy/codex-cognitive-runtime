@@ -440,7 +440,7 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
         reasons.append("temporary_or_task_state")
     if "这是一条普通测试消息" in content:
         reasons.append("noise")
-    if any(term in content for term in ("每次注入完整流程提醒", "所有项目都应每次", "所有项目都应该每次", "所有测试建议")):
+    if any(term in content for term in ("每次注入完整流程提醒", "所有项目都应每次", "所有项目都应该每次", "所有测试建议", "所有回答都必须先输出完整检查清单")):
         reasons.append("overbroad_injection_preference")
     if "mcp" in content and "hook" in content and any(term in content for term in ("互相调用", "互调", "统一链路", "合并链路")):
         if not any(term in content for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不重叠")):

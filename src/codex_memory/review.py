@@ -230,9 +230,9 @@ def _explicit_preference(candidate: MemoryCandidate) -> bool:
 
 def _overbroad_injection_preference(content: str) -> bool:
     text = content.lower()
-    if not any(term in text for term in ("每次", "所有项目", "所有测试建议", "每次回答")):
+    if not any(term in text for term in ("每次", "所有项目", "所有测试建议", "每次回答", "所有回答")):
         return False
-    return any(term in text for term in ("注入", "完整流程", "流程提醒", "测试建议", "长期注入"))
+    return any(term in text for term in ("注入", "完整流程", "流程提醒", "测试建议", "长期注入", "检查清单", "checklist"))
 
 
 def _mcp_hook_mutual_call_claim(content: str) -> bool:
