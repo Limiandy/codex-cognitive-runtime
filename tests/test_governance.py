@@ -254,6 +254,37 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_vue_admin_layering_duplicate_with_should_by_layer_wording(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                candidate = MemoryCandidate(
+                    content="Vue 管理平台中，表单权限、路由守卫和接口封装应按层拆分处理，避免耦合在一起。",
+                    memory_type="project_context",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="software_engineering",
+                    category="architecture",
+                    subcategory="vue_admin",
+                    triggers=["Vue", "管理平台", "表单权限", "路由守卫"],
+                    evidence=[Evidence(source="user_message", quote="Vue 管理平台分层")],
+                    reason="test",
+                )
+                project_key = str(Path(tmp).resolve()).lower()
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                matches = service.ledger.find_active_duplicates(
+                    "Vue 管理平台中，表单权限、路由守卫和接口封装要分层处理。",
+                    "project_context",
+                    "project",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_fact_experience_near_duplicate_is_found_before_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))
