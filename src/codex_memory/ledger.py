@@ -2582,6 +2582,11 @@ def _polarity(text: str) -> int:
     architecture_polarity = _architecture_relation_polarity(lowered)
     if architecture_polarity:
         return architecture_polarity
+    if _governance_policy_polarity(lowered):
+        return 1
+    polarity_text = lowered
+    for neutral_phrase in ("而不是后补", "不是后补", "而不是静态死规则", "不是静态死规则"):
+        polarity_text = polarity_text.replace(neutral_phrase, "")
     negative = (
         "不是",
         "不能",
@@ -2617,11 +2622,20 @@ def _polarity(text: str) -> int:
         "enable",
         "always",
     )
-    if any(item in lowered for item in negative):
+    if any(item in polarity_text for item in negative):
         return -1
-    if any(item in lowered for item in positive):
+    if any(item in polarity_text for item in positive):
         return 1
     return 0
+
+
+def _governance_policy_polarity(lowered: str) -> bool:
+    return (
+        "治理规则" in lowered
+        and "policy" in lowered
+        and ("准入" in lowered or "准出" in lowered or "自我修复" in lowered)
+        and any(term in lowered for term in ("动态", "静态", "固化", "固定", "死规则", "死的"))
+    )
 
 
 def _architecture_relation_polarity(lowered: str) -> int:
