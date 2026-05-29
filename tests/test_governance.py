@@ -256,6 +256,37 @@ class GovernanceTest(unittest.TestCase):
             finally:
                 service.close()
 
+    def test_global_experience_duplicate_of_project_fact_is_found_before_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp))
+            try:
+                project_key = str(Path(tmp).resolve()).lower()
+                candidate = MemoryCandidate(
+                    content="水利工程中，泵站异常时应优先检查电源、液位、泵组振动和控制柜告警。",
+                    memory_type="fact",
+                    proposed_action="store",
+                    confidence=0.95,
+                    importance=0.9,
+                    ttl="long",
+                    scope="project",
+                    domain="water_engineering",
+                    category="troubleshooting",
+                    subcategory="pump_station",
+                    triggers=["水利", "泵站", "电源", "液位"],
+                    evidence=[Evidence(source="user_message", quote="水利工程中，泵站异常时应优先检查电源、液位、泵组振动和控制柜告警。")],
+                    reason="test",
+                )
+                service.ledger.add_candidate(candidate, "active", {"status": "active"}, project_key=project_key)
+                matches = service.ledger.find_active_duplicates(
+                    "水利工程经验：泵站异常时优先检查电源、液位、泵组振动和控制柜告警。",
+                    "experience",
+                    "global",
+                    project_key=project_key,
+                )
+                self.assertEqual(len(matches), 1)
+            finally:
+                service.close()
+
     def test_react_portal_near_duplicate_is_found_before_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = MemoryService(_config(tmp))

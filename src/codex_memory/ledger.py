@@ -1511,13 +1511,14 @@ class Ledger:
         normalized = _normalize(content)
         memory_types = _duplicate_memory_types(memory_type)
         placeholders = ",".join("?" for _ in memory_types)
+        scope_filter, scope_params = _duplicate_scope_filter(scope, project_key, session_id)
         rows = self.conn.execute(
             f"""
             SELECT * FROM memories
-            WHERE status='active' AND memory_type IN ({placeholders}) AND scope=? AND {_scope_filter(scope)}
+            WHERE status='active' AND memory_type IN ({placeholders}) AND {scope_filter}
             ORDER BY created_at DESC
             """,
-            (*memory_types, scope, *_scope_params(scope, project_key, session_id)),
+            (*memory_types, *scope_params),
         ).fetchall()
         matches = []
         for row in rows:
@@ -2522,6 +2523,16 @@ def _scope_params(scope: str, project_key: str | None, session_id: str | None) -
     if scope == "session":
         return (session_id,)
     return ()
+
+
+def _duplicate_scope_filter(scope: str, project_key: str | None, session_id: str | None) -> tuple[str, tuple[Any, ...]]:
+    if scope == "session":
+        return "scope='session' AND source_session_id=?", (session_id,)
+    if scope == "project":
+        return "((scope='project' AND (project_key=? OR project_key IS NULL)) OR scope='global')", (project_key,)
+    if project_key:
+        return "((scope='global') OR (scope='project' AND (project_key=? OR project_key IS NULL)))", (project_key,)
+    return "scope='global'", ()
 
 
 def _edge_for(left: dict[str, Any], right: dict[str, Any]) -> tuple[str | None, float, dict[str, Any]]:
