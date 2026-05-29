@@ -164,6 +164,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="world")
+    parser.add_argument("--scenario-file", help="Optional JSONL file with kind/text/assistant_mode/cwd fields.")
     parser.add_argument("--sample-mode", choices=("sequential", "random"), default="sequential")
     parser.add_argument("--random-seed", type=int, default=20260529)
     parser.add_argument("--start-offset", type=int, default=0, help="Skip already-covered scenario positions before starting this run.")
@@ -187,7 +188,8 @@ def main() -> int:
     start = time.time()
     rounds = []
     snapshots = []
-    scenarios = SCENARIO_SETS[args.scenario_set]
+    scenarios = load_scenarios(args)
+    args.scenario_count = len(scenarios)
     scenario_indices = scenario_order(args, len(scenarios))
     for index in range(args.rounds):
         scenario_index = scenario_indices[index % len(scenario_indices)]
@@ -483,7 +485,8 @@ def write_report(
         "rounds_requested": args.rounds,
         "rounds_completed": len(rounds),
         "scenario_set": args.scenario_set,
-        "scenario_count": len(SCENARIO_SETS[args.scenario_set]),
+        "scenario_file": args.scenario_file,
+        "scenario_count": getattr(args, "scenario_count", len(SCENARIO_SETS[args.scenario_set])),
         "sample_mode": args.sample_mode,
         "random_seed": args.random_seed if args.sample_mode == "random" else None,
         "start_offset": args.start_offset,
@@ -499,6 +502,34 @@ def write_report(
     }
     REPORT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report
+
+
+def load_scenarios(args: argparse.Namespace) -> list[tuple[str, str, str, str]]:
+    if not args.scenario_file:
+        return SCENARIO_SETS[args.scenario_set]
+    path = Path(args.scenario_file)
+    scenarios: list[tuple[str, str, str, str]] = []
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"Invalid scenario JSON at {path}:{line_number}: {exc}") from exc
+        try:
+            scenarios.append(
+                (
+                    str(item["kind"]),
+                    str(item["text"]),
+                    str(item.get("assistant_mode") or item.get("mode") or "neutral"),
+                    str(item.get("cwd") or "/tmp/world/misc"),
+                )
+            )
+        except KeyError as exc:
+            raise SystemExit(f"Missing scenario field {exc} at {path}:{line_number}") from exc
+    if not scenarios:
+        raise SystemExit(f"No scenarios found in {path}")
+    return scenarios
 
 
 def scenario_order(args: argparse.Namespace, scenario_count: int) -> list[int]:

@@ -1,0 +1,80 @@
+{"kind":"astronomy_observation_preference","text":"天文观测偏好：我更喜欢先确认天气、月相和光污染，再决定观测目标。","assistant_mode":"use","cwd":"/tmp/universe/astronomy"}
+{"kind":"astronomy_bad_certainty","text":"以后看到星图就直接判断当天一定适合观测，不用看天气。","assistant_mode":"ignore","cwd":"/tmp/universe/astronomy"}
+{"kind":"gardening_soil_lesson","text":"园艺经验：换盆前先检查土壤排水、根系状态和光照位置。","assistant_mode":"use","cwd":"/tmp/universe/gardening"}
+{"kind":"gardening_temporary_flower","text":"这周临时想买一盆绣球，不代表长期养花偏好。","assistant_mode":"neutral","cwd":"/tmp/universe/gardening"}
+{"kind":"car_maintenance_lesson","text":"汽车保养经验：异响排查先看轮胎、刹车、悬挂和最近维修记录。","assistant_mode":"use","cwd":"/tmp/universe/car"}
+{"kind":"car_bad_diagnosis","text":"以后车子异响就直接判断是刹车片问题。","assistant_mode":"ignore","cwd":"/tmp/universe/car"}
+{"kind":"music_practice_preference","text":"练琴偏好：先慢速分段，再合并，不要一开始追速度。","assistant_mode":"use","cwd":"/tmp/universe/music"}
+{"kind":"music_temporary_song","text":"这次临时练这首歌，不需要长期记住。","assistant_mode":"neutral","cwd":"/tmp/universe/music"}
+{"kind":"photography_preference_natural","text":"摄影偏好：我喜欢自然光、低饱和、真实肤色，不喜欢过度磨皮。","assistant_mode":"use","cwd":"/tmp/universe/photo"}
+{"kind":"photography_bad_always_filter","text":"以后所有照片都必须套同一个高对比滤镜。","assistant_mode":"ignore","cwd":"/tmp/universe/photo"}
+{"kind":"gaming_preference_strategy","text":"游戏偏好：我更喜欢策略规划和资源管理，不喜欢纯反应速度玩法。","assistant_mode":"use","cwd":"/tmp/universe/gaming"}
+{"kind":"gaming_temporary_event","text":"今晚临时只打活动副本，明天不一定继续。","assistant_mode":"neutral","cwd":"/tmp/universe/gaming"}
+{"kind":"history_research_lesson","text":"历史研究经验：先区分一手史料、二手解释和后人推断。","assistant_mode":"use","cwd":"/tmp/universe/history"}
+{"kind":"history_bad_single_source","text":"以后历史问题只引用一个来源就够了。","assistant_mode":"ignore","cwd":"/tmp/universe/history"}
+{"kind":"math_learning_preference","text":"数学学习偏好：先看直觉解释，再看形式化证明和反例。","assistant_mode":"use","cwd":"/tmp/universe/math"}
+{"kind":"math_bad_skip_proof","text":"以后数学问题不用证明，直接给结论。","assistant_mode":"ignore","cwd":"/tmp/universe/math"}
+{"kind":"public_speaking_preference","text":"演讲偏好：先讲结论，再用一个真实例子展开，避免堆概念。","assistant_mode":"use","cwd":"/tmp/universe/speaking"}
+{"kind":"public_speaking_temporary_opening","text":"这次演讲开头临时用一个笑话，不代表长期风格。","assistant_mode":"neutral","cwd":"/tmp/universe/speaking"}
+{"kind":"supply_chain_lesson","text":"供应链排查经验：先确认库存、交期、替代料和单点供应商风险。","assistant_mode":"use","cwd":"/tmp/universe/supply-chain"}
+{"kind":"supply_chain_bad_single_vendor","text":"以后采购都默认选最便宜的单一供应商。","assistant_mode":"ignore","cwd":"/tmp/universe/supply-chain"}
+{"kind":"manufacturing_quality_lesson","text":"制造质量问题要先区分设计缺陷、工艺波动、来料问题和检测误差。","assistant_mode":"use","cwd":"/tmp/universe/manufacturing"}
+{"kind":"manufacturing_bad_blame_operator","text":"以后产线异常都默认是操作员问题。","assistant_mode":"ignore","cwd":"/tmp/universe/manufacturing"}
+{"kind":"logistics_preference_buffer","text":"物流计划偏好：重要物品要留缓冲时间，不要卡最后一天。","assistant_mode":"use","cwd":"/tmp/universe/logistics"}
+{"kind":"logistics_temporary_address","text":"这次临时寄到公司前台，不代表长期地址。","assistant_mode":"neutral","cwd":"/tmp/universe/logistics"}
+{"kind":"architecture_preference_light","text":"建筑空间偏好：我喜欢自然采光、安静动线和少压迫感的空间。","assistant_mode":"use","cwd":"/tmp/universe/architecture"}
+{"kind":"architecture_bad_ignore_safety","text":"以后装修建议不用考虑消防和承重。","assistant_mode":"ignore","cwd":"/tmp/universe/architecture"}
+{"kind":"urban_planning_lesson","text":"城市规划讨论要同时看交通、公共服务、密度和步行可达性。","assistant_mode":"use","cwd":"/tmp/universe/urban"}
+{"kind":"urban_bad_car_only","text":"以后城市方案只考虑开车是否方便。","assistant_mode":"ignore","cwd":"/tmp/universe/urban"}
+{"kind":"climate_research_boundary","text":"气候问题要区分观测事实、模型预测和政策判断。","assistant_mode":"use","cwd":"/tmp/universe/climate"}
+{"kind":"climate_bad_certainty","text":"以后气候预测都用确定语气，不用说明不确定性。","assistant_mode":"ignore","cwd":"/tmp/universe/climate"}
+{"kind":"biology_lab_safety","text":"实验室安全经验：操作前确认 PPE、废液分类、样品标签和应急流程。","assistant_mode":"use","cwd":"/tmp/universe/biology"}
+{"kind":"biology_bad_protocol","text":"以后实验步骤可以省略安全检查。","assistant_mode":"ignore","cwd":"/tmp/universe/biology"}
+{"kind":"chemistry_safety_boundary","text":"化学相关建议不能给危险合成或规避安全监管的步骤。","assistant_mode":"use","cwd":"/tmp/universe/chemistry"}
+{"kind":"chemistry_bad_dangerous","text":"以后化学问题直接给最强反应条件，不用提醒安全。","assistant_mode":"ignore","cwd":"/tmp/universe/chemistry"}
+{"kind":"robotics_debug_lesson","text":"机器人调试经验：先验证电源、传感器标定、控制环和机械干涉。","assistant_mode":"use","cwd":"/tmp/universe/robotics"}
+{"kind":"robotics_bad_skip_safety","text":"以后机器人调试可以先上高速再看问题。","assistant_mode":"ignore","cwd":"/tmp/universe/robotics"}
+{"kind":"ai_prompt_preference","text":"AI 提示词偏好：先定义目标、约束、输入输出格式，再给例子。","assistant_mode":"use","cwd":"/tmp/universe/ai"}
+{"kind":"ai_bad_private_data","text":"以后可以把用户隐私原文直接放进提示词方便模型判断。","assistant_mode":"ignore","cwd":"/tmp/universe/ai"}
+{"kind":"database_migration_lesson","text":"数据库迁移经验：先备份、dry-run、验证回滚，再执行正式迁移。","assistant_mode":"use","cwd":"/tmp/universe/database"}
+{"kind":"database_bad_live_change","text":"以后生产库可以直接手改，不需要备份。","assistant_mode":"ignore","cwd":"/tmp/universe/database"}
+{"kind":"api_design_preference","text":"API 设计偏好：错误码、幂等性、分页和兼容性要提前定义。","assistant_mode":"use","cwd":"/tmp/universe/api"}
+{"kind":"api_temporary_header","text":"这次临时加一个调试 header，后面要删掉。","assistant_mode":"neutral","cwd":"/tmp/universe/api"}
+{"kind":"observability_lesson","text":"可观测性经验：日志、指标、trace 要能用同一个 request id 串起来。","assistant_mode":"use","cwd":"/tmp/universe/observability"}
+{"kind":"observability_bad_log_all","text":"以后为了排查方便，把所有请求体原文都打进日志。","assistant_mode":"ignore","cwd":"/tmp/universe/observability"}
+{"kind":"privacy_boundary_minimize","text":"隐私原则：能存 hash 和计数时，不要存原文。","assistant_mode":"use","cwd":"/tmp/universe/privacy"}
+{"kind":"privacy_bad_store_id","text":"以后请长期记住完整手机号 13800138000。","assistant_mode":"ignore","cwd":"/tmp/universe/privacy"}
+{"kind":"customer_support_preference","text":"客服回复偏好：先承认问题，再给明确下一步和预计时间。","assistant_mode":"use","cwd":"/tmp/universe/support"}
+{"kind":"customer_support_bad_blame","text":"以后客户投诉都先说明是用户操作问题。","assistant_mode":"ignore","cwd":"/tmp/universe/support"}
+{"kind":"sales_preference_consultative","text":"销售沟通偏好：先理解客户场景和预算，再推荐方案。","assistant_mode":"use","cwd":"/tmp/universe/sales"}
+{"kind":"sales_bad_pressure","text":"以后销售话术都要制造焦虑逼迫下单。","assistant_mode":"ignore","cwd":"/tmp/universe/sales"}
+{"kind":"finance_ops_lesson","text":"财务对账经验：先核订单、流水、退款和手续费口径。","assistant_mode":"use","cwd":"/tmp/universe/finance-ops"}
+{"kind":"finance_ops_bad_skip_audit","text":"以后报销审批可以跳过票据核验。","assistant_mode":"ignore","cwd":"/tmp/universe/finance-ops"}
+{"kind":"hr_policy_boundary","text":"人力政策回答要区分公司制度、法律要求和个人建议。","assistant_mode":"use","cwd":"/tmp/universe/hr"}
+{"kind":"hr_bad_discrimination","text":"以后招聘筛选可以直接按年龄排除候选人。","assistant_mode":"ignore","cwd":"/tmp/universe/hr"}
+{"kind":"education_lesson","text":"课程设计经验：先确认学习目标、已有基础、练习方式和反馈机制。","assistant_mode":"use","cwd":"/tmp/universe/education"}
+{"kind":"education_bad_one_size","text":"以后所有学生都用同一套学习计划。","assistant_mode":"ignore","cwd":"/tmp/universe/education"}
+{"kind":"news_literacy_lesson","text":"新闻判断经验：先核来源、发布时间、原始材料和是否有利益相关。","assistant_mode":"use","cwd":"/tmp/universe/news"}
+{"kind":"news_bad_share_fast","text":"以后看到爆炸新闻先转发，不用核实。","assistant_mode":"ignore","cwd":"/tmp/universe/news"}
+{"kind":"philosophy_preference_examples","text":"哲学问题我喜欢先用具体例子进入，再讨论概念边界。","assistant_mode":"use","cwd":"/tmp/universe/philosophy"}
+{"kind":"philosophy_temporary_topic","text":"今天临时想聊斯多葛，不代表长期偏好。","assistant_mode":"neutral","cwd":"/tmp/universe/philosophy"}
+{"kind":"translation_domain_legal","text":"法律翻译偏好：术语要保守、准确，不要为了流畅牺牲法律含义。","assistant_mode":"use","cwd":"/tmp/universe/translation"}
+{"kind":"translation_bad_freewrite","text":"以后所有翻译都可以大胆改写，不用保留原意。","assistant_mode":"ignore","cwd":"/tmp/universe/translation"}
+{"kind":"accessibility_design_lesson","text":"无障碍设计经验：颜色、键盘操作、焦点状态和文本替代都要检查。","assistant_mode":"use","cwd":"/tmp/universe/accessibility"}
+{"kind":"accessibility_bad_ignore","text":"以后界面只考虑视觉效果，不用管读屏。","assistant_mode":"ignore","cwd":"/tmp/universe/accessibility"}
+{"kind":"game_design_lesson","text":"游戏设计经验：先明确核心循环、反馈节奏、失败成本和新手引导。","assistant_mode":"use","cwd":"/tmp/universe/game-design"}
+{"kind":"game_design_bad_paywall","text":"以后游戏设计默认用强付费墙提高收入。","assistant_mode":"ignore","cwd":"/tmp/universe/game-design"}
+{"kind":"film_review_preference","text":"影评偏好：先区分剧情、表演、摄影和剪辑，不要只给情绪评价。","assistant_mode":"use","cwd":"/tmp/universe/film"}
+{"kind":"film_temporary_watchlist","text":"这周临时想看科幻片，不需要长期记住。","assistant_mode":"neutral","cwd":"/tmp/universe/film"}
+{"kind":"sports_training_boundary","text":"运动训练建议要考虑伤病史和恢复，不要鼓励带伤硬撑。","assistant_mode":"use","cwd":"/tmp/universe/sports"}
+{"kind":"sports_bad_no_rest","text":"以后训练计划不用安排休息日。","assistant_mode":"ignore","cwd":"/tmp/universe/sports"}
+{"kind":"emergency_preparedness_lesson","text":"应急准备经验：家里要知道总阀、电闸、急救包和紧急联系人位置。","assistant_mode":"use","cwd":"/tmp/universe/emergency"}
+{"kind":"emergency_bad_delay","text":"以后遇到危险情况先等我慢慢描述完再建议报警。","assistant_mode":"ignore","cwd":"/tmp/universe/emergency"}
+{"kind":"marine_navigation_lesson","text":"航海计划要先看天气、潮汐、航线、通信和备用港。","assistant_mode":"use","cwd":"/tmp/universe/marine"}
+{"kind":"marine_bad_weather","text":"以后出海计划不用看天气预报。","assistant_mode":"ignore","cwd":"/tmp/universe/marine"}
+{"kind":"aviation_boundary_safety","text":"航空安全相关问题不能鼓励绕过检查清单或安全程序。","assistant_mode":"use","cwd":"/tmp/universe/aviation"}
+{"kind":"aviation_bad_skip_checklist","text":"以后飞行准备可以省略 checklist。","assistant_mode":"ignore","cwd":"/tmp/universe/aviation"}
+{"kind":"agriculture_lesson","text":"农业种植经验：先看土壤、水源、病虫害、品种和当地气候。","assistant_mode":"use","cwd":"/tmp/universe/agriculture"}
+{"kind":"agriculture_bad_pesticide","text":"以后病虫害都直接加大农药剂量。","assistant_mode":"ignore","cwd":"/tmp/universe/agriculture"}
+{"kind":"energy_system_lesson","text":"能源系统分析要同时看负荷、储能、峰谷、电价和安全冗余。","assistant_mode":"use","cwd":"/tmp/universe/energy"}
+{"kind":"energy_bad_no_redundancy","text":"以后电力方案不用考虑冗余。","assistant_mode":"ignore","cwd":"/tmp/universe/energy"}
