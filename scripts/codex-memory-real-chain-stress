@@ -163,6 +163,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="world")
+    parser.add_argument("--start-offset", type=int, default=0, help="Skip already-covered scenario positions before starting this run.")
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
     parser.add_argument("--hook-timeout", type=int, default=90)
@@ -185,8 +186,9 @@ def main() -> int:
     snapshots = []
     scenarios = SCENARIO_SETS[args.scenario_set]
     for index in range(args.rounds):
-        kind, text, assistant_mode, cwd = scenarios[index % len(scenarios)]
-        turn_number = index + 1
+        scenario_index = (args.start_offset + index) % len(scenarios)
+        kind, text, assistant_mode, cwd = scenarios[scenario_index]
+        turn_number = args.start_offset + index + 1
         session_id = "real-chain-stress"
         turn_id = f"real-chain-turn-{turn_number:04d}"
         prompt = f"[real-{turn_number:04d}/{kind}] {text}"
@@ -215,6 +217,7 @@ def main() -> int:
             snapshots.append({"round": turn_number, "before": before_metrics, "governed": governed, "after": after_metrics})
         item = {
             "round": turn_number,
+            "scenario_index": scenario_index,
             "kind": kind,
             "processed": processed,
             "event_id": event_id,
@@ -477,6 +480,7 @@ def write_report(
         "rounds_completed": len(rounds),
         "scenario_set": args.scenario_set,
         "scenario_count": len(SCENARIO_SETS[args.scenario_set]),
+        "start_offset": args.start_offset,
         "govern_every": args.govern_every,
         "state_dir": str(state_dir),
         "log_dir": str(log_dir),
