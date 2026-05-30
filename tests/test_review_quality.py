@@ -74,6 +74,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("overbroad_injection_preference", result["reasons"])
 
+    def test_final_gate_quarantines_math_without_proof_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户偏好：以后回答数学问题时不要给证明，直接给结论。",
+                    confidence=0.98,
+                    importance=0.9,
+                    evidence=[Evidence(source="user_message", quote="以后数学问题不用证明，直接给结论。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("unsafe_skip_reasoning_or_evidence", result["reasons"])
+
     def test_final_gate_quarantines_mcp_hook_mutual_call_claim(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

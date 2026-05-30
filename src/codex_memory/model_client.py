@@ -45,9 +45,12 @@ class CodexMiniClient:
                 "--sandbox",
                 "read-only",
                 "--skip-git-repo-check",
+                "--ephemeral",
+                "--ignore-user-config",
+                "--ignore-rules",
                 "--output-last-message",
                 str(out_path),
-                full_prompt,
+                "-",
             ]
             env = os.environ.copy()
             env["CODEX_MEMORY_INTERNAL_CALL"] = "1"
@@ -56,7 +59,7 @@ class CodexMiniClient:
                 cmd,
                 env=env,
                 text=True,
-                stdin=subprocess.DEVNULL,
+                input=full_prompt,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=timeout_seconds or 90,

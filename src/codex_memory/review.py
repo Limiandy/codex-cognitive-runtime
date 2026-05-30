@@ -162,6 +162,8 @@ class MemoryReviewer:
             blockers.append("active_rejects_temporary_language")
         if _external_action_without_confirmation(candidate):
             blockers.append("external_action_without_confirmation")
+        if _unsafe_skip_reasoning_or_evidence(candidate):
+            blockers.append("unsafe_skip_reasoning_or_evidence")
         if candidate.memory_type == "user_preference":
             if candidate.scope == "session":
                 blockers.append("preference_session_scope_not_active")
@@ -280,6 +282,57 @@ def _external_action_without_confirmation(candidate: MemoryCandidate) -> bool:
         "overwrite",
     )
     return any(term in lowered for term in external_actions)
+
+
+def _unsafe_skip_reasoning_or_evidence(candidate: MemoryCandidate) -> bool:
+    text = f"{candidate.content}\n" + "\n".join(e.quote for e in candidate.evidence)
+    lowered = text.lower()
+    high_stakes_or_reasoning = (
+        "数学",
+        "证明",
+        "证据",
+        "来源",
+        "研究",
+        "法律",
+        "合同",
+        "医疗",
+        "诊断",
+        "投资",
+        "金融",
+        "测试",
+        "验证",
+        "math",
+        "proof",
+        "evidence",
+        "source",
+        "legal",
+        "medical",
+        "test",
+        "verify",
+    )
+    skip_reasoning = (
+        "不用证明",
+        "不要证明",
+        "无需证明",
+        "不用证据",
+        "不要证据",
+        "不用来源",
+        "不要来源",
+        "不用验证",
+        "不用测试",
+        "跳过测试",
+        "跳过验证",
+        "直接给结论",
+        "不用说明不确定",
+        "don't prove",
+        "no proof",
+        "skip tests",
+        "skip verification",
+        "just answer",
+    )
+    if not any(term in lowered for term in high_stakes_or_reasoning):
+        return False
+    return any(term in lowered for term in skip_reasoning)
 
 
 def _is_resume_point(content: str) -> bool:
