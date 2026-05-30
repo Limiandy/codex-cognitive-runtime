@@ -66,7 +66,7 @@ class RealChainStressTest(unittest.TestCase):
                     modes[item["assistant_mode"]] = modes.get(item["assistant_mode"], 0) + 1
                     total += 1
 
-        self.assertGreaterEqual(total, 1000)
+        self.assertGreaterEqual(total, 3000)
         self.assertGreaterEqual(modes["use"], 300)
         self.assertGreaterEqual(modes["ignore"], 300)
         self.assertGreaterEqual(modes["neutral"], 100)
