@@ -164,6 +164,8 @@ class MemoryReviewer:
             blockers.append("external_action_without_confirmation")
         if _unsafe_skip_reasoning_or_evidence(candidate):
             blockers.append("unsafe_skip_reasoning_or_evidence")
+        if _supply_chain_single_vendor_risk(candidate.content):
+            blockers.append("supply_chain_single_vendor_risk")
         if candidate.memory_type == "user_preference":
             if candidate.scope == "session":
                 blockers.append("preference_session_scope_not_active")
@@ -253,6 +255,20 @@ def _low_quality_verbose_preference(content: str) -> bool:
     )
     answer_terms = ("回答", "回复", "写作", "文章", "response", "answer", "writing")
     return any(term in text for term in verbose_terms) and any(term in text for term in answer_terms)
+
+
+def _supply_chain_single_vendor_risk(content: str) -> bool:
+    text = content.lower()
+    procurement_terms = ("采购", "供应商", "供货商", "supplier", "vendor", "sourcing", "procurement")
+    default_terms = ("默认", "以后", "总是", "全部", "都", "always", "default")
+    cheapest_terms = ("最便宜", "最低价", "最低成本", "cheapest", "lowest price", "lowest-cost")
+    single_source_terms = ("单一供应商", "单一供货商", "单一来源", "single vendor", "single supplier", "single-source")
+    return (
+        any(term in text for term in procurement_terms)
+        and any(term in text for term in default_terms)
+        and any(term in text for term in cheapest_terms)
+        and any(term in text for term in single_source_terms)
+    )
 
 
 def _mcp_hook_mutual_call_claim(content: str) -> bool:

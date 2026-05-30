@@ -473,6 +473,13 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
     if any(term in content for term in ("极长", "特别长", "越长越好", "铺垫很多", "大量铺垫", "长篇铺垫", "very long", "verbose")):
         if any(term in content for term in ("回答", "回复", "写作", "文章", "response", "answer", "writing")):
             reasons.append("low_quality_verbose_preference")
+    if (
+        any(term in content for term in ("采购", "供应商", "供货商", "supplier", "vendor", "sourcing", "procurement"))
+        and any(term in content for term in ("默认", "以后", "总是", "全部", "都", "always", "default"))
+        and any(term in content for term in ("最便宜", "最低价", "最低成本", "cheapest", "lowest price", "lowest-cost"))
+        and any(term in content for term in ("单一供应商", "单一供货商", "单一来源", "single vendor", "single supplier", "single-source"))
+    ):
+        reasons.append("supply_chain_single_vendor_risk")
     if "mcp" in content and "hook" in content and any(term in content for term in ("互相调用", "互调", "统一链路", "合并链路")):
         if not any(term in content for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不重叠")):
             reasons.append("mcp_hook_mutual_call")
