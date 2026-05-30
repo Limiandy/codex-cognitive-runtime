@@ -197,15 +197,14 @@ def main() -> int:
     args.scenario_mode_counts = dict(Counter(mode for _, _, mode, _ in scenarios))
     coverage_path = Path(args.coverage_file) if args.coverage_file else None
     coverage = load_coverage(coverage_path)
-    scenario_indices = scenario_order(args, scenarios, coverage, skip_passed=not args.rerun_passed)
+    scenario_indices = selected_scenario_indices(args, scenarios, coverage, skip_passed=not args.rerun_passed)
     skipped_passed = len(scenarios) - len(scenario_indices) if not args.rerun_passed else 0
     if not scenario_indices:
         report = write_report(state_dir, log_dir, start, args, rounds, snapshots, partial=False, coverage_path=coverage_path, skipped_passed=skipped_passed)
         print(f"REPORT {REPORT_PATH}")
         print(json.dumps(summary(report), ensure_ascii=False, indent=2))
         return 0
-    for index in range(args.rounds):
-        scenario_index = scenario_indices[index % len(scenario_indices)]
+    for index, scenario_index in enumerate(scenario_indices):
         kind, text, assistant_mode, cwd = scenarios[scenario_index]
         turn_number = args.start_offset + index + 1
         session_id = "real-chain-stress"
@@ -627,6 +626,10 @@ def scenario_order(args: argparse.Namespace, scenarios: list[tuple[str, str, str
         index for index in ordered
         if coverage.get(scenario_id(*scenarios[index]), {}).get("status") != "passed"
     ]
+
+
+def selected_scenario_indices(args: argparse.Namespace, scenarios: list[tuple[str, str, str, str]], coverage: dict[str, dict[str, Any]], skip_passed: bool) -> list[int]:
+    return scenario_order(args, scenarios, coverage, skip_passed)[: args.rounds]
 
 
 def scenario_id(kind: str, text: str, assistant_mode: str, cwd: str) -> str:

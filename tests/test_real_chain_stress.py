@@ -37,6 +37,17 @@ class RealChainStressTest(unittest.TestCase):
             self.assertEqual(mod.scenario_order(args, scenarios, coverage, skip_passed=True), [1])
             self.assertEqual(mod.scenario_order(args, scenarios, coverage, skip_passed=False), [0, 1])
 
+    def test_selection_does_not_repeat_when_rounds_exceed_remaining_scenarios(self):
+        mod = load_stress_module()
+        scenarios = [
+            ("one", "one", "use", "/tmp/a"),
+            ("two", "two", "ignore", "/tmp/b"),
+            ("three", "three", "neutral", "/tmp/c"),
+        ]
+        args = Namespace(sample_mode="sequential", random_seed=1, start_offset=0, rounds=10)
+
+        self.assertEqual(mod.selected_scenario_indices(args, scenarios, {}, skip_passed=True), [0, 1, 2])
+
     def test_real_chain_fixture_pool_is_broad_and_explicit(self):
         files = sorted((ROOT / "benchmarks" / "real_chain").glob("*.jsonl"))
         total = 0
