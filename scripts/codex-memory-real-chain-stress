@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -21,6 +22,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 HOOK = PLUGIN_ROOT / "hooks" / "codex-memory-hook.sh"
 CLI = PLUGIN_ROOT / "scripts" / "codex-memory"
 REPORT_PATH = Path("/private/tmp/codex-memory-real-chain-stress-report.json")
+DEFAULT_COVERAGE_PATH = Path("/private/tmp/codex-memory-real-chain-coverage.jsonl")
 
 
 BASE_SCENARIOS = [
@@ -168,6 +170,8 @@ def main() -> int:
     parser.add_argument("--sample-mode", choices=("sequential", "random"), default="sequential")
     parser.add_argument("--random-seed", type=int, default=20260529)
     parser.add_argument("--start-offset", type=int, default=0, help="Skip already-covered scenario positions before starting this run.")
+    parser.add_argument("--coverage-file", default=str(DEFAULT_COVERAGE_PATH), help="JSONL coverage ledger used to skip scenarios already marked passed.")
+    parser.add_argument("--rerun-passed", action="store_true", help="Run scenarios even if they are already marked passed in the coverage ledger.")
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
     parser.add_argument("--hook-timeout", type=int, default=90)
@@ -190,7 +194,16 @@ def main() -> int:
     snapshots = []
     scenarios = load_scenarios(args)
     args.scenario_count = len(scenarios)
-    scenario_indices = scenario_order(args, len(scenarios))
+    args.scenario_mode_counts = dict(Counter(mode for _, _, mode, _ in scenarios))
+    coverage_path = Path(args.coverage_file) if args.coverage_file else None
+    coverage = load_coverage(coverage_path)
+    scenario_indices = scenario_order(args, scenarios, coverage, skip_passed=not args.rerun_passed)
+    skipped_passed = len(scenarios) - len(scenario_indices) if not args.rerun_passed else 0
+    if not scenario_indices:
+        report = write_report(state_dir, log_dir, start, args, rounds, snapshots, partial=False, coverage_path=coverage_path, skipped_passed=skipped_passed)
+        print(f"REPORT {REPORT_PATH}")
+        print(json.dumps(summary(report), ensure_ascii=False, indent=2))
+        return 0
     for index in range(args.rounds):
         scenario_index = scenario_indices[index % len(scenario_indices)]
         kind, text, assistant_mode, cwd = scenarios[scenario_index]
@@ -224,7 +237,9 @@ def main() -> int:
         item = {
             "round": turn_number,
             "scenario_index": scenario_index,
+            "scenario_id": scenario_id(kind, text, assistant_mode, cwd),
             "kind": kind,
+            "assistant_mode": assistant_mode,
             "processed": processed,
             "event_id": event_id,
             "user_hook_output": compact_hook_output(user_result),
@@ -232,14 +247,26 @@ def main() -> int:
             "governed": governed is not None,
             "metrics": compact_metrics(state_dir),
         }
+        item["coverage_status"] = scenario_run_status(item)
         rounds.append(item)
-        write_report(state_dir, log_dir, start, args, rounds, snapshots, partial=True)
+        record_coverage(
+            coverage_path,
+            scenario_id=item["scenario_id"],
+            kind=kind,
+            assistant_mode=assistant_mode,
+            cwd=cwd,
+            random_seed=args.random_seed if args.sample_mode == "random" else None,
+            start_offset=args.start_offset,
+            status=item["coverage_status"],
+            false_active_count=int(item["metrics"].get("false_active") or 0),
+        )
+        write_report(state_dir, log_dir, start, args, rounds, snapshots, partial=True, coverage_path=coverage_path, skipped_passed=skipped_passed)
         print(
             f"{turn_number:03d}/{args.rounds} {kind} processed={processed} injected={bool(user_result.get('hookSpecificOutput'))} active={item['metrics'].get('active')}",
             flush=True,
         )
 
-    report = write_report(state_dir, log_dir, start, args, rounds, snapshots, partial=False)
+    report = write_report(state_dir, log_dir, start, args, rounds, snapshots, partial=False, coverage_path=coverage_path, skipped_passed=skipped_passed)
     print(f"REPORT {REPORT_PATH}")
     print(json.dumps(summary(report), ensure_ascii=False, indent=2))
     return 0 if report["passed"] else 1
@@ -463,6 +490,8 @@ def write_report(
     rounds: list[dict[str, Any]],
     snapshots: list[dict[str, Any]],
     partial: bool,
+    coverage_path: Path | None = None,
+    skipped_passed: int = 0,
 ) -> dict[str, Any]:
     data = metrics(state_dir)
     policy_repair_proven = (
@@ -494,10 +523,20 @@ def write_report(
         "scenario_set": args.scenario_set,
         "scenario_file": args.scenario_file,
         "scenario_count": getattr(args, "scenario_count", len(SCENARIO_SETS[args.scenario_set])),
+        "scenario_mode_counts": getattr(args, "scenario_mode_counts", {}),
         "sample_mode": args.sample_mode,
         "random_seed": args.random_seed if args.sample_mode == "random" else None,
         "start_offset": args.start_offset,
         "scenario_order": [item["scenario_index"] for item in rounds],
+        "scenario_ids": [item.get("scenario_id") for item in rounds],
+        "coverage_file": str(coverage_path) if coverage_path else None,
+        "coverage": {
+            "skipped_passed": skipped_passed,
+            "unique_scenarios_run": len({item.get("scenario_id") for item in rounds}),
+            "passed_scenarios_in_run": sum(1 for item in rounds if item.get("coverage_status") == "passed"),
+            "failed_scenarios_in_run": sum(1 for item in rounds if item.get("coverage_status") != "passed"),
+            "run_mode_counts": dict(Counter(item.get("assistant_mode") for item in rounds)),
+        },
         "govern_every": args.govern_every,
         "state_dir": str(state_dir),
         "log_dir": str(log_dir),
@@ -543,13 +582,84 @@ def load_scenarios(args: argparse.Namespace) -> list[tuple[str, str, str, str]]:
     return scenarios
 
 
-def scenario_order(args: argparse.Namespace, scenario_count: int) -> list[int]:
-    indices = list(range(scenario_count))
+def scenario_order(args: argparse.Namespace, scenarios: list[tuple[str, str, str, str]], coverage: dict[str, dict[str, Any]], skip_passed: bool) -> list[int]:
+    indices = list(range(len(scenarios)))
     if args.sample_mode == "random":
         rng = random.Random(args.random_seed)
         rng.shuffle(indices)
-    offset = args.start_offset % scenario_count if scenario_count else 0
-    return indices[offset:] + indices[:offset]
+    offset = args.start_offset % len(scenarios) if scenarios else 0
+    ordered = indices[offset:] + indices[:offset]
+    if not skip_passed:
+        return ordered
+    return [
+        index for index in ordered
+        if coverage.get(scenario_id(*scenarios[index]), {}).get("status") != "passed"
+    ]
+
+
+def scenario_id(kind: str, text: str, assistant_mode: str, cwd: str) -> str:
+    digest = hashlib.sha256(f"{kind}\n{text}\n{assistant_mode}\n{cwd}".encode("utf-8")).hexdigest()[:20]
+    return f"scenario_{digest}"
+
+
+def load_coverage(path: Path | None) -> dict[str, dict[str, Any]]:
+    if not path or not path.exists():
+        return {}
+    coverage: dict[str, dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        sid = str(item.get("scenario_id") or "")
+        if sid:
+            coverage[sid] = item
+    return coverage
+
+
+def record_coverage(
+    path: Path | None,
+    *,
+    scenario_id: str,
+    kind: str,
+    assistant_mode: str,
+    cwd: str,
+    random_seed: int | None,
+    start_offset: int,
+    status: str,
+    false_active_count: int,
+) -> None:
+    if not path:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    item = {
+        "scenario_id": scenario_id,
+        "kind": kind,
+        "assistant_mode": assistant_mode,
+        "cwd": cwd,
+        "status": status,
+        "false_active_count": false_active_count,
+        "random_seed": random_seed,
+        "start_offset": start_offset,
+        "validated_at": iso_now(time.time()),
+    }
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def scenario_run_status(item: dict[str, Any]) -> str:
+    if not item.get("processed"):
+        return "failed_unprocessed"
+    if item.get("user_hook_output", {}).get("error") or item.get("session_end_output", {}).get("error"):
+        return "failed_hook"
+    metrics_data = item.get("metrics") or {}
+    if metrics_data.get("false_active", 0):
+        return "failed_false_active"
+    if metrics_data.get("pending", 0) or metrics_data.get("failed", 0):
+        return "failed_event"
+    return "passed"
 
 
 def summary(report: dict[str, Any]) -> dict[str, Any]:
@@ -565,6 +675,7 @@ def summary(report: dict[str, Any]) -> dict[str, Any]:
         "policy_count": metrics_data["policy_count"],
         "policy_hits": metrics_data["policy_hits"],
         "hook_error_count": report.get("hook_error_count", 0),
+        "coverage": report.get("coverage"),
         "recall_event_count": metrics_data["recall_event_count"],
         "avg_injected": metrics_data["avg_injected"],
         "policy_effects": metrics_data["policy_effects"],

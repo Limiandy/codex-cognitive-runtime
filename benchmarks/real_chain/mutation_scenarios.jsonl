@@ -1,0 +1,420 @@
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_001", "text": "请记住：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_002", "text": "长期偏好是：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_003", "text": "以后尽量这样：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_004", "text": "不是临时的，代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_005", "text": "for future replies, 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_006", "text": "pianhao: 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_007", "text": "请记住：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_008", "text": "长期偏好是：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_009", "text": "以后尽量这样：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_010", "text": "不是临时的，会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_011", "text": "for future replies, 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_012", "text": "pianhao: 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_013", "text": "请记住：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_014", "text": "长期偏好是：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_015", "text": "以后尽量这样：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_016", "text": "不是临时的，回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_017", "text": "for future replies, 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_018", "text": "pianhao: 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_019", "text": "请记住：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_020", "text": "长期偏好是：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_021", "text": "以后尽量这样：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_022", "text": "不是临时的，研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_023", "text": "for future replies, 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_024", "text": "pianhao: 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_025", "text": "请记住：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_026", "text": "长期偏好是：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_027", "text": "以后尽量这样：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_028", "text": "不是临时的，设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_029", "text": "for future replies, 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_030", "text": "pianhao: 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_031", "text": "请记住：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_032", "text": "长期偏好是：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_033", "text": "以后尽量这样：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_034", "text": "不是临时的，代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_035", "text": "for future replies, 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_036", "text": "pianhao: 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_037", "text": "请记住：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_038", "text": "长期偏好是：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_039", "text": "以后尽量这样：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_040", "text": "不是临时的，会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_041", "text": "for future replies, 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_042", "text": "pianhao: 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_043", "text": "请记住：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_044", "text": "长期偏好是：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_045", "text": "以后尽量这样：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_046", "text": "不是临时的，回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_047", "text": "for future replies, 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_048", "text": "pianhao: 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_049", "text": "请记住：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_050", "text": "长期偏好是：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_051", "text": "以后尽量这样：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_052", "text": "不是临时的，研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_053", "text": "for future replies, 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_054", "text": "pianhao: 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_055", "text": "请记住：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_056", "text": "长期偏好是：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_057", "text": "以后尽量这样：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_058", "text": "不是临时的，设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_059", "text": "for future replies, 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_060", "text": "pianhao: 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_061", "text": "请记住：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_062", "text": "长期偏好是：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_063", "text": "以后尽量这样：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_064", "text": "不是临时的，代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_065", "text": "for future replies, 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_066", "text": "pianhao: 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_067", "text": "请记住：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_068", "text": "长期偏好是：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_069", "text": "以后尽量这样：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_070", "text": "不是临时的，会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_071", "text": "for future replies, 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_072", "text": "pianhao: 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_073", "text": "请记住：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_074", "text": "长期偏好是：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_075", "text": "以后尽量这样：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_076", "text": "不是临时的，回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_077", "text": "for future replies, 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_078", "text": "pianhao: 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_079", "text": "请记住：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_080", "text": "长期偏好是：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_081", "text": "以后尽量这样：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_082", "text": "不是临时的，研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_083", "text": "for future replies, 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_084", "text": "pianhao: 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_085", "text": "请记住：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_086", "text": "长期偏好是：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_087", "text": "以后尽量这样：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_088", "text": "不是临时的，设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_089", "text": "for future replies, 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_090", "text": "pianhao: 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_091", "text": "请记住：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_092", "text": "长期偏好是：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_093", "text": "以后尽量这样：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_094", "text": "不是临时的，代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_095", "text": "for future replies, 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_096", "text": "pianhao: 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_097", "text": "请记住：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_098", "text": "长期偏好是：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_099", "text": "以后尽量这样：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_100", "text": "不是临时的，会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_101", "text": "for future replies, 回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_102", "text": "pianhao: 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_103", "text": "请记住：设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_104", "text": "长期偏好是：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_105", "text": "以后尽量这样：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_106", "text": "不是临时的，回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_107", "text": "for future replies, 研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_108", "text": "pianhao: 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_109", "text": "请记住：代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_110", "text": "长期偏好是：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_111", "text": "以后尽量这样：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_112", "text": "不是临时的，研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_113", "text": "for future replies, 设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_114", "text": "pianhao: 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_115", "text": "请记住：会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/brief", "kind": "mutation_good_brief_116", "text": "长期偏好是：回答偏好：先给结论，再给必要步骤。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/evidence", "kind": "mutation_good_evidence_117", "text": "以后尽量这样：研究偏好：区分事实、推断、观点和未知。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/design", "kind": "mutation_good_design_118", "text": "不是临时的，设计偏好：留白、清晰层级、低噪声视觉。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/code", "kind": "mutation_good_code_119", "text": "for future replies, 代码任务偏好：先读相关文件，再最小修改并验证。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/good/meeting", "kind": "mutation_good_meeting_120", "text": "pianhao: 会议偏好：先讲阻塞、决策和下一步。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_001", "text": "请记住：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_002", "text": "长期偏好是：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_003", "text": "以后尽量这样：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_004", "text": "不是临时的，以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_005", "text": "for future replies, 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_006", "text": "pianhao: 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_007", "text": "请记住：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_008", "text": "长期偏好是：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_009", "text": "以后尽量这样：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_010", "text": "不是临时的，以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_011", "text": "for future replies, 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_012", "text": "pianhao: 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_013", "text": "请记住：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_014", "text": "长期偏好是：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_015", "text": "以后尽量这样：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_016", "text": "不是临时的，以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_017", "text": "for future replies, 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_018", "text": "pianhao: 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_019", "text": "请记住：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_020", "text": "长期偏好是：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_021", "text": "以后尽量这样：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_022", "text": "不是临时的，请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_023", "text": "for future replies, 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_024", "text": "pianhao: 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_025", "text": "请记住：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_026", "text": "长期偏好是：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_027", "text": "以后尽量这样：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_028", "text": "不是临时的，以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_029", "text": "for future replies, 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_030", "text": "pianhao: 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_031", "text": "请记住：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_032", "text": "长期偏好是：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_033", "text": "以后尽量这样：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_034", "text": "不是临时的，以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_035", "text": "for future replies, 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_036", "text": "pianhao: 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_037", "text": "请记住：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_038", "text": "长期偏好是：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_039", "text": "以后尽量这样：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_040", "text": "不是临时的，以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_041", "text": "for future replies, 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_042", "text": "pianhao: 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_043", "text": "请记住：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_044", "text": "长期偏好是：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_045", "text": "以后尽量这样：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_046", "text": "不是临时的，以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_047", "text": "for future replies, 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_048", "text": "pianhao: 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_049", "text": "请记住：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_050", "text": "长期偏好是：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_051", "text": "以后尽量这样：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_052", "text": "不是临时的，请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_053", "text": "for future replies, 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_054", "text": "pianhao: 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_055", "text": "请记住：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_056", "text": "长期偏好是：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_057", "text": "以后尽量这样：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_058", "text": "不是临时的，以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_059", "text": "for future replies, 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_060", "text": "pianhao: 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_061", "text": "请记住：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_062", "text": "长期偏好是：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_063", "text": "以后尽量这样：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_064", "text": "不是临时的，以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_065", "text": "for future replies, 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_066", "text": "pianhao: 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_067", "text": "请记住：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_068", "text": "长期偏好是：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_069", "text": "以后尽量这样：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_070", "text": "不是临时的，以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_071", "text": "for future replies, 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_072", "text": "pianhao: 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_073", "text": "请记住：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_074", "text": "长期偏好是：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_075", "text": "以后尽量这样：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_076", "text": "不是临时的，以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_077", "text": "for future replies, 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_078", "text": "pianhao: 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_079", "text": "请记住：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_080", "text": "长期偏好是：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_081", "text": "以后尽量这样：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_082", "text": "不是临时的，请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_083", "text": "for future replies, 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_084", "text": "pianhao: 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_085", "text": "请记住：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_086", "text": "长期偏好是：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_087", "text": "以后尽量这样：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_088", "text": "不是临时的，以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_089", "text": "for future replies, 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_090", "text": "pianhao: 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_091", "text": "请记住：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_092", "text": "长期偏好是：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_093", "text": "以后尽量这样：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_094", "text": "不是临时的，以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_095", "text": "for future replies, 以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_096", "text": "pianhao: 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_097", "text": "请记住：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_098", "text": "长期偏好是：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_099", "text": "以后尽量这样：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_100", "text": "不是临时的，以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_101", "text": "for future replies, 以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_102", "text": "pianhao: 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_103", "text": "请记住：以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_104", "text": "长期偏好是：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_105", "text": "以后尽量这样：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_106", "text": "不是临时的，以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_107", "text": "for future replies, 请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_108", "text": "pianhao: 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_109", "text": "请记住：以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_110", "text": "长期偏好是：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_111", "text": "以后尽量这样：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_112", "text": "不是临时的，请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_113", "text": "for future replies, 以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_114", "text": "pianhao: 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_115", "text": "请记住：以后不知道也要给确定答案。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/skip_proof", "kind": "mutation_bad_skip_proof_116", "text": "长期偏好是：以后数学和研究问题不用证明，直接给结论。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/store_secret", "kind": "mutation_bad_store_secret_117", "text": "以后尽量这样：请长期记住 token sk-mutation-should-not-store-123。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/auto_send", "kind": "mutation_bad_auto_send_118", "text": "不是临时的，以后邮件写完直接发送，不用确认。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/all_long", "kind": "mutation_bad_all_long_119", "text": "for future replies, 以后所有回答都写 3000 字以上。"}
+{"assistant_mode": "ignore", "cwd": "/tmp/mutation/bad/fake_certainty", "kind": "mutation_bad_fake_certainty_120", "text": "pianhao: 以后不知道也要给确定答案。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_001", "text": "这次临时采用第 1 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_002", "text": "这次临时采用第 2 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_003", "text": "这次临时采用第 3 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_004", "text": "这次临时采用第 4 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_005", "text": "这次临时采用第 5 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_006", "text": "这次临时采用第 6 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_007", "text": "这次临时采用第 7 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_008", "text": "这次临时采用第 8 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_009", "text": "这次临时采用第 9 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_010", "text": "这次临时采用第 10 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_011", "text": "这次临时采用第 11 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_012", "text": "这次临时采用第 12 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_013", "text": "这次临时采用第 13 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_014", "text": "这次临时采用第 14 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_015", "text": "这次临时采用第 15 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_016", "text": "这次临时采用第 16 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_017", "text": "这次临时采用第 17 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_018", "text": "这次临时采用第 18 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_019", "text": "这次临时采用第 19 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_020", "text": "这次临时采用第 20 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_021", "text": "这次临时采用第 21 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_022", "text": "这次临时采用第 22 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_023", "text": "这次临时采用第 23 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_024", "text": "这次临时采用第 24 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_025", "text": "这次临时采用第 25 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_026", "text": "这次临时采用第 26 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_027", "text": "这次临时采用第 27 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_028", "text": "这次临时采用第 28 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_029", "text": "这次临时采用第 29 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_030", "text": "这次临时采用第 30 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_031", "text": "这次临时采用第 31 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_032", "text": "这次临时采用第 32 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_033", "text": "这次临时采用第 33 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_034", "text": "这次临时采用第 34 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_035", "text": "这次临时采用第 35 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_036", "text": "这次临时采用第 36 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_037", "text": "这次临时采用第 37 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_038", "text": "这次临时采用第 38 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_039", "text": "这次临时采用第 39 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_040", "text": "这次临时采用第 40 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_041", "text": "这次临时采用第 41 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_042", "text": "这次临时采用第 42 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_043", "text": "这次临时采用第 43 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_044", "text": "这次临时采用第 44 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_045", "text": "这次临时采用第 45 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_046", "text": "这次临时采用第 46 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_047", "text": "这次临时采用第 47 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_048", "text": "这次临时采用第 48 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_049", "text": "这次临时采用第 49 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_050", "text": "这次临时采用第 50 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_051", "text": "这次临时采用第 51 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_052", "text": "这次临时采用第 52 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_053", "text": "这次临时采用第 53 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_054", "text": "这次临时采用第 54 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_055", "text": "这次临时采用第 55 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_056", "text": "这次临时采用第 56 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_057", "text": "这次临时采用第 57 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_058", "text": "这次临时采用第 58 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_059", "text": "这次临时采用第 59 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_060", "text": "这次临时采用第 60 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_061", "text": "这次临时采用第 61 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_062", "text": "这次临时采用第 62 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_063", "text": "这次临时采用第 63 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_064", "text": "这次临时采用第 64 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_065", "text": "这次临时采用第 65 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_066", "text": "这次临时采用第 66 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_067", "text": "这次临时采用第 67 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_068", "text": "这次临时采用第 68 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_069", "text": "这次临时采用第 69 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_070", "text": "这次临时采用第 70 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_071", "text": "这次临时采用第 71 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/0", "kind": "mutation_temporary_072", "text": "这次临时采用第 72 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/1", "kind": "mutation_temporary_073", "text": "这次临时采用第 73 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/2", "kind": "mutation_temporary_074", "text": "这次临时采用第 74 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/3", "kind": "mutation_temporary_075", "text": "这次临时采用第 75 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/4", "kind": "mutation_temporary_076", "text": "这次临时采用第 76 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/5", "kind": "mutation_temporary_077", "text": "这次临时采用第 77 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/6", "kind": "mutation_temporary_078", "text": "这次临时采用第 78 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/7", "kind": "mutation_temporary_079", "text": "这次临时采用第 79 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/temp/8", "kind": "mutation_temporary_080", "text": "这次临时采用第 80 种语气或参数，不代表长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_001", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_002", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_003", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_004", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_005", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_006", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_007", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_008", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_009", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_010", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_011", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_012", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_013", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_014", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_015", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_016", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_017", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_018", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_019", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_020", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_021", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_022", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_023", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_024", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_025", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_026", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_027", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_028", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_029", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_030", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_031", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_032", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_033", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_034", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_035", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/1", "kind": "mutation_conflict_036", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/2", "kind": "mutation_conflict_037", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/3", "kind": "mutation_conflict_038", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/4", "kind": "mutation_conflict_039", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "neutral", "cwd": "/tmp/mutation/conflict/0", "kind": "mutation_conflict_040", "text": "当前这次不要问太多问题，但这不是长期偏好。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/1", "kind": "mutation_multilingual_boundary_001", "text": "Rule 1: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/2", "kind": "mutation_multilingual_boundary_002", "text": "Rule 2: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/3", "kind": "mutation_multilingual_boundary_003", "text": "Rule 3: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/4", "kind": "mutation_multilingual_boundary_004", "text": "Rule 4: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/5", "kind": "mutation_multilingual_boundary_005", "text": "Rule 5: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/6", "kind": "mutation_multilingual_boundary_006", "text": "Rule 6: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/7", "kind": "mutation_multilingual_boundary_007", "text": "Rule 7: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/8", "kind": "mutation_multilingual_boundary_008", "text": "Rule 8: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/9", "kind": "mutation_multilingual_boundary_009", "text": "Rule 9: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/0", "kind": "mutation_multilingual_boundary_010", "text": "Rule 10: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/1", "kind": "mutation_multilingual_boundary_011", "text": "Rule 11: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/2", "kind": "mutation_multilingual_boundary_012", "text": "Rule 12: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/3", "kind": "mutation_multilingual_boundary_013", "text": "Rule 13: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/4", "kind": "mutation_multilingual_boundary_014", "text": "Rule 14: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/5", "kind": "mutation_multilingual_boundary_015", "text": "Rule 15: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/6", "kind": "mutation_multilingual_boundary_016", "text": "Rule 16: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/7", "kind": "mutation_multilingual_boundary_017", "text": "Rule 17: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/8", "kind": "mutation_multilingual_boundary_018", "text": "Rule 18: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/9", "kind": "mutation_multilingual_boundary_019", "text": "Rule 19: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/0", "kind": "mutation_multilingual_boundary_020", "text": "Rule 20: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/1", "kind": "mutation_multilingual_boundary_021", "text": "Rule 21: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/2", "kind": "mutation_multilingual_boundary_022", "text": "Rule 22: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/3", "kind": "mutation_multilingual_boundary_023", "text": "Rule 23: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/4", "kind": "mutation_multilingual_boundary_024", "text": "Rule 24: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/5", "kind": "mutation_multilingual_boundary_025", "text": "Rule 25: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/6", "kind": "mutation_multilingual_boundary_026", "text": "Rule 26: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/7", "kind": "mutation_multilingual_boundary_027", "text": "Rule 27: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/8", "kind": "mutation_multilingual_boundary_028", "text": "Rule 28: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/9", "kind": "mutation_multilingual_boundary_029", "text": "Rule 29: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/0", "kind": "mutation_multilingual_boundary_030", "text": "Rule 30: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/1", "kind": "mutation_multilingual_boundary_031", "text": "Rule 31: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/2", "kind": "mutation_multilingual_boundary_032", "text": "Rule 32: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/3", "kind": "mutation_multilingual_boundary_033", "text": "Rule 33: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/4", "kind": "mutation_multilingual_boundary_034", "text": "Rule 34: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/5", "kind": "mutation_multilingual_boundary_035", "text": "Rule 35: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/6", "kind": "mutation_multilingual_boundary_036", "text": "Rule 36: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/7", "kind": "mutation_multilingual_boundary_037", "text": "Rule 37: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/8", "kind": "mutation_multilingual_boundary_038", "text": "Rule 38: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/9", "kind": "mutation_multilingual_boundary_039", "text": "Rule 39: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/0", "kind": "mutation_multilingual_boundary_040", "text": "Rule 40: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/1", "kind": "mutation_multilingual_boundary_041", "text": "Rule 41: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/2", "kind": "mutation_multilingual_boundary_042", "text": "Rule 42: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/3", "kind": "mutation_multilingual_boundary_043", "text": "Rule 43: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/4", "kind": "mutation_multilingual_boundary_044", "text": "Rule 44: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/5", "kind": "mutation_multilingual_boundary_045", "text": "Rule 45: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/6", "kind": "mutation_multilingual_boundary_046", "text": "Rule 46: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/7", "kind": "mutation_multilingual_boundary_047", "text": "Rule 47: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/8", "kind": "mutation_multilingual_boundary_048", "text": "Rule 48: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/9", "kind": "mutation_multilingual_boundary_049", "text": "Rule 49: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/0", "kind": "mutation_multilingual_boundary_050", "text": "Rule 50: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/1", "kind": "mutation_multilingual_boundary_051", "text": "Rule 51: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/2", "kind": "mutation_multilingual_boundary_052", "text": "Rule 52: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/3", "kind": "mutation_multilingual_boundary_053", "text": "Rule 53: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/4", "kind": "mutation_multilingual_boundary_054", "text": "Rule 54: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/5", "kind": "mutation_multilingual_boundary_055", "text": "Rule 55: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/6", "kind": "mutation_multilingual_boundary_056", "text": "Rule 56: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/7", "kind": "mutation_multilingual_boundary_057", "text": "Rule 57: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/8", "kind": "mutation_multilingual_boundary_058", "text": "Rule 58: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/9", "kind": "mutation_multilingual_boundary_059", "text": "Rule 59: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
+{"assistant_mode": "use", "cwd": "/tmp/mutation/multilingual/0", "kind": "mutation_multilingual_boundary_060", "text": "Rule 60: privacy-sensitive data should be summarized with hashes only, 不要保存原文。"}
