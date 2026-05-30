@@ -171,6 +171,8 @@ class MemoryReviewer:
                 blockers.append("preference_requires_explicit_signal")
             if _overbroad_injection_preference(candidate.content):
                 blockers.append("overbroad_injection_preference")
+            if _low_quality_verbose_preference(candidate.content):
+                blockers.append("low_quality_verbose_preference")
         elif candidate.memory_type == "project_context":
             if candidate.scope == "session":
                 blockers.append("project_context_session_scope_not_active")
@@ -235,6 +237,22 @@ def _overbroad_injection_preference(content: str) -> bool:
     if not any(term in text for term in ("每次", "所有项目", "所有测试建议", "每次回答", "所有回答")):
         return False
     return any(term in text for term in ("注入", "完整流程", "流程提醒", "测试建议", "长期注入", "检查清单", "checklist"))
+
+
+def _low_quality_verbose_preference(content: str) -> bool:
+    text = content.lower()
+    verbose_terms = (
+        "极长",
+        "特别长",
+        "越长越好",
+        "铺垫很多",
+        "大量铺垫",
+        "长篇铺垫",
+        "very long",
+        "verbose",
+    )
+    answer_terms = ("回答", "回复", "写作", "文章", "response", "answer", "writing")
+    return any(term in text for term in verbose_terms) and any(term in text for term in answer_terms)
 
 
 def _mcp_hook_mutual_call_claim(content: str) -> bool:

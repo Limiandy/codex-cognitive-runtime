@@ -74,6 +74,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("overbroad_injection_preference", result["reasons"])
 
+    def test_final_gate_quarantines_low_quality_verbose_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户喜欢极长、铺垫很多的回答。",
+                    confidence=0.98,
+                    importance=0.9,
+                    evidence=[Evidence(source="user_message", quote="写作偏好更新：我以后喜欢极长、铺垫很多的回答。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("low_quality_verbose_preference", result["reasons"])
+
     def test_final_gate_quarantines_math_without_proof_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

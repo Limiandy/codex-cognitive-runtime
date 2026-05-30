@@ -470,6 +470,9 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
         reasons.append("noise")
     if any(term in content for term in ("每次注入完整流程提醒", "所有项目都应每次", "所有项目都应该每次", "所有测试建议", "所有回答都必须先输出完整检查清单")):
         reasons.append("overbroad_injection_preference")
+    if any(term in content for term in ("极长", "特别长", "越长越好", "铺垫很多", "大量铺垫", "长篇铺垫", "very long", "verbose")):
+        if any(term in content for term in ("回答", "回复", "写作", "文章", "response", "answer", "writing")):
+            reasons.append("low_quality_verbose_preference")
     if "mcp" in content and "hook" in content and any(term in content for term in ("互相调用", "互调", "统一链路", "合并链路")):
         if not any(term in content for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不重叠")):
             reasons.append("mcp_hook_mutual_call")
