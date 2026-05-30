@@ -434,7 +434,8 @@ def policy_effects(policies: list[dict[str, Any]], recalls: list[dict[str, Any]]
 def false_active_reasons(memory: dict[str, Any]) -> list[str]:
     content = str(memory.get("content") or "").lower()
     reasons = []
-    if "sk-" in content or "api_key" in content or "ghp_" in content or "token" in content:
+    safe_secret_boundary = any(term in content for term in ("不能包含", "不要包含", "不得包含", "不保存", "不能保存", "不能进入", "不要存", "禁止"))
+    if not safe_secret_boundary and ("sk-" in content or "api_key" in content or "ghp_" in content or "token" in content):
         reasons.append("secret_like")
     if memory.get("memory_type") in {"temporary", "task_state"}:
         reasons.append("temporary_or_task_state")
