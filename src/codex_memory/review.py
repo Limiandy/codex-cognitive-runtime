@@ -166,6 +166,8 @@ class MemoryReviewer:
             blockers.append("unsafe_skip_reasoning_or_evidence")
         if _supply_chain_single_vendor_risk(candidate.content):
             blockers.append("supply_chain_single_vendor_risk")
+        if _overbroad_one_size_preference(candidate.content):
+            blockers.append("overbroad_one_size_preference")
         if candidate.memory_type == "user_preference":
             if candidate.scope == "session":
                 blockers.append("preference_session_scope_not_active")
@@ -280,6 +282,29 @@ def _overbroad_visual_style_preference(content: str) -> bool:
         and any(term in text for term in broad_terms)
         and any(term in text for term in mandate_terms)
         and any(term in text for term in noisy_style_terms)
+    )
+
+
+def _overbroad_one_size_preference(content: str) -> bool:
+    text = content.lower()
+    if not any(term in text for term in ("所有", "全部", "以后所有", "all ", "every ")):
+        return False
+    if not any(term in text for term in ("同一套", "同一个", "统一", "one-size", "same ")):
+        return False
+    return any(
+        term in text
+        for term in (
+            "学习计划",
+            "作息表",
+            "滤镜",
+            "方案",
+            "计划",
+            "回答",
+            "schedule",
+            "plan",
+            "filter",
+            "template",
+        )
     )
 
 

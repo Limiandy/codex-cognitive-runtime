@@ -114,6 +114,20 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("supply_chain_single_vendor_risk", result["reasons"])
 
+    def test_final_gate_quarantines_overbroad_one_size_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户希望以后所有学生都使用同一套学习计划。",
+                    confidence=0.98,
+                    importance=0.86,
+                    scope="project",
+                    evidence=[Evidence(source="user_message", quote="以后所有学生都用同一套学习计划。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("overbroad_one_size_preference", result["reasons"])
+
     def test_final_gate_quarantines_math_without_proof_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
