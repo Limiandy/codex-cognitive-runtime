@@ -127,6 +127,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("external_action_without_confirmation", result["reasons"])
 
+    def test_final_gate_quarantines_direct_calendar_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户偏好：以后遇到日程冲突时，直接覆盖旧安排。",
+                    confidence=0.98,
+                    importance=0.9,
+                    evidence=[Evidence(source="user_message", quote="以后日程冲突时直接覆盖旧安排。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("external_action_without_confirmation", result["reasons"])
+
     def test_final_gate_allows_external_action_confirmation_boundary(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
