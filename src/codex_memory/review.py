@@ -175,6 +175,8 @@ class MemoryReviewer:
                 blockers.append("overbroad_injection_preference")
             if _low_quality_verbose_preference(candidate.content):
                 blockers.append("low_quality_verbose_preference")
+            if _overbroad_visual_style_preference(candidate.content):
+                blockers.append("overbroad_visual_style_preference")
         elif candidate.memory_type == "project_context":
             if candidate.scope == "session":
                 blockers.append("project_context_session_scope_not_active")
@@ -255,6 +257,30 @@ def _low_quality_verbose_preference(content: str) -> bool:
     )
     answer_terms = ("回答", "回复", "写作", "文章", "response", "answer", "writing")
     return any(term in text for term in verbose_terms) and any(term in text for term in answer_terms)
+
+
+def _overbroad_visual_style_preference(content: str) -> bool:
+    text = content.lower()
+    design_terms = ("设计", "ui", "视觉", "visual", "design")
+    broad_terms = ("所有设计", "所有ui", "所有视觉", "以后所有", "全部设计", "all designs", "every design")
+    mandate_terms = ("必须", "都用", "使用", "采用", "偏好", "must", "always use", "prefer")
+    noisy_style_terms = (
+        "复杂渐变",
+        "巨大渐变",
+        "高饱和",
+        "黑金配色",
+        "noisy gradient",
+        "complex gradient",
+        "huge gradient",
+        "high saturation",
+        "black-gold",
+    )
+    return (
+        any(term in text for term in design_terms)
+        and any(term in text for term in broad_terms)
+        and any(term in text for term in mandate_terms)
+        and any(term in text for term in noisy_style_terms)
+    )
 
 
 def _supply_chain_single_vendor_risk(content: str) -> bool:

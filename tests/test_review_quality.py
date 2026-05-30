@@ -87,6 +87,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("low_quality_verbose_preference", result["reasons"])
 
+    def test_final_gate_quarantines_overbroad_visual_style_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="以后所有设计都偏好复杂渐变和高饱和颜色。",
+                    confidence=0.97,
+                    importance=0.86,
+                    evidence=[Evidence(source="user_message", quote="以后所有设计都用复杂渐变和高饱和颜色。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("overbroad_visual_style_preference", result["reasons"])
+
     def test_final_gate_quarantines_supply_chain_single_vendor_risk(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
