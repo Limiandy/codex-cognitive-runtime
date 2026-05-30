@@ -127,6 +127,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("unsafe_skip_reasoning_or_evidence", result["reasons"])
 
+    def test_final_gate_quarantines_single_source_research_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="研究问题时，用户希望只引用一个来源即可，不需要多来源佐证。",
+                    confidence=0.98,
+                    importance=0.86,
+                    evidence=[Evidence(source="user_message", quote="以后研究问题只引用一个来源就够了。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("unsafe_skip_reasoning_or_evidence", result["reasons"])
+
     def test_final_gate_quarantines_mcp_hook_mutual_call_claim(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

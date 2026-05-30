@@ -508,7 +508,20 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
         if any(term in content for term in ("发送", "邮件", "下单", "购买", "付款", "支付", "删除", "覆盖", "日程")):
             reasons.append("external_action_without_confirmation")
     if any(term in content for term in ("数学", "证明", "证据", "来源", "研究", "法律", "医疗", "金融", "测试", "验证")):
-        if any(term in content for term in ("不用证明", "不要证明", "不用证据", "不要证据", "不用来源", "跳过测试", "跳过验证", "直接给结论")):
+        if any(term in content for term in (
+            "不用证明",
+            "不要证明",
+            "不用证据",
+            "不要证据",
+            "不用来源",
+            "只引用一个来源",
+            "一个来源就够",
+            "单一来源",
+            "不需要多来源",
+            "跳过测试",
+            "跳过验证",
+            "直接给结论",
+        )):
             reasons.append("unsafe_skip_reasoning_or_evidence")
     return reasons
 
