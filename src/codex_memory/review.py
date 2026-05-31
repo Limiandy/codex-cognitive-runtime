@@ -305,6 +305,12 @@ def _overbroad_one_size_preference(content: str) -> bool:
         )
     ):
         return True
+    if (
+        any(term in text for term in ("对象", "人群", "用户", "客户", "学生", "孩子", "家庭对象", "audience", "users", "customers"))
+        and any(term in text for term in ("同一套", "同一个", "统一", "one-size", "same "))
+        and any(term in text for term in ("计划", "模板", "方案", "回答", "plan", "template"))
+    ):
+        return True
     if not any(term in text for term in ("所有", "全部", "以后所有", "all ", "every ")):
         return False
     if not any(term in text for term in ("同一套", "同一个", "统一", "one-size", "same ")):

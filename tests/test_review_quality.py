@@ -154,6 +154,20 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("overbroad_one_size_preference", result["reasons"])
 
+    def test_final_gate_quarantines_one_size_object_template(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="家庭对象以后统一使用同一套计划和模板。",
+                    memory_type="project_context",
+                    confidence=0.98,
+                    importance=0.9,
+                    evidence=[Evidence(source="user_message", quote="以后所有家庭对象都使用同一套计划和模板。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("overbroad_one_size_preference", result["reasons"])
+
     def test_final_gate_quarantines_math_without_proof_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
