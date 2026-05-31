@@ -127,6 +127,20 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("supply_chain_single_vendor_risk", result["reasons"])
 
+    def test_final_gate_quarantines_normalized_supply_chain_single_vendor_risk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="采购时默认选择价格最低的单一供应商。",
+                    confidence=0.98,
+                    importance=0.86,
+                    scope="project",
+                    evidence=[Evidence(source="user_message", quote="以后采购都默认选最便宜的单一供应商。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("supply_chain_single_vendor_risk", result["reasons"])
+
     def test_final_gate_quarantines_overbroad_one_size_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

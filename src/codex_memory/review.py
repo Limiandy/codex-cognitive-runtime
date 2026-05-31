@@ -336,7 +336,18 @@ def _supply_chain_single_vendor_risk(content: str) -> bool:
     text = content.lower()
     procurement_terms = ("采购", "供应商", "供货商", "supplier", "vendor", "sourcing", "procurement")
     default_terms = ("默认", "以后", "总是", "全部", "都", "always", "default")
-    cheapest_terms = ("最便宜", "最低价", "最低成本", "cheapest", "lowest price", "lowest-cost")
+    cheapest_terms = (
+        "最便宜",
+        "最低价",
+        "价格最低",
+        "最低价格",
+        "最低成本",
+        "成本最低",
+        "cheapest",
+        "lowest price",
+        "lowest-cost",
+        "lowest cost",
+    )
     single_source_terms = ("单一供应商", "单一供货商", "单一来源", "single vendor", "single supplier", "single-source")
     return (
         any(term in text for term in procurement_terms)
