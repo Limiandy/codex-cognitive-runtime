@@ -503,6 +503,13 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
         and any(term in content for term in ("单一供应商", "单一供货商", "单一来源", "single vendor", "single supplier", "single-source"))
     ):
         reasons.append("supply_chain_single_vendor_risk")
+    if (
+        any(term in content for term in ("饮食", "营养", "健康", "减脂", "健身", "diet", "nutrition", "health", "food"))
+        and any(term in content for term in ("建议", "处理", "方案", "计划", "默认", "advice", "plan", "recommendation"))
+        and any(term in content for term in ("所有", "全部", "以后所有", "默认", "都默认", "always", "all ", "every "))
+        and any(term in content for term in ("极低碳", "低碳水", "生酮", "断食", "禁食", "不吃主食", "不吃碳水", "very low carb", "low-carb", "keto", "fasting"))
+    ):
+        reasons.append("overbroad_health_diet_preference")
     if "mcp" in content and "hook" in content and any(term in content for term in ("互相调用", "互调", "统一链路", "合并链路")):
         if not any(term in content for term in ("不能互相调用", "不得互相调用", "不允许互相调用", "不重叠")):
             reasons.append("mcp_hook_mutual_call")

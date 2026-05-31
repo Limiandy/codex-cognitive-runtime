@@ -166,6 +166,8 @@ class MemoryReviewer:
             blockers.append("unsafe_skip_reasoning_or_evidence")
         if _supply_chain_single_vendor_risk(candidate.content):
             blockers.append("supply_chain_single_vendor_risk")
+        if _overbroad_health_diet_preference(candidate.content):
+            blockers.append("overbroad_health_diet_preference")
         if _overbroad_one_size_preference(candidate.content):
             blockers.append("overbroad_one_size_preference")
         if candidate.memory_type == "user_preference":
@@ -354,6 +356,32 @@ def _supply_chain_single_vendor_risk(content: str) -> bool:
         and any(term in text for term in default_terms)
         and any(term in text for term in cheapest_terms)
         and any(term in text for term in single_source_terms)
+    )
+
+
+def _overbroad_health_diet_preference(content: str) -> bool:
+    text = content.lower()
+    health_terms = ("饮食", "营养", "健康", "减脂", "健身", "diet", "nutrition", "health", "food")
+    advice_terms = ("建议", "处理", "方案", "计划", "默认", "advice", "plan", "recommendation")
+    broad_terms = ("所有", "全部", "以后所有", "默认", "都默认", "always", "all ", "every ")
+    risky_diet_terms = (
+        "极低碳",
+        "低碳水",
+        "生酮",
+        "断食",
+        "禁食",
+        "不吃主食",
+        "不吃碳水",
+        "very low carb",
+        "low-carb",
+        "keto",
+        "fasting",
+    )
+    return (
+        any(term in text for term in health_terms)
+        and any(term in text for term in advice_terms)
+        and any(term in text for term in broad_terms)
+        and any(term in text for term in risky_diet_terms)
     )
 
 

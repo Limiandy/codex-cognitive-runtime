@@ -141,6 +141,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("supply_chain_single_vendor_risk", result["reasons"])
 
+    def test_final_gate_quarantines_overbroad_health_diet_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户以后所有饮食建议都默认按极低碳水处理。",
+                    confidence=0.98,
+                    importance=0.86,
+                    evidence=[Evidence(source="user_message", quote="以后所有饮食建议都默认极低碳水。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("overbroad_health_diet_preference", result["reasons"])
+
     def test_final_gate_quarantines_overbroad_one_size_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
