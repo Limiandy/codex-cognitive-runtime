@@ -141,6 +141,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("overbroad_one_size_preference", result["reasons"])
 
+    def test_final_gate_quarantines_one_size_without_explicit_all(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户偏好客服建议保持统一方案，不要因人或场景做差异化调整。",
+                    confidence=0.97,
+                    importance=0.9,
+                    evidence=[Evidence(source="user_message", quote="以后所有客服建议都用同一套方案，不要因人或场景调整。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("overbroad_one_size_preference", result["reasons"])
+
     def test_final_gate_quarantines_math_without_proof_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(

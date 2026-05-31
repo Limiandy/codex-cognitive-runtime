@@ -486,6 +486,11 @@ def false_active_reasons(memory: dict[str, Any]) -> list[str]:
     ):
         reasons.append("overbroad_one_size_preference")
     if (
+        any(term in content for term in ("统一方案", "同一套方案", "one-size plan", "same plan"))
+        and any(term in content for term in ("不要因人", "不因人", "不要因场景", "不因场景", "不要做差异", "不做差异", "不差异化", "without tailoring", "no tailoring", "without adapting"))
+    ):
+        reasons.append("overbroad_one_size_preference")
+    if (
         any(term in content for term in ("采购", "供应商", "供货商", "supplier", "vendor", "sourcing", "procurement"))
         and any(term in content for term in ("默认", "以后", "总是", "全部", "都", "always", "default"))
         and any(term in content for term in ("最便宜", "最低价", "最低成本", "cheapest", "lowest price", "lowest-cost"))

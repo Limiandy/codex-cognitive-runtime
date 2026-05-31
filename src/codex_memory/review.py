@@ -289,6 +289,22 @@ def _overbroad_visual_style_preference(content: str) -> bool:
 
 def _overbroad_one_size_preference(content: str) -> bool:
     text = content.lower()
+    if any(term in text for term in ("统一方案", "同一套方案", "one-size plan", "same plan")) and any(
+        term in text
+        for term in (
+            "不要因人",
+            "不因人",
+            "不要因场景",
+            "不因场景",
+            "不要做差异",
+            "不做差异",
+            "不差异化",
+            "without tailoring",
+            "no tailoring",
+            "without adapting",
+        )
+    ):
+        return True
     if not any(term in text for term in ("所有", "全部", "以后所有", "all ", "every ")):
         return False
     if not any(term in text for term in ("同一套", "同一个", "统一", "one-size", "same ")):
