@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.ledger import Ledger
+from codex_cognitive_runtime.ledger import Ledger
 
 
 class LedgerTransactionTest(unittest.TestCase):

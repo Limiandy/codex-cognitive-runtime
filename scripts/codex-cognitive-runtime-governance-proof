@@ -6,13 +6,13 @@ import os
 import tempfile
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 def main() -> int:
-    os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+    os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
     with tempfile.TemporaryDirectory() as tmp:
         service = _service(tmp)
         try:

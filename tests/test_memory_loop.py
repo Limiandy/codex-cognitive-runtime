@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.ledger import project_key_for_cwd
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.ledger import project_key_for_cwd
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 def _service(tmp):
@@ -95,7 +95,7 @@ class MemoryLoopTest(unittest.TestCase):
                     project_key=project_key_for_cwd("/tmp/project-a"),
                 )
                 second = service.ledger.add_candidate(
-                    _candidate("经验：hook 死循环排查时先检查 CODEX_MEMORY_INTERNAL_CALL 和 HOOK_DEPTH。"),
+                    _candidate("经验：hook 死循环排查时先检查 CODEX_COGNITIVE_RUNTIME_INTERNAL_CALL 和 HOOK_DEPTH。"),
                     "active",
                     {"status": "active"},
                     project_key=project_key_for_cwd("/tmp/project-a"),

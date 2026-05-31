@@ -2,15 +2,15 @@ import os
 import tempfile
 import unittest
 
-from codex_memory.config import Config
-from codex_memory.model_client import CodexMiniClient
-from codex_memory.review import MemoryReviewer
-from codex_memory.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.model_client import CodexMiniClient
+from codex_cognitive_runtime.review import MemoryReviewer
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
 
 
 class ReviewTest(unittest.TestCase):
     def test_rejects_secret_like_content(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
         with tempfile.TemporaryDirectory() as tmp:
             from pathlib import Path
 

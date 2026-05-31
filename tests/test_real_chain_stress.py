@@ -8,11 +8,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "codex-memory-real-chain-stress"
+SCRIPT = ROOT / "scripts" / "codex-cognitive-runtime-real-chain-stress"
 
 
 def load_stress_module():
-    loader = importlib.machinery.SourceFileLoader("codex_memory_real_chain_stress", str(SCRIPT))
+    loader = importlib.machinery.SourceFileLoader("codex_cognitive_runtime_real_chain_stress", str(SCRIPT))
     spec = importlib.util.spec_from_loader(loader.name, loader)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None

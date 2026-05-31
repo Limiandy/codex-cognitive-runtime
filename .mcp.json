@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "codex-memory": {
+    "codex-cognitive-runtime": {
       "command": "bash",
       "args": [
         "-lc",
-        "CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-memory}\"; \"$CODEX_PLUGIN_ROOT/scripts/codex-memory-mcp\""
+        "CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-cognitive-runtime}\"; \"$CODEX_PLUGIN_ROOT/scripts/codex-cognitive-runtime-mcp\""
       ]
     }
   }

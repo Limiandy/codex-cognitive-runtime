@@ -2,6 +2,6 @@
   "hook_event_name": "Stop",
   "session_id": "fixture-session",
   "turn_id": "fixture-turn",
-  "cwd": "/tmp/codex-memory-fixture",
+  "cwd": "/tmp/codex-cognitive-runtime-fixture",
   "last_assistant_message": "已完成，测试通过。"
 }

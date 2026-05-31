@@ -2,10 +2,10 @@
   "hook_event_name": "PostToolUse",
   "session_id": "fixture-session",
   "turn_id": "fixture-turn",
-  "cwd": "/tmp/codex-memory-fixture",
+  "cwd": "/tmp/codex-cognitive-runtime-fixture",
   "tool_name": "functions.apply_patch",
-  "patch": "*** Begin Patch\n*** Update File: src/codex_memory/cognitive_runtime.py\n",
+  "patch": "*** Begin Patch\n*** Update File: src/codex_cognitive_runtime/cognitive_runtime.py\n",
   "files_changed": [
-    "src/codex_memory/cognitive_runtime.py"
+    "src/codex_cognitive_runtime/cognitive_runtime.py"
   ]
 }

@@ -3,13 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.service import MemoryService
 
 
 class ServiceTest(unittest.TestCase):
     def test_ingest_fake_model_records_candidate(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             config = Config(
@@ -33,7 +33,7 @@ class ServiceTest(unittest.TestCase):
                 service.close()
 
     def test_user_opt_out_skips_memory_candidate_extraction(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             config = Config(

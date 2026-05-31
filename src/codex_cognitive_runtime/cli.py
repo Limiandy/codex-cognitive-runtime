@@ -40,12 +40,12 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "error": "experimental_cli_disabled",
                 "command": argv[0],
-                "hint": "Set CODEX_MEMORY_ENABLE_EXPERIMENTAL_CLI=1 to enable experimental commands.",
+                "hint": "Set CODEX_COGNITIVE_RUNTIME_ENABLE_EXPERIMENTAL_CLI=1 to enable experimental commands.",
             },
             code=2,
         )
 
-    parser = argparse.ArgumentParser(description="Codex Memory")
+    parser = argparse.ArgumentParser(description="Codex Cognitive Runtime")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("status")
@@ -264,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
             return _print(data)
         if args.cmd == "wipe":
             if not args.yes:
-                return _print_error({"error": "confirmation_required", "hint": "Pass --yes to wipe the local Codex Memory Ledger."}, code=2)
+                return _print_error({"error": "confirmation_required", "hint": "Pass --yes to wipe the local Codex Cognitive Runtime Ledger."}, code=2)
             return _print(service.wipe_data())
         if args.cmd == "prune-events":
             return _print(service.prune_events(older_than_days=args.older_than_days))
@@ -408,7 +408,7 @@ def _require_result(result, error: str):
 
 def _format_runtime_status(status: dict) -> str:
     workflow = status.get("active_workflow")
-    lines = ["Codex Memory Runtime Status"]
+    lines = ["Codex Cognitive Runtime Runtime Status"]
     if workflow:
         lines.append(f"Active workflow: {workflow.get('id')}")
         lines.append(f"Task: {workflow.get('current_task') or ''}")

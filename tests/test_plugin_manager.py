@@ -2,13 +2,13 @@ import json
 import unittest
 from pathlib import Path
 
-from codex_memory import plugin_manager
+from codex_cognitive_runtime import plugin_manager
 
 
 class PluginConfigTest(unittest.TestCase):
     def test_mcp_config_is_portable(self):
         data = json.loads(Path(".mcp.json").read_text(encoding="utf-8"))
-        server = data["mcpServers"]["codex-memory"]
+        server = data["mcpServers"]["codex-cognitive-runtime"]
         rendered = json.dumps(server)
         self.assertEqual(server["command"], "bash")
         self.assertIn("CODEX_PLUGIN_ROOT", rendered)
@@ -34,9 +34,9 @@ enabled = true
         self.assertIn("# keep this comment", after)
         self.assertIn("[profiles.dev]", after)
         self.assertIn('[plugins."other@personal"]', after)
-        self.assertIn('[plugins."codex-memory@personal"]', after)
+        self.assertIn('[plugins."codex-cognitive-runtime@personal"]', after)
         parsed = plugin_manager._validate_toml(after)
-        self.assertTrue(parsed["plugins"]["codex-memory@personal"]["enabled"])
+        self.assertTrue(parsed["plugins"]["codex-cognitive-runtime@personal"]["enabled"])
 
     def test_install_plan_reports_diff_without_writing(self):
         plan = plugin_manager._install_plan(Path(".").resolve(), enabled=True, show_diff=True)

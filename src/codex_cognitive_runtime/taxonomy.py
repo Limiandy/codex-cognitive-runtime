@@ -8,7 +8,7 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_./-]+|[\u4e00-\u9fff]{2,}")
 
 DOMAIN_KEYWORDS = {
     "memory_system": {
-        "记忆", "召回", "联想", "memory", "review", "hook", "hooks", "mcp", "codex-memory", "ledger"
+        "记忆", "召回", "联想", "memory", "review", "hook", "hooks", "mcp", "codex-cognitive-runtime", "ledger"
     },
     "software_engineering": {
         "代码", "工程", "插件", "api", "python", "javascript", "typescript", "sqlite", "测试", "日志", "worker", "codex",
@@ -43,7 +43,7 @@ CATEGORY_KEYWORDS = {
 }
 
 NEAR_DUPLICATE_ANCHORS = {
-    "mcp", "hook", "hooks", "codex", "codex-memory", "internal", "gpt-5.4-mini",
+    "mcp", "hook", "hooks", "codex", "codex-cognitive-runtime", "internal", "gpt-5.4-mini",
     "不重叠", "互相调用", "中文", "简洁", "emoji", "debug", "jsonl", "pretty",
     "vue", "react", "jquery", "前端", "管理平台", "门户", "小程序", "接口封装",
     "电灯", "灯泡", "开关", "水利", "闸门", "水位", "测试", "质量", "注入",

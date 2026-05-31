@@ -11,13 +11,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from codex_memory.config import Config
-from codex_memory.ledger import project_key_for_cwd
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.ledger import project_key_for_cwd
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
-REPORT_PATH = Path("/private/tmp/codex-memory-policy-stress-report.json")
+REPORT_PATH = Path("/private/tmp/codex-cognitive-runtime-policy-stress-report.json")
 
 
 @dataclass(frozen=True)
@@ -30,15 +30,15 @@ class Scenario:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run broad closed-loop Codex Memory governance policy stress test.")
+    parser = argparse.ArgumentParser(description="Run broad closed-loop Codex Cognitive Runtime governance policy stress test.")
     parser.add_argument("--rounds", type=int, default=200)
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--state-dir", default="")
     args = parser.parse_args()
 
-    os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+    os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
-    state_dir = Path(args.state_dir) if args.state_dir else Path(tempfile.mkdtemp(prefix="codex-memory-policy-stress-", dir="/private/tmp"))
+    state_dir = Path(args.state_dir) if args.state_dir else Path(tempfile.mkdtemp(prefix="codex-cognitive-runtime-policy-stress-", dir="/private/tmp"))
     service = _service(state_dir)
     start = time.time()
     rounds = []
@@ -198,7 +198,7 @@ def _candidate(
 
 
 def _scenarios() -> list[Scenario]:
-    codex = "/tmp/projects/codex-memory"
+    codex = "/tmp/projects/codex-cognitive-runtime"
     vue = "/tmp/projects/vue-admin"
     react = "/tmp/projects/react-portal"
     jquery = "/tmp/projects/jquery-legacy"
@@ -222,7 +222,7 @@ def _scenarios() -> list[Scenario]:
         Scenario("water_gate", "水利工程经验：闸门异常要先核对水位和传感器。", _candidate("水利工程经验：闸门调度异常时先核对上下游水位、传感器读数和执行机构状态。", "experience", "project", "water_engineering", "troubleshooting", "water", ["水利", "闸门", "水位"]), "use_recalled", water),
         Scenario("weak_inference", "我感觉可能应该记住这件事。", _candidate("用户可能喜欢更长的解释。", "user_preference", "global", "user_profile", "preference", "style", ["解释"], 0.82, 0.6, "long", "assistant"), "neutral", codex),
         Scenario("task_resume", "下一步继续跑治理闭环测试。", _candidate("下一步继续跑治理闭环测试，并检查动态 policy 命中。", "task_state", "session", "memory_system", "workflow", "testing", ["治理", "policy", "测试"], 0.9, 0.65, "session"), "neutral", codex),
-        Scenario("fact_model", "事实：codex-memory 使用 GPT-5.4-Mini 做 memory-engine。", _candidate("codex-memory 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。", "fact", "project", "memory_system", "fact", "model", ["GPT-5.4-Mini", "memory-engine"], 0.96, 0.8), "use_recalled", codex),
+        Scenario("fact_model", "事实：codex-cognitive-runtime 使用 GPT-5.4-Mini 做 memory-engine。", _candidate("codex-cognitive-runtime 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。", "fact", "project", "memory_system", "fact", "model", ["GPT-5.4-Mini", "memory-engine"], 0.96, 0.8), "use_recalled", codex),
         Scenario("logging_pretty", "经验：JSONL 日志要提供 pretty 视图。", _candidate("经验：面向人类排查的 JSONL 日志必须提供 pretty 视图，否则实时观察链路很困难。", "experience", "project", "memory_system", "lesson", "logging", ["日志", "JSONL", "pretty"]), "use_recalled", codex),
         Scenario("bad_generic_process", "经验：所有项目都应该把流程提示每次注入。", _candidate("经验：所有项目都应该每次注入完整流程提醒。", "experience", "global", "general", "workflow", "general", ["流程", "注入"]), "ignore_recalled", codex),
     ]

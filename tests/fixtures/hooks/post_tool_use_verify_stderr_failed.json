@@ -2,7 +2,7 @@
   "hook_event_name": "PostToolUse",
   "session_id": "fixture-session",
   "turn_id": "fixture-turn",
-  "cwd": "/tmp/codex-memory-fixture",
+  "cwd": "/tmp/codex-cognitive-runtime-fixture",
   "tool": "functions.exec_command",
   "command": "PYTHONPATH=src python3 -m unittest discover -s tests -v",
   "stdout": "",

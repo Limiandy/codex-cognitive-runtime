@@ -64,9 +64,9 @@ def normalize_tool_observation(payload: dict[str, Any], rules: dict[str, list[st
 def load_observation_rules(cwd: Any = None) -> dict[str, list[str]]:
     rules = {"verify": [], "inspect": [], "edit": []}
     env_map = {
-        "verify": "CODEX_MEMORY_VERIFY_COMMANDS",
-        "inspect": "CODEX_MEMORY_INSPECT_COMMANDS",
-        "edit": "CODEX_MEMORY_EDIT_COMMANDS",
+        "verify": "CODEX_COGNITIVE_RUNTIME_VERIFY_COMMANDS",
+        "inspect": "CODEX_COGNITIVE_RUNTIME_INSPECT_COMMANDS",
+        "edit": "CODEX_COGNITIVE_RUNTIME_EDIT_COMMANDS",
     }
     for key, env_name in env_map.items():
         rules[key].extend(_split_rule_text(os.environ.get(env_name, "")))
@@ -83,7 +83,7 @@ def load_observation_rules(cwd: Any = None) -> dict[str, list[str]]:
 def _load_rules_file(cwd: Any) -> dict[str, Any]:
     if not cwd:
         return {}
-    path = Path(str(cwd)).expanduser() / ".codex-memory.json"
+    path = Path(str(cwd)).expanduser() / ".codex-cognitive-runtime.json"
     if not path.is_file():
         return {}
     try:

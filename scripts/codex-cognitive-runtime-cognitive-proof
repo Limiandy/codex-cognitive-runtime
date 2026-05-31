@@ -8,9 +8,9 @@ import shutil
 import sys
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 SCENARIOS = [
@@ -26,18 +26,18 @@ SCENARIOS = [
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Codex Memory cognitive runtime proof")
+    parser = argparse.ArgumentParser(description="Codex Cognitive Runtime cognitive runtime proof")
     parser.add_argument("--rounds", type=int, default=200)
-    parser.add_argument("--state-dir", default="/private/tmp/codex-memory-cognitive-proof")
+    parser.add_argument("--state-dir", default="/private/tmp/codex-cognitive-runtime-cognitive-proof")
     parser.add_argument("--clear-before", action="store_true")
-    parser.add_argument("--report", default="/private/tmp/codex-memory-cognitive-proof-report.json")
+    parser.add_argument("--report", default="/private/tmp/codex-cognitive-runtime-cognitive-proof-report.json")
     args = parser.parse_args()
 
     state_dir = Path(args.state_dir)
     if args.clear_before and state_dir.exists():
         shutil.rmtree(state_dir)
     state_dir.mkdir(parents=True, exist_ok=True)
-    os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+    os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
     service = MemoryService(
         Config(
             model="gpt-5.4-mini",

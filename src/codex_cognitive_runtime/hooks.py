@@ -57,7 +57,7 @@ def _session_start(service: MemoryService, payload: dict[str, Any]) -> int:
         session_id=str(payload.get("session_id") or "") or None,
     )
     context = search.get("context") or ""
-    data: dict[str, Any] = {"systemMessage": f"Codex Memory ready: {active} active local memories."}
+    data: dict[str, Any] = {"systemMessage": f"Codex Cognitive Runtime ready: {active} active local memories."}
     if context:
         data["hookSpecificOutput"] = {
             "hookEventName": "SessionStart",
@@ -71,7 +71,7 @@ def _session_start(service: MemoryService, payload: dict[str, Any]) -> int:
 def _user_message(service: MemoryService, payload: dict[str, Any]) -> int:
     event_id = service.record_event("user_message", payload)
     trace = service.start_trace_from_payload(payload, event_id=event_id)
-    payload["_codex_memory_trace_id"] = trace.trace_id
+    payload["_codex_cognitive_runtime_trace_id"] = trace.trace_id
     runtime_task = service.start_task_from_prompt(payload)
     logger.debug("user_message event recorded", event_id=event_id, payload_summary=summarize_payload(payload))
     _spawn_worker(event_id)
@@ -137,9 +137,9 @@ def _summary(result: dict[str, Any]) -> str:
         status = str(item.get("status", "unknown"))
         counts[status] = counts.get(status, 0) + 1
     if not counts:
-        return "Codex Memory: no durable memory candidates."
+        return "Codex Cognitive Runtime: no durable memory candidates."
     parts = ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))
-    return f"Codex Memory reviewed {result.get('candidate_count', 0)} candidates: {parts}."
+    return f"Codex Cognitive Runtime reviewed {result.get('candidate_count', 0)} candidates: {parts}."
 
 
 def _out(data: dict[str, Any]) -> None:
@@ -150,11 +150,11 @@ def _out(data: dict[str, Any]) -> None:
 
 def _spawn_worker(event_id: str) -> None:
     env = os.environ.copy()
-    env["CODEX_MEMORY_INTERNAL_CALL"] = "1"
-    env["CODEX_MEMORY_HOOK_DEPTH"] = "1"
+    env["CODEX_COGNITIVE_RUNTIME_INTERNAL_CALL"] = "1"
+    env["CODEX_COGNITIVE_RUNTIME_HOOK_DEPTH"] = "1"
     logger.debug("spawning worker", event_id=event_id)
     subprocess.Popen(
-        [sys.executable, "-m", "codex_memory.worker", event_id],
+        [sys.executable, "-m", "codex_cognitive_runtime.worker", event_id],
         env=env,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,

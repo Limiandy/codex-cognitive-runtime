@@ -3,10 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.model_client import CodexMiniClient
-from codex_memory.review import MemoryReviewer
-from codex_memory.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.model_client import CodexMiniClient
+from codex_cognitive_runtime.review import MemoryReviewer
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
 
 
 def _reviewer(tmp):
@@ -39,10 +39,10 @@ def _candidate(**kwargs):
 
 class ReviewQualityTest(unittest.TestCase):
     def setUp(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
     def tearDown(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
 
     def test_final_gate_allows_explicit_stable_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -338,7 +338,7 @@ class ReviewQualityTest(unittest.TestCase):
                     confidence=0.96,
                     importance=0.85,
                     scope="project",
-                    evidence=[Evidence(source="memory_context", quote="Codex Memory context: MCP 与 hook 分离")],
+                    evidence=[Evidence(source="memory_context", quote="Codex Cognitive Runtime context: MCP 与 hook 分离")],
                 )
             )
             self.assertEqual(result["status"], "quarantined")

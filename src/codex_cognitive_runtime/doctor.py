@@ -68,7 +68,7 @@ def _check_plugin_root(root: Path) -> dict[str, Any]:
         root.is_dir() and manifest.is_file(),
         path=str(root),
         manifest=str(manifest),
-        fix_hint="Run doctor from a valid codex-memory checkout or reinstall the plugin.",
+        fix_hint="Run doctor from a valid codex-cognitive-runtime checkout or reinstall the plugin.",
     )
 
 
@@ -96,7 +96,7 @@ def _check_sqlite_ledger(config: Config) -> dict[str, Any]:
             ledger.close()
         return _result("fatal", True, path=str(config.ledger_path), stats=stats)
     except Exception as exc:
-        return _result("fatal", False, path=str(config.ledger_path), error=str(exc), fix_hint="Check SQLite file permissions or move CODEX_MEMORY_STATE_DIR to a writable path.")
+        return _result("fatal", False, path=str(config.ledger_path), error=str(exc), fix_hint="Check SQLite file permissions or move CODEX_COGNITIVE_RUNTIME_STATE_DIR to a writable path.")
 
 
 def _check_schema_migrations(config: Config) -> dict[str, Any]:
@@ -111,7 +111,7 @@ def _check_schema_migrations(config: Config) -> dict[str, Any]:
             "warn",
             ok,
             **status,
-            fix_hint="Open the Ledger with the current codex-memory version or rerun doctor to apply idempotent runtime skill governance migrations.",
+            fix_hint="Open the Ledger with the current codex-cognitive-runtime version or rerun doctor to apply idempotent runtime skill governance migrations.",
         )
     except Exception as exc:
         return _result("warn", False, error=str(exc), fix_hint="Check Ledger permissions and schema_migrations integrity.")
@@ -153,7 +153,7 @@ def _check_runtime_skill_governance(config: Config) -> dict[str, Any]:
             dynamic_skill_status=dynamic_status,
             benchmark={"available": benchmark_available, "fixture_path": str(DEFAULT_BENCHMARK_FIXTURE), "can_run": benchmark_available},
             strict_privacy=config.strict_privacy,
-            fix_hint="Open the Ledger with the current codex-memory version and ensure benchmarks/runtime_skill/tasks.jsonl is present.",
+            fix_hint="Open the Ledger with the current codex-cognitive-runtime version and ensure benchmarks/runtime_skill/tasks.jsonl is present.",
         )
     except Exception as exc:
         return _result("warn", False, error=str(exc), fix_hint="Check Ledger permissions and runtime skill governance records.")
@@ -221,7 +221,7 @@ def _check_installed_plugin() -> dict[str, Any]:
         status=state.get("status"),
         install_path=state.get("install_path"),
         codex_plugin_enabled=state.get("codex_plugin_enabled"),
-        fix_hint="Run ./scripts/codex-memory plugin install --source \"$PWD\" if this plugin is not installed.",
+        fix_hint="Run ./scripts/codex-cognitive-runtime plugin install --source \"$PWD\" if this plugin is not installed.",
     )
 
 
@@ -232,7 +232,7 @@ def _check_raw_event_storage(config: Config) -> dict[str, Any]:
             False,
             enabled=True,
             impact="raw event payloads are stored in the local Ledger",
-            fix_hint="Unset CODEX_MEMORY_STORE_RAW_EVENTS or set store_raw_events=false.",
+            fix_hint="Unset CODEX_COGNITIVE_RUNTIME_STORE_RAW_EVENTS or set store_raw_events=false.",
         )
     return _result("info", True, enabled=False)
 
@@ -245,7 +245,7 @@ def _check_runtime_observer(config: Config) -> dict[str, Any]:
             enabled=config.enable_runtime_observer,
             observation_previews="stored",
             impact="runtime observations store stdout/stderr previews in the local Ledger",
-            fix_hint="Unset CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS unless local debugging requires output previews.",
+            fix_hint="Unset CODEX_COGNITIVE_RUNTIME_STORE_RUNTIME_OBSERVATION_PREVIEWS unless local debugging requires output previews.",
         )
     return _result(
         "info",
@@ -290,9 +290,9 @@ def _check_hooks_config(path: Path) -> dict[str, Any]:
 
 def _check_mcp_server(config: Config) -> dict[str, Any]:
     env = os.environ.copy()
-    env["CODEX_MEMORY_STATE_DIR"] = str(config.state_dir)
+    env["CODEX_COGNITIVE_RUNTIME_STATE_DIR"] = str(config.state_dir)
     proc = subprocess.Popen(
-        [sys.executable, "-m", "codex_memory.mcp_server"],
+        [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
         cwd=str(plugin_root()),
         env=env,
         stdin=subprocess.PIPE,
@@ -309,10 +309,10 @@ def _check_mcp_server(config: Config) -> dict[str, Any]:
         first = _read_json_line(proc)
         second = _read_json_line(proc)
         names = [tool.get("name") for tool in second.get("result", {}).get("tools", [])]
-        ok = first.get("result", {}).get("serverInfo", {}).get("name") == "codex-memory" and "codex_memory_search" in names
-        return _result("fatal", ok, tool_count=len(names), fix_hint="Check scripts/codex-memory-mcp and run plugin install again.")
+        ok = first.get("result", {}).get("serverInfo", {}).get("name") == "codex-cognitive-runtime" and "codex_cognitive_runtime_search" in names
+        return _result("fatal", ok, tool_count=len(names), fix_hint="Check scripts/codex-cognitive-runtime-mcp and run plugin install again.")
     except Exception as exc:
-        return _result("fatal", False, error=str(exc), fix_hint="Run PYTHONPATH=src python3 -m codex_memory.mcp_server to inspect MCP startup errors.")
+        return _result("fatal", False, error=str(exc), fix_hint="Run PYTHONPATH=src python3 -m codex_cognitive_runtime.mcp_server to inspect MCP startup errors.")
     finally:
         for stream in (proc.stdin, proc.stdout, proc.stderr):
             if stream is not None:
@@ -334,9 +334,9 @@ def _check_model(config: Config) -> dict[str, Any]:
             "Return {\"ok\": true} as JSON.",
             {"ok": "boolean"},
         )
-        return _result("fatal", bool(result), result_keys=sorted(result.keys()), fix_hint="Check Codex CLI login, model availability, and CODEX_MEMORY_MODEL.")
+        return _result("fatal", bool(result), result_keys=sorted(result.keys()), fix_hint="Check Codex CLI login, model availability, and CODEX_COGNITIVE_RUNTIME_MODEL.")
     except Exception as exc:
-        return _result("fatal", False, error=str(exc), fix_hint="Check Codex CLI login, model availability, and CODEX_MEMORY_MODEL.")
+        return _result("fatal", False, error=str(exc), fix_hint="Check Codex CLI login, model availability, and CODEX_COGNITIVE_RUNTIME_MODEL.")
 
 
 def _codex_version(path: str | None) -> str | None:

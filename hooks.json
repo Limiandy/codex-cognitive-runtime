@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-memory}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-memory-hook.sh\" session_start'"
+            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-cognitive-runtime}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-cognitive-runtime-hook.sh\" session_start'"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-memory}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-memory-hook.sh\" user_message'"
+            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-cognitive-runtime}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-cognitive-runtime-hook.sh\" user_message'"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-memory}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-memory-hook.sh\" after_tool_call'"
+            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-cognitive-runtime}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-cognitive-runtime-hook.sh\" after_tool_call'"
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-memory}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-memory-hook.sh\" session_end'"
+            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-cognitive-runtime}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-cognitive-runtime-hook.sh\" session_end'"
           }
         ]
       }
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-memory}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-memory-hook.sh\" precompact'"
+            "command": "bash -lc 'CODEX_PLUGIN_ROOT=\"${CODEX_PLUGIN_ROOT:-$HOME/plugins/codex-cognitive-runtime}\"; \"$CODEX_PLUGIN_ROOT/hooks/codex-cognitive-runtime-hook.sh\" precompact'"
           }
         ]
       }

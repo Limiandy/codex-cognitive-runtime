@@ -19,29 +19,29 @@ from typing import Any
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-HOOK = PLUGIN_ROOT / "hooks" / "codex-memory-hook.sh"
-CLI = PLUGIN_ROOT / "scripts" / "codex-memory"
-REPORT_PATH = Path("/private/tmp/codex-memory-real-chain-stress-report.json")
-DEFAULT_COVERAGE_PATH = Path("/private/tmp/codex-memory-real-chain-coverage.jsonl")
+HOOK = PLUGIN_ROOT / "hooks" / "codex-cognitive-runtime-hook.sh"
+CLI = PLUGIN_ROOT / "scripts" / "codex-cognitive-runtime"
+REPORT_PATH = Path("/private/tmp/codex-cognitive-runtime-real-chain-stress-report.json")
+DEFAULT_COVERAGE_PATH = Path("/private/tmp/codex-cognitive-runtime-real-chain-coverage.jsonl")
 
 
 BASE_SCENARIOS = [
-    ("noise", "这是一条普通测试消息。", "neutral", "/tmp/projects/codex-memory"),
-    ("preference_language", "请记住，默认用中文回答，并且尽量简洁。", "use", "/tmp/projects/codex-memory"),
-    ("preference_no_emoji", "记住，不要主动使用 emoji。", "use", "/tmp/projects/codex-memory"),
-    ("project_boundary", "项目架构决策：MCP 和 hook 必须是两条不重叠的路径，不能互相调用。", "use", "/tmp/projects/codex-memory"),
-    ("project_boundary_duplicate", "项目架构上，MCP 与 hook 需要保持两条不重叠路径，不能互相调用。", "use", "/tmp/projects/codex-memory"),
-    ("project_boundary_conflict", "项目架构变更：MCP 和 hook 应该互相调用，形成统一链路。", "ignore", "/tmp/projects/codex-memory"),
-    ("hook_recursion", "经验：如果 hook 内部调用 codex exec，必须设置 internal 标记，否则会递归触发。", "use", "/tmp/projects/codex-memory"),
-    ("secret_openai", "临时测试：api_key = sk-testShouldNeverBeStored1234567890", "neutral", "/tmp/projects/codex-memory"),
-    ("secret_github", "临时测试：github token ghp_shouldNeverBeStored1234567890abcd", "neutral", "/tmp/projects/codex-memory"),
-    ("temporary_debug", "这次只需要临时打开 debug 日志，之后可以关闭。", "neutral", "/tmp/projects/codex-memory"),
-    ("task_resume", "下一步继续跑治理闭环测试，并检查动态 policy 命中。", "neutral", "/tmp/projects/codex-memory"),
-    ("fact_model", "事实：codex-memory 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。", "use", "/tmp/projects/codex-memory"),
-    ("logging_pretty", "经验：面向人类排查的 JSONL 日志必须提供 pretty 视图。", "use", "/tmp/projects/codex-memory"),
-    ("governance_living_policy", "治理规则不能是死的，要能通过动态 policy 自我修复准入和准出。", "use", "/tmp/projects/codex-memory"),
-    ("bad_overbroad_testing", "经验：所有测试建议都要长期注入每次回答。", "ignore", "/tmp/projects/codex-memory"),
-    ("bad_generic_process", "经验：所有项目都应该每次注入完整流程提醒。", "ignore", "/tmp/projects/codex-memory"),
+    ("noise", "这是一条普通测试消息。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("preference_language", "请记住，默认用中文回答，并且尽量简洁。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("preference_no_emoji", "记住，不要主动使用 emoji。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("project_boundary", "项目架构决策：MCP 和 hook 必须是两条不重叠的路径，不能互相调用。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("project_boundary_duplicate", "项目架构上，MCP 与 hook 需要保持两条不重叠路径，不能互相调用。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("project_boundary_conflict", "项目架构变更：MCP 和 hook 应该互相调用，形成统一链路。", "ignore", "/tmp/projects/codex-cognitive-runtime"),
+    ("hook_recursion", "经验：如果 hook 内部调用 codex exec，必须设置 internal 标记，否则会递归触发。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("secret_openai", "临时测试：api_key = sk-testShouldNeverBeStored1234567890", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("secret_github", "临时测试：github token ghp_shouldNeverBeStored1234567890abcd", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("temporary_debug", "这次只需要临时打开 debug 日志，之后可以关闭。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("task_resume", "下一步继续跑治理闭环测试，并检查动态 policy 命中。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("fact_model", "事实：codex-cognitive-runtime 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("logging_pretty", "经验：面向人类排查的 JSONL 日志必须提供 pretty 视图。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("governance_living_policy", "治理规则不能是死的，要能通过动态 policy 自我修复准入和准出。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("bad_overbroad_testing", "经验：所有测试建议都要长期注入每次回答。", "ignore", "/tmp/projects/codex-cognitive-runtime"),
+    ("bad_generic_process", "经验：所有项目都应该每次注入完整流程提醒。", "ignore", "/tmp/projects/codex-cognitive-runtime"),
     ("vue_admin", "Vue 管理平台经验：表单权限、路由守卫和接口封装要分层。", "use", "/tmp/projects/vue-admin"),
     ("react_portal", "React 门户经验：状态边界、接口缓存和首屏加载预算要明确。", "use", "/tmp/projects/react-portal"),
     ("jquery_legacy", "jQuery 老项目迁移经验：先隔离 DOM 操作和接口调用，再逐步抽出可替换模块。", "use", "/tmp/projects/jquery-legacy"),
@@ -53,10 +53,10 @@ BASE_SCENARIOS = [
     ("life_network", "生活经验：家里网络不稳定时先确认光猫、路由器、DNS 和运营商告警。", "use", "/tmp/life/home"),
     ("water_gate", "水利工程经验：闸门调度异常时先核对上下游水位、传感器读数和执行机构状态。", "use", "/tmp/projects/water-engineering"),
     ("water_pump", "水利工程经验：泵站异常要检查电源、液位、泵组振动和控制柜告警。", "use", "/tmp/projects/water-engineering"),
-    ("weak_inference", "我感觉可能应该记住这件事，但还没有明确结论。", "neutral", "/tmp/projects/codex-memory"),
-    ("relationship_weak", "也许我以后会喜欢更长的解释。", "neutral", "/tmp/projects/codex-memory"),
-    ("negative_feedback", "不对，这条记忆误导了回答。", "negative", "/tmp/projects/codex-memory"),
-    ("positive_feedback", "对了，刚才那条记忆有用。", "positive", "/tmp/projects/codex-memory"),
+    ("weak_inference", "我感觉可能应该记住这件事，但还没有明确结论。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("relationship_weak", "也许我以后会喜欢更长的解释。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("negative_feedback", "不对，这条记忆误导了回答。", "negative", "/tmp/projects/codex-cognitive-runtime"),
+    ("positive_feedback", "对了，刚才那条记忆有用。", "positive", "/tmp/projects/codex-cognitive-runtime"),
 ]
 
 EXPANDED_SCENARIOS = BASE_SCENARIOS + [
@@ -74,18 +74,18 @@ EXPANDED_SCENARIOS = BASE_SCENARIOS + [
     ("admin_project_type_access_audit", "管理平台的基础能力包括权限入口、审计日志、批量操作和数据导出流程。", "use", "/tmp/projects/admin-platform"),
     ("frontend_boundary_vue_react_jquery", "前端项目不论 Vue、React 还是 jQuery，都应抽象接口边界和状态边界。", "use", "/tmp/projects/frontend-lab"),
     ("frontend_boundary_negative_noise", "所有前端项目每次回答都必须注入完整边界检查流程。", "ignore", "/tmp/projects/frontend-lab"),
-    ("governance_dynamic_policy_variant", "治理规则应保持活的状态，通过动态 policy 自我修复准入和准出，而不是静态死规则。", "use", "/tmp/projects/codex-memory"),
-    ("governance_dynamic_policy_admission_exit", "准入和准出都应可通过动态 policy 调整，治理规则不能静态固化。", "use", "/tmp/projects/codex-memory"),
-    ("mcp_hook_boundary_not_overlap", "MCP 与 hook 要保持两条不重叠路径，不能互相调用或合并成一条链路。", "use", "/tmp/projects/codex-memory"),
-    ("mcp_hook_mutual_call_conflict", "我想让 MCP 和 hook 互相调用，形成统一链路。", "ignore", "/tmp/projects/codex-memory"),
-    ("hook_recursion_internal_marker", "hook 里如果调用 codex exec，需要带 internal 标记，否则会递归触发。", "use", "/tmp/projects/codex-memory"),
-    ("hook_recursion_without_marker", "在 hook 内部执行 Codex 命令时，如果没有 internal 标记会造成递归触发。", "use", "/tmp/projects/codex-memory"),
-    ("logging_pretty_jsonl_variant", "给人排查的 JSONL 日志要配套 pretty 输出，否则定位问题很慢。", "use", "/tmp/projects/codex-memory"),
-    ("fact_model_variant", "codex-memory 的 memory engine 和 reviewer 当前使用 GPT-5.4-Mini。", "use", "/tmp/projects/codex-memory"),
-    ("secret_bearer", "临时测试：Authorization: Bearer shouldNeverBeStored1234567890", "neutral", "/tmp/projects/codex-memory"),
-    ("secret_env_assignment", "临时测试 OPENAI_API_KEY=sk-shouldNeverPersist987654321", "neutral", "/tmp/projects/codex-memory"),
-    ("temporary_oneoff", "这只是本轮一次性的排查开关，跑完就撤掉。", "neutral", "/tmp/projects/codex-memory"),
-    ("weak_future_preference", "也许以后我会更喜欢特别详细的解释，但还不确定。", "neutral", "/tmp/projects/codex-memory"),
+    ("governance_dynamic_policy_variant", "治理规则应保持活的状态，通过动态 policy 自我修复准入和准出，而不是静态死规则。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("governance_dynamic_policy_admission_exit", "准入和准出都应可通过动态 policy 调整，治理规则不能静态固化。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("mcp_hook_boundary_not_overlap", "MCP 与 hook 要保持两条不重叠路径，不能互相调用或合并成一条链路。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("mcp_hook_mutual_call_conflict", "我想让 MCP 和 hook 互相调用，形成统一链路。", "ignore", "/tmp/projects/codex-cognitive-runtime"),
+    ("hook_recursion_internal_marker", "hook 里如果调用 codex exec，需要带 internal 标记，否则会递归触发。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("hook_recursion_without_marker", "在 hook 内部执行 Codex 命令时，如果没有 internal 标记会造成递归触发。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("logging_pretty_jsonl_variant", "给人排查的 JSONL 日志要配套 pretty 输出，否则定位问题很慢。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("fact_model_variant", "codex-cognitive-runtime 的 memory engine 和 reviewer 当前使用 GPT-5.4-Mini。", "use", "/tmp/projects/codex-cognitive-runtime"),
+    ("secret_bearer", "临时测试：Authorization: Bearer shouldNeverBeStored1234567890", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("secret_env_assignment", "临时测试 OPENAI_API_KEY=sk-shouldNeverPersist987654321", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("temporary_oneoff", "这只是本轮一次性的排查开关，跑完就撤掉。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
+    ("weak_future_preference", "也许以后我会更喜欢特别详细的解释，但还不确定。", "neutral", "/tmp/projects/codex-cognitive-runtime"),
     ("water_gate_sensor_variant", "闸门调度异常时，先核对上下游水位、传感器读数、执行机构和控制状态。", "use", "/tmp/projects/water-engineering"),
     ("water_pump_alarm_variant", "泵站异常排查要先看电源、液位、振动、控制柜告警和泵组状态。", "use", "/tmp/projects/water-engineering"),
     ("life_lighting_breaker_variant", "家里灯不亮时，先检查灯泡、开关、插座和空气开关。", "use", "/tmp/life/home"),
@@ -163,7 +163,7 @@ SCENARIO_SETS = {
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run broad real Codex Memory hook chain stress test.")
+    parser = argparse.ArgumentParser(description="Run broad real Codex Cognitive Runtime hook chain stress test.")
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--scenario-set", choices=sorted(SCENARIO_SETS), default="world")
     parser.add_argument("--scenario-file", action="append", help="Optional JSONL file with kind/text/assistant_mode/cwd fields. Repeat or comma-separate to merge files.")
@@ -175,8 +175,8 @@ def main() -> int:
     parser.add_argument("--govern-every", type=int, default=25)
     parser.add_argument("--wait-timeout", type=int, default=180)
     parser.add_argument("--hook-timeout", type=int, default=90)
-    parser.add_argument("--state-dir", default="/private/tmp/codex-memory-real-chain-state")
-    parser.add_argument("--log-dir", default="/private/tmp/codex-memory-real-chain-logs")
+    parser.add_argument("--state-dir", default="/private/tmp/codex-cognitive-runtime-real-chain-state")
+    parser.add_argument("--log-dir", default="/private/tmp/codex-cognitive-runtime-real-chain-logs")
     parser.add_argument("--clear-before", action="store_true")
     args = parser.parse_args()
 
@@ -286,11 +286,11 @@ def payload(session_id: str, turn_id: str, prompt: str, cwd: str, state_dir: Pat
 
 def call_hook(hook: str, data: dict[str, Any], state_dir: Path, log_dir: Path, timeout: int) -> dict[str, Any]:
     env = os.environ.copy()
-    env.pop("CODEX_MEMORY_FAKE_MODEL", None)
+    env.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
     env["PLUGIN_ROOT"] = str(PLUGIN_ROOT)
-    env["CODEX_MEMORY_STATE_DIR"] = str(state_dir)
-    env["CODEX_MEMORY_LOG_DIR"] = str(log_dir)
-    env["CODEX_MEMORY_LOG_LEVEL"] = "DEBUG"
+    env["CODEX_COGNITIVE_RUNTIME_STATE_DIR"] = str(state_dir)
+    env["CODEX_COGNITIVE_RUNTIME_LOG_DIR"] = str(log_dir)
+    env["CODEX_COGNITIVE_RUNTIME_LOG_LEVEL"] = "DEBUG"
     try:
         proc = subprocess.run(
             [str(HOOK), hook],
@@ -319,8 +319,8 @@ def call_hook(hook: str, data: dict[str, Any], state_dir: Path, log_dir: Path, t
 
 def govern(state_dir: Path, log_dir: Path) -> dict[str, Any]:
     env = os.environ.copy()
-    env["CODEX_MEMORY_STATE_DIR"] = str(state_dir)
-    env["CODEX_MEMORY_LOG_DIR"] = str(log_dir)
+    env["CODEX_COGNITIVE_RUNTIME_STATE_DIR"] = str(state_dir)
+    env["CODEX_COGNITIVE_RUNTIME_LOG_DIR"] = str(log_dir)
     proc = subprocess.run([str(CLI), "govern", "--apply"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, timeout=60)
     if proc.returncode != 0:
         return {"error": proc.stderr.strip() or proc.stdout.strip(), "returncode": proc.returncode}

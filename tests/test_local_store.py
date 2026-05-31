@@ -3,22 +3,22 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config, load_config
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config, load_config
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 class LocalStoreTest(unittest.TestCase):
     def setUp(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
     def tearDown(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
-        os.environ.pop("CODEX_MEMORY_STATE_DIR", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_STATE_DIR", None)
 
     def test_default_config_uses_ledger_primary(self):
         with tempfile.TemporaryDirectory() as tmp:
-            os.environ["CODEX_MEMORY_STATE_DIR"] = tmp
+            os.environ["CODEX_COGNITIVE_RUNTIME_STATE_DIR"] = tmp
             config = load_config()
             self.assertEqual(config.primary_store, "ledger")
 

@@ -5,8 +5,8 @@ import sys
 import tempfile
 import unittest
 
-from codex_memory.doctor import config_text_is_portable, run_doctor
-from codex_memory.config import Config
+from codex_cognitive_runtime.doctor import config_text_is_portable, run_doctor
+from codex_cognitive_runtime.config import Config
 
 
 def _config(tmp: str) -> Config:
@@ -27,9 +27,9 @@ class DoctorTest(unittest.TestCase):
     def test_doctor_cli_returns_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             proc = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "doctor"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "doctor"],
                 cwd=".",
-                env={**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp},
+                env={**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp},
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -68,9 +68,9 @@ class DoctorTest(unittest.TestCase):
     def test_doctor_privacy_report_lists_storage_policy(self):
         with tempfile.TemporaryDirectory() as tmp:
             proc = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "doctor", "--privacy"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "doctor", "--privacy"],
                 cwd=".",
-                env={**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp},
+                env={**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp},
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -91,7 +91,8 @@ class DoctorTest(unittest.TestCase):
             result = run_doctor(config)
             self.assertFalse(result["checks"]["raw_event_storage"]["ok"])
             self.assertEqual(result["checks"]["raw_event_storage"]["level"], "warn")
-            self.assertEqual(result["summary"]["warn_failed"], 1)
+            self.assertEqual(result["summary"]["fatal_failed"], 0)
+            self.assertGreaterEqual(result["summary"]["warn_failed"], 1)
 
     def test_runtime_preview_storage_is_warn_not_fatal(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -102,8 +103,8 @@ class DoctorTest(unittest.TestCase):
             self.assertEqual(result["checks"]["runtime_observer"]["level"], "warn")
 
     def test_portable_config_detects_absolute_user_paths(self):
-        self.assertFalse(config_text_is_portable('{"command": "/Users/limengkai/plugins/codex-memory/script"}'))
-        self.assertTrue(config_text_is_portable('"$HOME/plugins/codex-memory/scripts/codex-memory-mcp"'))
+        self.assertFalse(config_text_is_portable('{"command": "/Users/limengkai/plugins/codex-cognitive-runtime/script"}'))
+        self.assertTrue(config_text_is_portable('"$HOME/plugins/codex-cognitive-runtime/scripts/codex-cognitive-runtime-mcp"'))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
   "hook_event_name": "PostToolUse",
   "session_id": "fixture-session",
   "turn_id": "fixture-turn",
-  "cwd": "/tmp/codex-memory-fixture",
+  "cwd": "/tmp/codex-cognitive-runtime-fixture",
   "tool_name": "functions.exec_command",
   "tool_input": {
     "cmd": "rg failing_test tests src"

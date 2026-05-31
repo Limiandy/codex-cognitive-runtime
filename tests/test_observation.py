@@ -3,7 +3,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from codex_memory.observation import normalize_tool_observation
+from codex_cognitive_runtime.observation import normalize_tool_observation
 
 
 class ToolObservationNormalizerTest(unittest.TestCase):
@@ -62,8 +62,8 @@ class ToolObservationNormalizerTest(unittest.TestCase):
         self.assertNotIn("command", observation.source_fields)
 
     def test_custom_verify_command_from_env(self):
-        previous = os.environ.get("CODEX_MEMORY_VERIFY_COMMANDS")
-        os.environ["CODEX_MEMORY_VERIFY_COMMANDS"] = "make verify,tox"
+        previous = os.environ.get("CODEX_COGNITIVE_RUNTIME_VERIFY_COMMANDS")
+        os.environ["CODEX_COGNITIVE_RUNTIME_VERIFY_COMMANDS"] = "make verify,tox"
         try:
             observation = normalize_tool_observation({"tool_name": "functions.exec_command", "cmd": "make verify"})
             self.assertEqual(observation.tool_kind, "verify")
@@ -71,13 +71,13 @@ class ToolObservationNormalizerTest(unittest.TestCase):
             self.assertIn("custom verify", observation.raw_kind_reason)
         finally:
             if previous is None:
-                os.environ.pop("CODEX_MEMORY_VERIFY_COMMANDS", None)
+                os.environ.pop("CODEX_COGNITIVE_RUNTIME_VERIFY_COMMANDS", None)
             else:
-                os.environ["CODEX_MEMORY_VERIFY_COMMANDS"] = previous
+                os.environ["CODEX_COGNITIVE_RUNTIME_VERIFY_COMMANDS"] = previous
 
     def test_custom_rules_from_project_file(self):
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, ".codex-memory.json").write_text(
+            Path(tmp, ".codex-cognitive-runtime.json").write_text(
                 '{"runtime_observer": {"verify_commands": ["pnpm check"], "inspect_commands": ["fd "]}}',
                 encoding="utf-8",
             )

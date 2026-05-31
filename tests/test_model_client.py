@@ -5,13 +5,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from codex_memory.config import Config
-from codex_memory.model_client import CodexMiniClient
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.model_client import CodexMiniClient
 
 
 class ModelClientTest(unittest.TestCase):
     def test_codex_exec_model_call_is_ephemeral_and_prompt_uses_stdin(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             config = Config(
@@ -35,7 +35,7 @@ class ModelClientTest(unittest.TestCase):
 
                 return Result()
 
-            with patch("codex_memory.model_client.subprocess.run", side_effect=fake_run) as run:
+            with patch("codex_cognitive_runtime.model_client.subprocess.run", side_effect=fake_run) as run:
                 result = CodexMiniClient(config).complete_json(
                     "return json",
                     {"ok": True},
@@ -51,5 +51,5 @@ class ModelClientTest(unittest.TestCase):
             self.assertEqual(cmd[-1], "-")
             self.assertNotIn(kwargs["input"], cmd)
             self.assertIn("return json", kwargs["input"])
-            self.assertEqual(kwargs["env"]["CODEX_MEMORY_INTERNAL_CALL"], "1")
-            self.assertEqual(kwargs["env"]["CODEX_MEMORY_HOOK_DEPTH"], "1")
+            self.assertEqual(kwargs["env"]["CODEX_COGNITIVE_RUNTIME_INTERNAL_CALL"], "1")
+            self.assertEqual(kwargs["env"]["CODEX_COGNITIVE_RUNTIME_HOOK_DEPTH"], "1")

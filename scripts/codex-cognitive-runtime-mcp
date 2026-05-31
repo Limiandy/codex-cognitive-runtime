@@ -3,4 +3,4 @@ set -euo pipefail
 
 PLUGIN_ROOT="${CODEX_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 export PYTHONPATH="${PLUGIN_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
-python3 -m codex_memory.mcp_server
+python3 -m codex_cognitive_runtime.mcp_server

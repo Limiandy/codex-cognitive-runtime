@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 def _service(tmp):
@@ -44,10 +44,10 @@ def _candidate(content, memory_type="experience", scope="global", domain="softwa
 
 class CognitiveRuntimeTest(unittest.TestCase):
     def setUp(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
     def tearDown(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
 
     def test_memory_is_materialized_into_cognitive_layers(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -131,7 +131,7 @@ class CognitiveRuntimeTest(unittest.TestCase):
                 )
                 service.ledger.add_candidate(
                     _candidate(
-                        "组织知识：当前 codex-memory 项目要求 hook 与 MCP 不混用，hook 负责自动注入。",
+                        "组织知识：当前 codex-cognitive-runtime 项目要求 hook 与 MCP 不混用，hook 负责自动注入。",
                         memory_type="project_context",
                         scope="project",
                         domain="memory_system",
@@ -199,7 +199,7 @@ class CognitiveRuntimeTest(unittest.TestCase):
                 )
                 service.ledger.add_candidate(
                     _candidate(
-                        "组织知识：当前 codex-memory 项目要求 hook 与 MCP 不混用，hook 负责自动注入。",
+                        "组织知识：当前 codex-cognitive-runtime 项目要求 hook 与 MCP 不混用，hook 负责自动注入。",
                         memory_type="project_context",
                         scope="project",
                         domain="memory_system",

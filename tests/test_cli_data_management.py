@@ -39,9 +39,9 @@ class CliDataManagementTest(unittest.TestCase):
     def test_export_prune_and_wipe_commands(self):
         with tempfile.TemporaryDirectory() as tmp:
             export_path = Path(tmp) / "export.json"
-            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp, "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1"}
             ingest = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "ingest", "默认使用中文回答"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "ingest", "默认使用中文回答"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -51,7 +51,7 @@ class CliDataManagementTest(unittest.TestCase):
             )
             self.assertEqual(ingest.returncode, 0, ingest.stderr)
             runtime_status = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "runtime-status"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "runtime-status"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -62,7 +62,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(runtime_status.returncode, 0, runtime_status.stderr)
             self.assertIn("active_workflow", json.loads(runtime_status.stdout))
             runtime_status_pretty = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "runtime-status", "--pretty"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "runtime-status", "--pretty"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -71,9 +71,9 @@ class CliDataManagementTest(unittest.TestCase):
                 timeout=10,
             )
             self.assertEqual(runtime_status_pretty.returncode, 0, runtime_status_pretty.stderr)
-            self.assertIn("Codex Memory Runtime Status", runtime_status_pretty.stdout)
+            self.assertIn("Codex Cognitive Runtime Runtime Status", runtime_status_pretty.stdout)
             export = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "export", "--output", str(export_path)],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "export", "--output", str(export_path)],
                 cwd=".",
                 env=env,
                 text=True,
@@ -85,7 +85,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertTrue(export_path.exists())
             self.assertIn("memories", json.loads(export_path.read_text(encoding="utf-8")))
             prune = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "prune-events"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "prune-events"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -95,7 +95,7 @@ class CliDataManagementTest(unittest.TestCase):
             )
             self.assertEqual(prune.returncode, 0, prune.stderr)
             prune_runtime = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "prune-runtime"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "prune-runtime"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -106,7 +106,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(prune_runtime.returncode, 0, prune_runtime.stderr)
             self.assertIn("pruned_runtime_records", json.loads(prune_runtime.stdout))
             wipe_without_confirm = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "wipe"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "wipe"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -116,7 +116,7 @@ class CliDataManagementTest(unittest.TestCase):
             )
             self.assertEqual(wipe_without_confirm.returncode, 2)
             wipe = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "wipe", "--yes"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "wipe", "--yes"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -131,10 +131,10 @@ class CliDataManagementTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
             source_path = Path(source)
             _write_seed_source(source_path)
-            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp, "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1"}
 
             dry_run = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path), "--limit", "1", "--dry-run"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "--source", str(source_path), "--limit", "1", "--dry-run"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -148,7 +148,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(dry_payload["skill_count"], 1)
 
             seed = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path), "--category", "design"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "--source", str(source_path), "--category", "design"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -163,7 +163,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(payload["skill_count"], 1)
             self.assertEqual(payload["created"][0]["id"], "agency-agents:design/design-brand-guardian.md")
             listed = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "list"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "list"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -179,10 +179,10 @@ class CliDataManagementTest(unittest.TestCase):
             source_path = Path(source)
             _write_seed_source(source_path)
             (source_path / "LICENSE").write_text("Proprietary\n", encoding="utf-8")
-            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp, "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1"}
 
             seed = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path)],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "--source", str(source_path)],
                 cwd=".",
                 env=env,
                 text=True,
@@ -200,10 +200,10 @@ class CliDataManagementTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
             source_path = Path(source)
             _write_seed_source(source_path)
-            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp, "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1"}
 
             seed = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "--source", str(source_path), "--category", "design", "--activate"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "--source", str(source_path), "--category", "design", "--activate"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -215,7 +215,7 @@ class CliDataManagementTest(unittest.TestCase):
             seed_id = json.loads(seed.stdout)["created"][0]["id"]
 
             seed_list = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "list"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "list"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -227,7 +227,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(json.loads(seed_list.stdout)[0]["id"], seed_id)
 
             disable = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "disable", seed_id],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "disable", seed_id],
                 cwd=".",
                 env=env,
                 text=True,
@@ -241,7 +241,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(disabled_payload["status"], "deprecated")
 
             restore = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "seed-skills", "restore", seed_id],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "seed-skills", "restore", seed_id],
                 cwd=".",
                 env=env,
                 text=True,
@@ -255,7 +255,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(restored_payload["status"], "candidate")
 
             context = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "search", "帮我画一个品牌 logo"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "search", "帮我画一个品牌 logo"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -266,7 +266,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(context.returncode, 0, context.stderr)
 
             benchmark = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "runtime-benchmark"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "runtime-benchmark"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -294,7 +294,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertFalse(any('"repeat"' in line for line in fixture_path.read_text(encoding="utf-8").splitlines()))
 
             synthetic = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "runtime-benchmark", "--synthetic"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "runtime-benchmark", "--synthetic"],
                 cwd=".",
                 env=env,
                 text=True,
@@ -305,7 +305,7 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(synthetic.returncode, 0, synthetic.stderr)
             self.assertEqual(json.loads(synthetic.stdout)["source"], "synthetic")
             synthetic_threshold = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "runtime-benchmark", "--synthetic", "--fail-under-defaults"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "runtime-benchmark", "--synthetic", "--fail-under-defaults"],
                 cwd=".",
                 env=env,
                 text=True,

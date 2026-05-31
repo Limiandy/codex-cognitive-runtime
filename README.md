@@ -1,6 +1,6 @@
-# Codex Memory
+# Codex Cognitive Runtime
 
-Codex Memory turns clean long-term memory and trusted seed skills into task-specific Runtime Skills for Codex, then observes outcomes to improve future skill selection. For engineering work, it also guards workflows against missing inspection, missing verification, and false completion claims.
+Codex Cognitive Runtime turns clean long-term memory and trusted seed skills into task-specific Runtime Skills for Codex, then observes outcomes to improve future skill selection. For engineering work, it also guards workflows against missing inspection, missing verification, and false completion claims.
 
 This is a local developer beta for local Codex use. It is intended for developers who can inspect local Codex configuration and recover their own environment. It does not guarantee compatibility across Codex CLI versions and is not recommended for sensitive production environments.
 
@@ -8,7 +8,7 @@ This is a local developer beta for local Codex use. It is intended for developer
 
 - `memory-engine`: extracts, classifies, and ranks memory candidates with `gpt-5.4-mini`.
 - `memory-review`: validates schema, evidence, confidence, TTL, duplicate risk, and secret-like content.
-- `memory-ledger`: local SQLite audit trail at `~/.codex-memory/ledger.sqlite3`.
+- `memory-ledger`: local SQLite audit trail at `~/.codex-cognitive-runtime/ledger.sqlite3`.
 - `runtime-skill`: decides whether the current request needs a task-specific skill, retrieves clean active memories, active durable skills, and trusted seed skills, then injects a short action strategy.
 - `cognitive-runtime`: observes `UserPromptSubmit`, `PostToolUse`, and `Stop` events to maintain workflow state and inject next-step control signals.
 - `workflow-guard`: detects engineering workflow violations such as code changes without verification evidence.
@@ -22,7 +22,7 @@ The runtime observes Codex tool use; it does not execute shell commands, edit fi
 
 Current Runtime Skill beta supports runtime skill generation from clean long-term memory, active durable skills, seed skill cold start, runtime skill injection audit, observed engineering workflows, task start, turn-bound workflow matching, repository inspection, code change detection, verification detection, Stop-time violation checks, next-turn control injection, verification recipe learning, dynamic skill candidate synthesis, and verification recipe reuse feedback. Legacy `workflow-execute` remains as a deprecated alias for experimental `workflow-simulate`; neither command is the runtime execution path.
 
-The runtime observer is enabled by default. Disable it with `CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER=0` if you only want reviewed memory storage without workflow guard behavior.
+The runtime observer is enabled by default. Disable it with `CODEX_COGNITIVE_RUNTIME_ENABLE_RUNTIME_OBSERVER=0` if you only want reviewed memory storage without workflow guard behavior.
 
 Runtime Skill lifecycle:
 
@@ -38,27 +38,27 @@ Runtime Skill lifecycle:
 ## Commands
 
 ```bash
-./scripts/codex-memory status
-./scripts/codex-memory runtime-status
-./scripts/codex-memory runtime-status --pretty
-./scripts/codex-memory doctor
-./scripts/codex-memory ingest "默认使用中文回答"
-./scripts/codex-memory search "中文回答偏好"
-./scripts/codex-memory queue --status quarantined
-./scripts/codex-memory seed-skills --dry-run
-./scripts/codex-memory seed-skills list
-./scripts/codex-memory runtime-skills list
-./scripts/codex-memory dynamic-skills list --status candidate
-./scripts/codex-memory dynamic-skills stats
-./scripts/codex-memory traces list
-./scripts/codex-memory traces summary <trace_id>
-./scripts/codex-memory runtime-benchmark
-./scripts/codex-memory runtime-benchmark --fail-under-defaults
-./scripts/codex-memory export --output ~/codex-memory-export.json
-./scripts/codex-memory prune-runtime
+./scripts/codex-cognitive-runtime status
+./scripts/codex-cognitive-runtime runtime-status
+./scripts/codex-cognitive-runtime runtime-status --pretty
+./scripts/codex-cognitive-runtime doctor
+./scripts/codex-cognitive-runtime ingest "默认使用中文回答"
+./scripts/codex-cognitive-runtime search "中文回答偏好"
+./scripts/codex-cognitive-runtime queue --status quarantined
+./scripts/codex-cognitive-runtime seed-skills --dry-run
+./scripts/codex-cognitive-runtime seed-skills list
+./scripts/codex-cognitive-runtime runtime-skills list
+./scripts/codex-cognitive-runtime dynamic-skills list --status candidate
+./scripts/codex-cognitive-runtime dynamic-skills stats
+./scripts/codex-cognitive-runtime traces list
+./scripts/codex-cognitive-runtime traces summary <trace_id>
+./scripts/codex-cognitive-runtime runtime-benchmark
+./scripts/codex-cognitive-runtime runtime-benchmark --fail-under-defaults
+./scripts/codex-cognitive-runtime export --output ~/codex-cognitive-runtime-export.json
+./scripts/codex-cognitive-runtime prune-runtime
 ```
 
-Set `CODEX_MEMORY_MODEL` to override the default model. The default is `gpt-5.4-mini`.
+Set `CODEX_COGNITIVE_RUNTIME_MODEL` to override the default model. The default is `gpt-5.4-mini`.
 Runtime Skill classification and synthesis use a shorter model timeout than durable memory extraction and fall back to deterministic skills when the model is slow or unavailable.
 
 ## Support Matrix
@@ -77,19 +77,19 @@ Linux may work when Codex CLI, Python, SQLite, and filesystem permissions match 
 Install from a local checkout:
 
 ```bash
-git clone https://github.com/Limiandy/codex-memory.git ~/plugins/codex-memory
-cd ~/plugins/codex-memory
+git clone https://github.com/Limiandy/codex-cognitive-runtime.git ~/plugins/codex-cognitive-runtime
+cd ~/plugins/codex-cognitive-runtime
 PYTHONPATH=src python3 -m unittest discover -s tests -v
-./scripts/codex-memory plugin install --source "$PWD"
-./scripts/codex-memory doctor
+./scripts/codex-cognitive-runtime plugin install --source "$PWD"
+./scripts/codex-cognitive-runtime doctor
 ```
 
-The installer copies the plugin to `~/plugins/codex-memory`, registers it in `~/.agents/plugins/marketplace.json`, and enables it in `~/.codex/config.toml`. Existing Codex config is backed up before writing.
+The installer copies the plugin to `~/plugins/codex-cognitive-runtime`, registers it in `~/.agents/plugins/marketplace.json`, and enables it in `~/.codex/config.toml`. Existing Codex config is backed up before writing.
 
 Preview install changes without writing files:
 
 ```bash
-./scripts/codex-memory plugin install --source "$PWD" --dry-run --diff
+./scripts/codex-cognitive-runtime plugin install --source "$PWD" --dry-run --diff
 ```
 
 ## Verify
@@ -97,7 +97,7 @@ Preview install changes without writing files:
 Run doctor after install:
 
 ```bash
-./scripts/codex-memory doctor
+./scripts/codex-cognitive-runtime doctor
 ```
 
 Doctor returns JSON with `fatal`, `warn`, and `info` checks. `fatal` failures block the core local memory path. `warn` items need attention but do not block startup. `info` items are optional or skipped checks, such as the default model smoke test.
@@ -105,22 +105,22 @@ Doctor returns JSON with `fatal`, `warn`, and `info` checks. `fatal` failures bl
 Run a model smoke test only when you want to verify the local `codex exec` model path:
 
 ```bash
-./scripts/codex-memory doctor --model-check
+./scripts/codex-cognitive-runtime doctor --model-check
 ```
 
 Review local privacy state:
 
 ```bash
-./scripts/codex-memory doctor --privacy
+./scripts/codex-cognitive-runtime doctor --privacy
 ```
 
 Check that hooks and MCP are wired:
 
 ```bash
-./scripts/codex-memory status
-./scripts/codex-memory runtime-status --pretty
-./scripts/codex-memory ingest "默认使用中文回答"
-./scripts/codex-memory search "中文回答"
+./scripts/codex-cognitive-runtime status
+./scripts/codex-cognitive-runtime runtime-status --pretty
+./scripts/codex-cognitive-runtime ingest "默认使用中文回答"
+./scripts/codex-cognitive-runtime search "中文回答"
 ```
 
 Observed runtime smoke path:
@@ -135,15 +135,15 @@ Stop: final answer with verification evidence -> audit_outcome
 
 If code was changed without verification, the next turn receives a Runtime control warning. If a learned verification recipe is recommended and then reused, the recipe records reuse, success/failure, command source, exit code, and strength adjustment.
 
-Project-specific workflow detection can be tuned with environment variables or a local `.codex-memory.json` file:
+Project-specific workflow detection can be tuned with environment variables or a local `.codex-cognitive-runtime.json` file:
 
 ```bash
-CODEX_MEMORY_VERIFY_COMMANDS="make verify,tox,pnpm check" ./scripts/codex-memory runtime-status
-CODEX_MEMORY_INSPECT_COMMANDS="fd ,git show" ./scripts/codex-memory runtime-status
-CODEX_MEMORY_EDIT_COMMANDS="apply_patch,write_file" ./scripts/codex-memory runtime-status
+CODEX_COGNITIVE_RUNTIME_VERIFY_COMMANDS="make verify,tox,pnpm check" ./scripts/codex-cognitive-runtime runtime-status
+CODEX_COGNITIVE_RUNTIME_INSPECT_COMMANDS="fd ,git show" ./scripts/codex-cognitive-runtime runtime-status
+CODEX_COGNITIVE_RUNTIME_EDIT_COMMANDS="apply_patch,write_file" ./scripts/codex-cognitive-runtime runtime-status
 ```
 
-Example `.codex-memory.json`:
+Example `.codex-cognitive-runtime.json`:
 
 ```json
 {
@@ -158,8 +158,8 @@ Example `.codex-memory.json`:
 Seed skills can be imported to provide a cold-start skill basis before the local Ledger has enough user-specific memories:
 
 ```bash
-./scripts/codex-memory seed-skills --dry-run
-./scripts/codex-memory seed-skills
+./scripts/codex-cognitive-runtime seed-skills --dry-run
+./scripts/codex-cognitive-runtime seed-skills
 ```
 
 By default this imports agent skill markdown from [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents) on demand and records each entry as a local `seed_skill` cognitive record with source path, commit, content hash, trust level, feedback counters, and MIT license metadata. The source content is not vendored into this repository. Use `--source /path/to/agency-agents` for an already cloned checkout, `--category design` to import one category, `--limit N` for a smaller trial import, and `--activate` when you intentionally want a local non-git source to be immediately eligible as Runtime Skill basis.
@@ -173,37 +173,37 @@ Runtime Skill injection and feedback records are stored as local `runtime_skill`
 Dynamic skill governance:
 
 ```bash
-./scripts/codex-memory dynamic-skills list --status candidate
-./scripts/codex-memory dynamic-skills show <skill_id>
-./scripts/codex-memory dynamic-skills promote <skill_id> --note "validated"
-./scripts/codex-memory dynamic-skills reject <skill_id> --note "too narrow"
-./scripts/codex-memory dynamic-skills deprecate <skill_id>
-./scripts/codex-memory dynamic-skills stats
+./scripts/codex-cognitive-runtime dynamic-skills list --status candidate
+./scripts/codex-cognitive-runtime dynamic-skills show <skill_id>
+./scripts/codex-cognitive-runtime dynamic-skills promote <skill_id> --note "validated"
+./scripts/codex-cognitive-runtime dynamic-skills reject <skill_id> --note "too narrow"
+./scripts/codex-cognitive-runtime dynamic-skills deprecate <skill_id>
+./scripts/codex-cognitive-runtime dynamic-skills stats
 ```
 
 Runtime and seed skill governance:
 
 ```bash
-./scripts/codex-memory runtime-skills list
-./scripts/codex-memory runtime-skills feedback <injection_id> --outcome positive --target skill_strategy
-./scripts/codex-memory seed-skills list
-./scripts/codex-memory seed-skills disable <seed_skill_id>
-./scripts/codex-memory seed-skills restore <seed_skill_id>
-./scripts/codex-memory seed-skills stats
+./scripts/codex-cognitive-runtime runtime-skills list
+./scripts/codex-cognitive-runtime runtime-skills feedback <injection_id> --outcome positive --target skill_strategy
+./scripts/codex-cognitive-runtime seed-skills list
+./scripts/codex-cognitive-runtime seed-skills disable <seed_skill_id>
+./scripts/codex-cognitive-runtime seed-skills restore <seed_skill_id>
+./scripts/codex-cognitive-runtime seed-skills stats
 ```
 
-Runtime Skill feedback attribution is rule-first. Ambiguous or multi-target feedback can use a short model check; set `CODEX_MEMORY_FEEDBACK_MODEL=0` to keep attribution purely deterministic. `runtime-benchmark` reads the maintained explicit benchmark fixture by default and supports `--synthetic` for the generated regression set.
+Runtime Skill feedback attribution is rule-first. Ambiguous or multi-target feedback can use a short model check; set `CODEX_COGNITIVE_RUNTIME_FEEDBACK_MODEL=0` to keep attribution purely deterministic. `runtime-benchmark` reads the maintained explicit benchmark fixture by default and supports `--synthetic` for the generated regression set.
 
 Runtime Trace flow monitor:
 
 ```bash
-./scripts/codex-memory traces list --session-id <session_id>
-./scripts/codex-memory traces show <trace_id>
-./scripts/codex-memory traces events <trace_id>
-./scripts/codex-memory traces summary <trace_id>
-./scripts/codex-memory traces audit
-./scripts/codex-memory traces export <trace_id>
-./scripts/codex-memory traces prune --older-than-days 30
+./scripts/codex-cognitive-runtime traces list --session-id <session_id>
+./scripts/codex-cognitive-runtime traces show <trace_id>
+./scripts/codex-cognitive-runtime traces events <trace_id>
+./scripts/codex-cognitive-runtime traces summary <trace_id>
+./scripts/codex-cognitive-runtime traces audit
+./scripts/codex-cognitive-runtime traces export <trace_id>
+./scripts/codex-cognitive-runtime traces prune --older-than-days 30
 ```
 
 Trace records are stored in dedicated local tables (`runtime_traces`, `runtime_trace_spans`, `runtime_trace_events`, and `runtime_trace_links`). They link user prompts to skill need decisions, recall skips, memory/durable/seed basis retrieval, Runtime Skill synthesis and review, injections, tool observations, Stop audits, feedback records, and seed/durable skill adjustments. `doctor` reports trace table migration state, trace counts by status, stale/open/failed trace health, and whether live trace logging is enabled.
@@ -211,7 +211,7 @@ Trace records are stored in dedicated local tables (`runtime_traces`, `runtime_t
 Live trace logging is disabled by default. Enable it only for local observation:
 
 ```bash
-export CODEX_MEMORY_TRACE_LIVE_LOG=1
+export CODEX_COGNITIVE_RUNTIME_TRACE_LIVE_LOG=1
 # Then use Codex normally; hook-created trace events are printed to stderr.
 ```
 
@@ -222,52 +222,52 @@ When enabled for a process that creates trace events, trace events are emitted t
 Disable the plugin but keep files:
 
 ```bash
-./scripts/codex-memory plugin uninstall
+./scripts/codex-cognitive-runtime plugin uninstall
 ```
 
 Remove the installed plugin files too:
 
 ```bash
-./scripts/codex-memory plugin uninstall --delete-files
+./scripts/codex-cognitive-runtime plugin uninstall --delete-files
 ```
 
 Preview uninstall changes:
 
 ```bash
-./scripts/codex-memory plugin uninstall --dry-run --diff
+./scripts/codex-cognitive-runtime plugin uninstall --dry-run --diff
 ```
 
 To remove local memory data, stop active Codex sessions using the plugin and delete the state directory:
 
 ```bash
-rm -rf ~/.codex-memory
+rm -rf ~/.codex-cognitive-runtime
 ```
 
 You can also export, prune processed event payloads, or wipe the Ledger through CLI:
 
 ```bash
-./scripts/codex-memory export --output ~/codex-memory-export.json
-./scripts/codex-memory prune-events --older-than-days 30
-./scripts/codex-memory prune-runtime
-./scripts/codex-memory wipe --yes
+./scripts/codex-cognitive-runtime export --output ~/codex-cognitive-runtime-export.json
+./scripts/codex-cognitive-runtime prune-events --older-than-days 30
+./scripts/codex-cognitive-runtime prune-runtime
+./scripts/codex-cognitive-runtime wipe --yes
 ```
 
 `prune-events` only deletes processed rows from the `events` table. It does not remove cognitive runtime observations, workflow violations, learned recipes, or reviewed memories. Use `prune-runtime` to remove runtime audit records such as workflow observations, Runtime Skill injection/feedback records, and recipe reuse events; it also clears observation copies embedded in observed workflow metadata. Learned verification recipes are kept unless you pass `--include-recipes`; dynamic skills are kept unless you pass `--include-skills`. Use `wipe --yes` to clear the local Ledger completely.
 
 ## Privacy
 
-Codex Memory stores events in `~/.codex-memory/ledger.sqlite3`. By default, event payloads are sanitized before storage: allowed fields are retained, long strings are truncated, and secret-like values are redacted. Stored event payloads include `_raw_payload_stored: false`.
+Codex Cognitive Runtime stores events in `~/.codex-cognitive-runtime/ledger.sqlite3`. By default, event payloads are sanitized before storage: allowed fields are retained, long strings are truncated, and secret-like values are redacted. Stored event payloads include `_raw_payload_stored: false`.
 
-Reviewed memory content and evidence can still be stored when they pass review gates. Use `./scripts/codex-memory queue`, `promote`, `reject`, and `delete` to inspect and manage memory records.
+Reviewed memory content and evidence can still be stored when they pass review gates. Use `./scripts/codex-cognitive-runtime queue`, `promote`, `reject`, and `delete` to inspect and manage memory records.
 
-Runtime observation is a separate privacy surface from event payload storage. When the observer is enabled, Codex Memory may store structured workflow observations in the local Ledger, including redacted tool command strings, changed file paths, exit codes, source field names, failure flags, and stdout/stderr hashes and lengths. By default, stdout/stderr text previews are not stored in runtime observations or verification recipes.
+Runtime observation is a separate privacy surface from event payload storage. When the observer is enabled, Codex Cognitive Runtime may store structured workflow observations in the local Ledger, including redacted tool command strings, changed file paths, exit codes, source field names, failure flags, and stdout/stderr hashes and lengths. By default, stdout/stderr text previews are not stored in runtime observations or verification recipes.
 
 User opt-out phrases such as "不要记忆" or "do not remember" skip durable memory candidate extraction. They do not mean "do not write any local audit event": sanitized hook events may still be stored so the local workflow guard and audit trail can function. Disable the runtime observer or prune/wipe local data if you need stricter local retention.
 
 To store stdout/stderr previews for local debugging, opt in explicitly:
 
 ```bash
-CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS=1 ./scripts/codex-memory doctor --privacy
+CODEX_COGNITIVE_RUNTIME_STORE_RUNTIME_OBSERVATION_PREVIEWS=1 ./scripts/codex-cognitive-runtime doctor --privacy
 ```
 
 When preview storage is enabled, runtime observations and learned verification recipes may include truncated stdout/stderr text. Do not enable it for sensitive projects.
@@ -275,7 +275,7 @@ When preview storage is enabled, runtime observations and learned verification r
 Strict privacy mode further minimizes local runtime data:
 
 ```bash
-CODEX_MEMORY_STRICT_PRIVACY=1 ./scripts/codex-memory doctor --privacy
+CODEX_COGNITIVE_RUNTIME_STRICT_PRIVACY=1 ./scripts/codex-cognitive-runtime doctor --privacy
 ```
 
 In strict privacy mode, prompt previews are replaced with hashes, trace records omit raw cwd/project keys, runtime observation commands and changed paths are hashed, Runtime Skill injection records keep only compact skill metadata and basis ids, feedback prompt evidence is hash/count only, stdout/stderr previews stay disabled, live trace logs use the same minimized metadata, and exports omit seed skill content.
@@ -283,7 +283,7 @@ In strict privacy mode, prompt previews are replaced with hashes, trace records 
 Raw event storage is opt-in and should only be used for local debugging:
 
 ```bash
-CODEX_MEMORY_STORE_RAW_EVENTS=1 ./scripts/codex-memory ingest "debug text"
+CODEX_COGNITIVE_RUNTIME_STORE_RAW_EVENTS=1 ./scripts/codex-cognitive-runtime ingest "debug text"
 ```
 
 When raw event storage is enabled, original event payloads are written to the local Ledger with `_raw_payload_stored: true`. `status` and `doctor` report that raw event storage is enabled.
@@ -292,11 +292,11 @@ When raw event storage is enabled, original event payloads are written to the lo
 
 MCP defaults to read-only tools. Mutating tools require explicit opt-in:
 
-- `CODEX_MEMORY_ENABLE_MCP_WRITE_TOOLS=1`: allows ingest, recall feedback, and expiration.
-- `CODEX_MEMORY_ENABLE_MCP_REVIEW_TOOLS=1`: allows promote and reject.
-- `CODEX_MEMORY_ENABLE_MCP_ADMIN_TOOLS=1`: allows delete, reconcile, consolidate, and `govern apply`.
+- `CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_WRITE_TOOLS=1`: allows ingest, recall feedback, and expiration.
+- `CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_REVIEW_TOOLS=1`: allows promote and reject.
+- `CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_ADMIN_TOOLS=1`: allows delete, reconcile, consolidate, and `govern apply`.
 
-The legacy `CODEX_MEMORY_ENABLE_DANGEROUS_MCP_TOOLS=1` enables all three groups for compatibility, but the narrower switches are preferred.
+The legacy `CODEX_COGNITIVE_RUNTIME_ENABLE_DANGEROUS_MCP_TOOLS=1` enables all three groups for compatibility, but the narrower switches are preferred.
 
 ## Experimental CLI
 
@@ -305,5 +305,5 @@ The public beta command surface is focused on local memory, runtime skills, trac
 Experimental cognitive, knowledge, skill, and workflow commands are hidden behind an explicit environment switch:
 
 ```bash
-CODEX_MEMORY_ENABLE_EXPERIMENTAL_CLI=1 ./scripts/codex-memory workflow-plan "plan this task"
+CODEX_COGNITIVE_RUNTIME_ENABLE_EXPERIMENTAL_CLI=1 ./scripts/codex-cognitive-runtime workflow-plan "plan this task"
 ```

@@ -28,10 +28,10 @@ def error(message: str, **fields: Any) -> None:
 
 def log(level: str, message: str, **fields: Any) -> None:
     level = level.upper()
-    configured = os.environ.get("CODEX_MEMORY_LOG_LEVEL", "INFO").upper()
+    configured = os.environ.get("CODEX_COGNITIVE_RUNTIME_LOG_LEVEL", "INFO").upper()
     if LEVELS.get(level, 20) < LEVELS.get(configured, 20):
         return
-    log_dir = Path(os.environ.get("CODEX_MEMORY_LOG_DIR", "~/.codex-memory/logs")).expanduser()
+    log_dir = Path(os.environ.get("CODEX_COGNITIVE_RUNTIME_LOG_DIR", "~/.codex-cognitive-runtime/logs")).expanduser()
     record = _redact({
         "ts": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "level": level,

@@ -160,7 +160,7 @@ class MemoryRecall:
     def _format_context(self, memories: list[dict[str, Any]]) -> str:
         if not memories:
             return ""
-        lines = ["Codex Memory context:"]
+        lines = ["Codex Cognitive Runtime context:"]
         for item in memories:
             content = str(item.get("content") or "").strip()
             if not content:

@@ -12,11 +12,11 @@ class McpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_FAKE_MODEL": "1",
-                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
             }
             proc = subprocess.Popen(
-                [sys.executable, "-m", "codex_memory.mcp_server"],
+                [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
                 cwd=".",
                 env={**os.environ, **env},
                 stdin=subprocess.PIPE,
@@ -32,28 +32,28 @@ class McpTest(unittest.TestCase):
                 proc.stdin.flush()
                 first = json.loads(proc.stdout.readline())
                 second = json.loads(proc.stdout.readline())
-                self.assertEqual(first["result"]["serverInfo"]["name"], "codex-memory")
+                self.assertEqual(first["result"]["serverInfo"]["name"], "codex-cognitive-runtime")
                 names = {tool["name"] for tool in second["result"]["tools"]}
-                self.assertIn("codex_memory_search", names)
-                self.assertIn("codex_memory_diagnostics", names)
-                self.assertIn("codex_memory_runtime_status", names)
-                self.assertIn("codex_memory_runtime_violations", names)
-                self.assertIn("codex_memory_verification_recipes", names)
-                self.assertIn("codex_memory_runtime_skills", names)
-                self.assertIn("codex_memory_runtime_skill_audit", names)
-                self.assertIn("codex_memory_runtime_skill_feedback", names)
-                self.assertIn("codex_memory_seed_skills", names)
-                self.assertIn("codex_memory_seed_skill_stats", names)
-                self.assertIn("codex_memory_dynamic_skills", names)
-                self.assertIn("codex_memory_traces", names)
-                self.assertIn("codex_memory_trace_show", names)
-                self.assertIn("codex_memory_trace_events", names)
-                self.assertIn("codex_memory_trace_summary", names)
-                self.assertIn("codex_memory_trace_audit", names)
-                self.assertIn("codex_memory_promote_dynamic_skill", names)
-                self.assertIn("codex_memory_disable_seed_skill", names)
-                self.assertIn("codex_memory_promote", names)
-                self.assertIn("codex_memory_audit", names)
+                self.assertIn("codex_cognitive_runtime_search", names)
+                self.assertIn("codex_cognitive_runtime_diagnostics", names)
+                self.assertIn("codex_cognitive_runtime_runtime_status", names)
+                self.assertIn("codex_cognitive_runtime_runtime_violations", names)
+                self.assertIn("codex_cognitive_runtime_verification_recipes", names)
+                self.assertIn("codex_cognitive_runtime_runtime_skills", names)
+                self.assertIn("codex_cognitive_runtime_runtime_skill_audit", names)
+                self.assertIn("codex_cognitive_runtime_runtime_skill_feedback", names)
+                self.assertIn("codex_cognitive_runtime_seed_skills", names)
+                self.assertIn("codex_cognitive_runtime_seed_skill_stats", names)
+                self.assertIn("codex_cognitive_runtime_dynamic_skills", names)
+                self.assertIn("codex_cognitive_runtime_traces", names)
+                self.assertIn("codex_cognitive_runtime_trace_show", names)
+                self.assertIn("codex_cognitive_runtime_trace_events", names)
+                self.assertIn("codex_cognitive_runtime_trace_summary", names)
+                self.assertIn("codex_cognitive_runtime_trace_audit", names)
+                self.assertIn("codex_cognitive_runtime_promote_dynamic_skill", names)
+                self.assertIn("codex_cognitive_runtime_disable_seed_skill", names)
+                self.assertIn("codex_cognitive_runtime_promote", names)
+                self.assertIn("codex_cognitive_runtime_audit", names)
                 self.assertFalse(any("mempalace" in name for name in names))
             finally:
                 for stream in (proc.stdin, proc.stdout, proc.stderr):
@@ -73,14 +73,14 @@ class McpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_STATE_DIR": tmp,
-                "CODEX_MEMORY_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
             }
             subprocess.run(
                 [
                     sys.executable,
                     "-c",
-                    "from codex_memory.config import load_config; from codex_memory.service import MemoryService; s=MemoryService(load_config()); s.prompt_context('帮我画一个品牌 logo', session_id='s1', turn_id='t1'); s.close()",
+                    "from codex_cognitive_runtime.config import load_config; from codex_cognitive_runtime.service import MemoryService; s=MemoryService(load_config()); s.prompt_context('帮我画一个品牌 logo', session_id='s1', turn_id='t1'); s.close()",
                 ],
                 cwd=".",
                 env={**os.environ, **env},
@@ -91,7 +91,7 @@ class McpTest(unittest.TestCase):
                 check=True,
             )
             proc = subprocess.Popen(
-                [sys.executable, "-m", "codex_memory.mcp_server"],
+                [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
                 cwd=".",
                 env={**os.environ, **env},
                 stdin=subprocess.PIPE,
@@ -108,55 +108,55 @@ class McpTest(unittest.TestCase):
                         "jsonrpc": "2.0",
                         "id": 2,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_status", "arguments": {}},
+                        "params": {"name": "codex_cognitive_runtime_status", "arguments": {}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 3,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_queue", "arguments": {"limit": 5}},
+                        "params": {"name": "codex_cognitive_runtime_queue", "arguments": {"limit": 5}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 4,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_runtime_status", "arguments": {}},
+                        "params": {"name": "codex_cognitive_runtime_runtime_status", "arguments": {}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 5,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_verification_recipes", "arguments": {"limit": 5}},
+                        "params": {"name": "codex_cognitive_runtime_verification_recipes", "arguments": {"limit": 5}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 6,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_dynamic_skill_stats", "arguments": {}},
+                        "params": {"name": "codex_cognitive_runtime_dynamic_skill_stats", "arguments": {}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 7,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_runtime_skill_audit", "arguments": {}},
+                        "params": {"name": "codex_cognitive_runtime_runtime_skill_audit", "arguments": {}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 8,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_seed_skill_stats", "arguments": {}},
+                        "params": {"name": "codex_cognitive_runtime_seed_skill_stats", "arguments": {}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 9,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_traces", "arguments": {"limit": 5}},
+                        "params": {"name": "codex_cognitive_runtime_traces", "arguments": {"limit": 5}},
                     },
                     {
                         "jsonrpc": "2.0",
                         "id": 10,
                         "method": "tools/call",
-                        "params": {"name": "codex_memory_trace_audit", "arguments": {}},
+                        "params": {"name": "codex_cognitive_runtime_trace_audit", "arguments": {}},
                     },
                 ]
                 for call in calls:
@@ -194,7 +194,7 @@ class McpTest(unittest.TestCase):
                 self.assertGreaterEqual(len(trace_list_text), 1)
                 self.assertIn("trace_count", trace_audit_text)
                 trace_id = trace_list_text[0]["id"]
-                for index, name in enumerate(("codex_memory_trace_show", "codex_memory_trace_events", "codex_memory_trace_summary"), start=11):
+                for index, name in enumerate(("codex_cognitive_runtime_trace_show", "codex_cognitive_runtime_trace_events", "codex_cognitive_runtime_trace_summary"), start=11):
                     proc.stdin.write(
                         json.dumps(
                             {
@@ -232,10 +232,10 @@ class McpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
             }
             proc = subprocess.Popen(
-                [sys.executable, "-m", "codex_memory.mcp_server"],
+                [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
                 cwd=".",
                 env={**os.environ, **env},
                 stdin=subprocess.PIPE,
@@ -253,7 +253,7 @@ class McpTest(unittest.TestCase):
                             "jsonrpc": "2.0",
                             "id": 2,
                             "method": "tools/call",
-                            "params": {"name": "codex_memory_delete", "arguments": {"memory_id": "mem_test"}},
+                            "params": {"name": "codex_cognitive_runtime_delete", "arguments": {"memory_id": "mem_test"}},
                         }
                     )
                     + "\n"
@@ -280,11 +280,11 @@ class McpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_STATE_DIR": tmp,
-                "CODEX_MEMORY_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
             }
             proc = subprocess.Popen(
-                [sys.executable, "-m", "codex_memory.mcp_server"],
+                [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
                 cwd=".",
                 env={**os.environ, **env},
                 stdin=subprocess.PIPE,
@@ -302,7 +302,7 @@ class McpTest(unittest.TestCase):
                             "jsonrpc": "2.0",
                             "id": 2,
                             "method": "tools/call",
-                            "params": {"name": "codex_memory_ingest", "arguments": {"text": "默认使用中文回答"}},
+                            "params": {"name": "codex_cognitive_runtime_ingest", "arguments": {"text": "默认使用中文回答"}},
                         }
                     )
                     + "\n"
@@ -329,12 +329,12 @@ class McpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_STATE_DIR": tmp,
-                "CODEX_MEMORY_FAKE_MODEL": "1",
-                "CODEX_MEMORY_ENABLE_MCP_WRITE_TOOLS": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_WRITE_TOOLS": "1",
             }
             proc = subprocess.Popen(
-                [sys.executable, "-m", "codex_memory.mcp_server"],
+                [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
                 cwd=".",
                 env={**os.environ, **env},
                 stdin=subprocess.PIPE,
@@ -352,7 +352,7 @@ class McpTest(unittest.TestCase):
                             "jsonrpc": "2.0",
                             "id": 2,
                             "method": "tools/call",
-                            "params": {"name": "codex_memory_ingest", "arguments": {"text": "默认使用中文回答"}},
+                            "params": {"name": "codex_cognitive_runtime_ingest", "arguments": {"text": "默认使用中文回答"}},
                         }
                     )
                     + "\n"
@@ -381,10 +381,10 @@ class McpTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
             }
             proc = subprocess.Popen(
-                [sys.executable, "-m", "codex_memory.mcp_server"],
+                [sys.executable, "-m", "codex_cognitive_runtime.mcp_server"],
                 cwd=".",
                 env={**os.environ, **env},
                 stdin=subprocess.PIPE,
@@ -402,7 +402,7 @@ class McpTest(unittest.TestCase):
                             "jsonrpc": "2.0",
                             "id": 2,
                             "method": "tools/call",
-                            "params": {"name": "codex_memory_queue", "arguments": {"limit": 0}},
+                            "params": {"name": "codex_cognitive_runtime_queue", "arguments": {"limit": 0}},
                         }
                     )
                     + "\n"

@@ -33,7 +33,7 @@ class Config:
 
 
 def _default_state_dir() -> Path:
-    return Path(os.environ.get("CODEX_MEMORY_STATE_DIR", "~/.codex-memory")).expanduser()
+    return Path(os.environ.get("CODEX_COGNITIVE_RUNTIME_STATE_DIR", "~/.codex-cognitive-runtime")).expanduser()
 
 
 def load_config() -> Config:
@@ -46,50 +46,50 @@ def load_config() -> Config:
         except (OSError, json.JSONDecodeError):
             data = {}
 
-    model = os.environ.get("CODEX_MEMORY_MODEL") or data.get("model") or DEFAULT_MODEL
+    model = os.environ.get("CODEX_COGNITIVE_RUNTIME_MODEL") or data.get("model") or DEFAULT_MODEL
     ledger_path = Path(data.get("ledger_path") or state_dir / "ledger.sqlite3").expanduser()
     enable_dangerous_mcp_tools = _bool(
-        os.environ.get("CODEX_MEMORY_ENABLE_DANGEROUS_MCP_TOOLS"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_DANGEROUS_MCP_TOOLS"),
         bool(data.get("enable_dangerous_mcp_tools", False)),
     )
     enable_mcp_write_tools = _bool(
-        os.environ.get("CODEX_MEMORY_ENABLE_MCP_WRITE_TOOLS"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_WRITE_TOOLS"),
         bool(data.get("enable_mcp_write_tools", False)),
     )
     enable_mcp_review_tools = _bool(
-        os.environ.get("CODEX_MEMORY_ENABLE_MCP_REVIEW_TOOLS"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_REVIEW_TOOLS"),
         bool(data.get("enable_mcp_review_tools", False)),
     )
     enable_mcp_admin_tools = _bool(
-        os.environ.get("CODEX_MEMORY_ENABLE_MCP_ADMIN_TOOLS"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_MCP_ADMIN_TOOLS"),
         bool(data.get("enable_mcp_admin_tools", False)),
     )
     store_raw_events = _bool(
-        os.environ.get("CODEX_MEMORY_STORE_RAW_EVENTS"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_STORE_RAW_EVENTS"),
         bool(data.get("store_raw_events", False)),
     )
     enable_experimental_cli = _bool(
-        os.environ.get("CODEX_MEMORY_ENABLE_EXPERIMENTAL_CLI"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_EXPERIMENTAL_CLI"),
         bool(data.get("enable_experimental_cli", False)),
     )
     enable_runtime_observer = _bool(
-        os.environ.get("CODEX_MEMORY_ENABLE_RUNTIME_OBSERVER"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_RUNTIME_OBSERVER"),
         bool(data.get("enable_runtime_observer", True)),
     )
     store_runtime_observation_previews = _bool(
-        os.environ.get("CODEX_MEMORY_STORE_RUNTIME_OBSERVATION_PREVIEWS"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_STORE_RUNTIME_OBSERVATION_PREVIEWS"),
         bool(data.get("store_runtime_observation_previews", False)),
     )
     strict_privacy = _bool(
-        os.environ.get("CODEX_MEMORY_STRICT_PRIVACY"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_STRICT_PRIVACY"),
         bool(data.get("strict_privacy", False)),
     )
     enable_feedback_model = _bool(
-        os.environ.get("CODEX_MEMORY_FEEDBACK_MODEL"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_FEEDBACK_MODEL"),
         bool(data.get("enable_feedback_model", True)),
     )
     trace_live_log = _bool(
-        os.environ.get("CODEX_MEMORY_TRACE_LIVE_LOG"),
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_TRACE_LIVE_LOG"),
         bool(data.get("trace_live_log", False)),
     )
 

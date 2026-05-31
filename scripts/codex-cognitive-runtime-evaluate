@@ -6,10 +6,10 @@ import os
 import tempfile
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.model_client import CodexMiniClient
-from codex_memory.review import MemoryReviewer
-from codex_memory.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.model_client import CodexMiniClient
+from codex_cognitive_runtime.review import MemoryReviewer
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
 
 
 CASES = [
@@ -88,7 +88,7 @@ CASES = [
             "importance": 0.85,
             "ttl": "long",
             "scope": "project",
-            "evidence": [Evidence(source="memory_context", quote="Codex Memory context: MCP 与 hook 分离")],
+            "evidence": [Evidence(source="memory_context", quote="Codex Cognitive Runtime context: MCP 与 hook 分离")],
         },
     ),
     (
@@ -121,7 +121,7 @@ CASES = [
 
 
 def main() -> int:
-    os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+    os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
     with tempfile.TemporaryDirectory() as tmp:
         config = Config(
             model="gpt-5.4-mini",

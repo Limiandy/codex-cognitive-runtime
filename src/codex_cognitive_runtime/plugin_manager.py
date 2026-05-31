@@ -13,7 +13,7 @@ HOME = Path.home()
 MARKETPLACE_ROOT = HOME
 MARKETPLACE_NAME = "personal"
 MARKETPLACE_PATH = HOME / ".agents" / "plugins" / "marketplace.json"
-PLUGIN_NAME = "codex-memory"
+PLUGIN_NAME = "codex-cognitive-runtime"
 PLUGIN_CONFIG_KEY = f'{PLUGIN_NAME}@{MARKETPLACE_NAME}'
 PLUGIN_INSTALL_PATH = HOME / "plugins" / PLUGIN_NAME
 CODEX_CONFIG = HOME / ".codex" / "config.toml"
@@ -175,7 +175,7 @@ def _write_config(text: str) -> Path | None:
     backup = None
     if CODEX_CONFIG.exists():
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        backup = CODEX_CONFIG.with_suffix(f".toml.codex-memory-{stamp}.bak")
+        backup = CODEX_CONFIG.with_suffix(f".toml.codex-cognitive-runtime-{stamp}.bak")
         shutil.copy2(CODEX_CONFIG, backup)
     CODEX_CONFIG.write_text(text, encoding="utf-8")
     return backup
@@ -332,7 +332,7 @@ def _backup_installed_plugin() -> Path | None:
     if not PLUGIN_INSTALL_PATH.exists():
         return None
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    backup = PLUGIN_INSTALL_PATH.with_name(f"{PLUGIN_INSTALL_PATH.name}.codex-memory-{stamp}.bak")
+    backup = PLUGIN_INSTALL_PATH.with_name(f"{PLUGIN_INSTALL_PATH.name}.codex-cognitive-runtime-{stamp}.bak")
     if backup.exists():
         shutil.rmtree(backup)
     shutil.copytree(PLUGIN_INSTALL_PATH, backup)

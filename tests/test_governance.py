@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 def _config(tmp):
@@ -23,10 +23,10 @@ def _config(tmp):
 
 class GovernanceTest(unittest.TestCase):
     def setUp(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
     def tearDown(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
 
     def test_exact_duplicate_is_merged_not_refiled(self):
         with tempfile.TemporaryDirectory() as tmp:

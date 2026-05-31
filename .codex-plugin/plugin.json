@@ -1,5 +1,5 @@
 {
-  "name": "codex-memory",
+  "name": "codex-cognitive-runtime",
   "version": "0.3.0-beta",
   "description": "Local Codex runtime skill generator with durable skill governance and reviewed memory ledger.",
   "author": {
@@ -7,9 +7,9 @@
   },
   "skills": "./skills/",
   "interface": {
-    "displayName": "Codex Memory",
+    "displayName": "Codex Cognitive Runtime",
     "shortDescription": "Runtime skills, durable skill governance, workflow guard, and reviewed memory ledger for Codex.",
-    "longDescription": "Codex Memory turns clean long-term memory, active durable skills, and trusted seed skills into task-specific Runtime Skills, records feedback for skill governance, observes Codex work through hooks, guards engineering workflows against missing inspection or verification, evaluates durable memory candidates with GPT-5.4-Mini, and stores reviewed memories in a local SQLite Ledger.",
+    "longDescription": "Codex Cognitive Runtime turns clean long-term memory, active durable skills, and trusted seed skills into task-specific Runtime Skills, records feedback for skill governance, observes Codex work through hooks, guards engineering workflows against missing inspection or verification, evaluates durable memory candidates with GPT-5.4-Mini, and stores reviewed memories in a local SQLite Ledger.",
     "developerName": "Local developer",
     "category": "Productivity",
     "capabilities": [
@@ -21,7 +21,7 @@
       "Hooks"
     ],
     "defaultPrompt": [
-      "Search my Codex memory.",
+      "Search my Codex Cognitive Runtime.",
       "Review the current memory queue.",
       "Forget a mistaken memory."
     ]

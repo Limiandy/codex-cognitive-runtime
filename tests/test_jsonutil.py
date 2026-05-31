@@ -1,6 +1,6 @@
 import unittest
 
-from codex_memory.jsonutil import extract_json_object
+from codex_cognitive_runtime.jsonutil import extract_json_object
 
 
 class JsonUtilTest(unittest.TestCase):

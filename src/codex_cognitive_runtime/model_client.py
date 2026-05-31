@@ -27,7 +27,7 @@ class CodexMiniClient:
         schema_hint: dict[str, Any] | None = None,
         timeout_seconds: int | float | None = None,
     ) -> dict[str, Any]:
-        if os.environ.get("CODEX_MEMORY_FAKE_MODEL"):
+        if os.environ.get("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"):
             result = self._fake_response(prompt)
             logger.debug("model fake response", prompt_chars=len(prompt), schema_keys=list((schema_hint or {}).keys()), result=sanitize_model_result(result))
             return result
@@ -53,8 +53,8 @@ class CodexMiniClient:
                 "-",
             ]
             env = os.environ.copy()
-            env["CODEX_MEMORY_INTERNAL_CALL"] = "1"
-            env["CODEX_MEMORY_HOOK_DEPTH"] = "1"
+            env["CODEX_COGNITIVE_RUNTIME_INTERNAL_CALL"] = "1"
+            env["CODEX_COGNITIVE_RUNTIME_HOOK_DEPTH"] = "1"
             proc = subprocess.run(
                 cmd,
                 env=env,
@@ -90,7 +90,7 @@ class CodexMiniClient:
     def _build_prompt(self, prompt: str, schema_hint: dict[str, Any] | None) -> str:
         schema_text = json.dumps(schema_hint or {}, ensure_ascii=False, indent=2)
         return (
-            "You are the Codex Memory decision model. Return only one valid JSON object. "
+            "You are the Codex Cognitive Runtime decision model. Return only one valid JSON object. "
             "Do not include markdown, prose, secrets, or hidden reasoning.\n\n"
             f"Required JSON shape:\n{schema_text}\n\n"
             f"Task:\n{prompt}"

@@ -14,9 +14,9 @@ from pathlib import Path
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-HOOK = PLUGIN_ROOT / "hooks" / "codex-memory-hook.sh"
-STATE_DIR = Path(os.environ.get("CODEX_MEMORY_STATE_DIR", "~/.codex-memory")).expanduser()
-REPORT_PATH = Path("/private/tmp/codex-memory-full-simulation-report.json")
+HOOK = PLUGIN_ROOT / "hooks" / "codex-cognitive-runtime-hook.sh"
+STATE_DIR = Path(os.environ.get("CODEX_COGNITIVE_RUNTIME_STATE_DIR", "~/.codex-cognitive-runtime")).expanduser()
+REPORT_PATH = Path("/private/tmp/codex-cognitive-runtime-full-simulation-report.json")
 
 
 MESSAGES = [
@@ -28,13 +28,13 @@ MESSAGES = [
     ("experience", "经验：如果 hook 内部调用 codex exec，必须设置 internal 标记，否则会递归触发。"),
     ("duplicate", "项目架构决策：MCP 和 hook 必须是两条不重叠的路，不能互相调用。"),
     ("conflict", "项目架构变更：MCP 和 hook 应该互相调用，形成一条统一链路。"),
-    ("fact", "事实：codex-memory 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。"),
+    ("fact", "事实：codex-cognitive-runtime 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。"),
     ("temporary", "这次只需要临时打开 debug 日志，之后可以关闭。"),
 ]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run full Codex Memory hook simulation.")
+    parser = argparse.ArgumentParser(description="Run full Codex Cognitive Runtime hook simulation.")
     parser.add_argument("--rounds", type=int, default=100)
     parser.add_argument("--clear-before", action="store_true")
     parser.add_argument("--clear-after", action="store_true")
@@ -85,15 +85,15 @@ def main() -> int:
 
     if args.clear_after:
         clear_data()
-        print("CLEARED codex-memory data")
+        print("CLEARED codex-cognitive-runtime data")
     return 0
 
 
 def call_hook(index: int, prompt: str) -> dict:
     env = os.environ.copy()
-    env.pop("CODEX_MEMORY_FAKE_MODEL", None)
+    env.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
     env["PLUGIN_ROOT"] = str(PLUGIN_ROOT)
-    env["CODEX_MEMORY_LOG_LEVEL"] = "DEBUG"
+    env["CODEX_COGNITIVE_RUNTIME_LOG_LEVEL"] = "DEBUG"
     payload = {
         "session_id": "simulation-session",
         "turn_id": f"simulation-turn-{index + 1:03d}",

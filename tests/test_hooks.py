@@ -13,8 +13,8 @@ class HookTest(unittest.TestCase):
             env = {
                 **os.environ,
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_FAKE_MODEL": "1",
-                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
             }
 
             first = _run_hook(
@@ -39,7 +39,7 @@ class HookTest(unittest.TestCase):
                 },
             )
             context = second["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("Codex Memory context:", context)
+            self.assertIn("Codex Cognitive Runtime context:", context)
             self.assertIn("用户偏好默认使用中文回答", context)
 
     def test_observed_runtime_hook_chain_records_violation_and_injects_control(self):
@@ -47,8 +47,8 @@ class HookTest(unittest.TestCase):
             env = {
                 **os.environ,
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_FAKE_MODEL": "1",
-                "CODEX_MEMORY_STATE_DIR": tmp,
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
             }
             base = {
                 "session_id": "runtime-session",
@@ -87,7 +87,7 @@ class HookTest(unittest.TestCase):
 
 def _run_hook(env, payload, hook_name="user_message"):
     proc = subprocess.run(
-        [sys.executable, "-m", "codex_memory.hooks", hook_name],
+        [sys.executable, "-m", "codex_cognitive_runtime.hooks", hook_name],
         cwd=".",
         env=env,
         input=json.dumps(payload, ensure_ascii=False),
@@ -104,7 +104,7 @@ def _run_hook(env, payload, hook_name="user_message"):
 def _wait_for_active_memory(env):
     for _ in range(30):
         proc = subprocess.run(
-            [sys.executable, "-m", "codex_memory.cli", "queue", "--status", "active", "--limit", "5"],
+            [sys.executable, "-m", "codex_cognitive_runtime.cli", "queue", "--status", "active", "--limit", "5"],
             cwd=".",
             env=env,
             text=True,

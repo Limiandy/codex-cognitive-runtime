@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/hooks/codex-memory-hook.sh\" session_start",
-            "statusMessage": "Loading Codex Memory"
+            "command": "\"${PLUGIN_ROOT}/hooks/codex-cognitive-runtime-hook.sh\" session_start",
+            "statusMessage": "Loading Codex Cognitive Runtime"
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/hooks/codex-memory-hook.sh\" user_message",
+            "command": "\"${PLUGIN_ROOT}/hooks/codex-cognitive-runtime-hook.sh\" user_message",
             "statusMessage": "Reviewing memory context"
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/hooks/codex-memory-hook.sh\" after_tool_call",
+            "command": "\"${PLUGIN_ROOT}/hooks/codex-cognitive-runtime-hook.sh\" after_tool_call",
             "statusMessage": "Capturing tool result"
           }
         ]
@@ -42,8 +42,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/hooks/codex-memory-hook.sh\" session_end",
-            "statusMessage": "Saving Codex Memory checkpoint"
+            "command": "\"${PLUGIN_ROOT}/hooks/codex-cognitive-runtime-hook.sh\" session_end",
+            "statusMessage": "Saving Codex Cognitive Runtime checkpoint"
           }
         ]
       }
@@ -54,8 +54,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/hooks/codex-memory-hook.sh\" precompact",
-            "statusMessage": "Saving Codex Memory before compaction"
+            "command": "\"${PLUGIN_ROOT}/hooks/codex-cognitive-runtime-hook.sh\" precompact",
+            "statusMessage": "Saving Codex Cognitive Runtime before compaction"
           }
         ]
       }

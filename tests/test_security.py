@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.engine import MemoryEngine
-from codex_memory.logger import info
-from codex_memory.security import redact_secrets, sanitize_payload
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.engine import MemoryEngine
+from codex_cognitive_runtime.logger import info
+from codex_cognitive_runtime.security import redact_secrets, sanitize_payload
 
 
 class _CaptureModel:
@@ -69,7 +69,7 @@ class SecurityTest(unittest.TestCase):
 
     def test_logger_writes_redacted_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
-            os.environ["CODEX_MEMORY_LOG_DIR"] = tmp
+            os.environ["CODEX_COGNITIVE_RUNTIME_LOG_DIR"] = tmp
             try:
                 info("security test", payload_summary=sanitize_payload({"prompt": "api_key=sk-abcdefghijklmnopqrstuvwxyz"}))
                 log_text = (Path(tmp) / "debug.jsonl").read_text(encoding="utf-8")
@@ -77,16 +77,16 @@ class SecurityTest(unittest.TestCase):
                 self.assertIn("[REDACTED]", json.dumps(record))
                 self.assertNotIn("sk-abcdefghijklmnopqrstuvwxyz", log_text)
             finally:
-                os.environ.pop("CODEX_MEMORY_LOG_DIR", None)
+                os.environ.pop("CODEX_COGNITIVE_RUNTIME_LOG_DIR", None)
 
     def test_hook_received_log_uses_payload_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 **os.environ,
                 "PYTHONPATH": "src",
-                "CODEX_MEMORY_FAKE_MODEL": "1",
-                "CODEX_MEMORY_STATE_DIR": str(Path(tmp) / "state"),
-                "CODEX_MEMORY_LOG_DIR": str(Path(tmp) / "logs"),
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": str(Path(tmp) / "state"),
+                "CODEX_COGNITIVE_RUNTIME_LOG_DIR": str(Path(tmp) / "logs"),
             }
             payload = {
                 "hook_event_name": "PreCompact",
@@ -94,7 +94,7 @@ class SecurityTest(unittest.TestCase):
                 "customer": "private customer",
             }
             proc = subprocess.run(
-                [sys.executable, "-m", "codex_memory.hooks", "precompact"],
+                [sys.executable, "-m", "codex_cognitive_runtime.hooks", "precompact"],
                 cwd=".",
                 env=env,
                 input=json.dumps(payload, ensure_ascii=False),

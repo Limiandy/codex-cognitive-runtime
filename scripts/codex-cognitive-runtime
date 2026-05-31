@@ -3,4 +3,4 @@ set -euo pipefail
 
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export PYTHONPATH="${PLUGIN_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
-python3 -m codex_memory.cli "$@"
+python3 -m codex_cognitive_runtime.cli "$@"

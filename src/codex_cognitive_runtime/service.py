@@ -254,7 +254,7 @@ class MemoryService:
         return event_id
 
     def _existing_trace_for_payload(self, payload: dict[str, Any]) -> TraceContext | None:
-        trace_id = str(payload.get("_codex_memory_trace_id") or "") or None
+        trace_id = str(payload.get("_codex_cognitive_runtime_trace_id") or "") or None
         existing = self.monitor.get_trace(trace_id) if trace_id else None
         if not existing:
             existing = self.ledger.latest_trace(

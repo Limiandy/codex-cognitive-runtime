@@ -4,11 +4,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from codex_memory.config import Config
-from codex_memory.seed_skills import is_seed_skill_eligible, relevant_seed_skills
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
-from codex_memory.skill_need import SkillNeedDecision
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.seed_skills import is_seed_skill_eligible, relevant_seed_skills
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
+from codex_cognitive_runtime.skill_need import SkillNeedDecision
 
 
 def _service(tmp):
@@ -72,10 +72,10 @@ Inspect code changes, check test coverage, and point out verification gaps.
 
 class RuntimeSkillTest(unittest.TestCase):
     def setUp(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
     def tearDown(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
 
     def test_simple_weather_query_does_not_generate_runtime_skill(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -90,7 +90,7 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.skill_need.SkillNeedClassifier._model_classify")
+    @patch("codex_cognitive_runtime.skill_need.SkillNeedClassifier._model_classify")
     def test_ambiguous_short_prompt_does_not_call_model(self, model_classify):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
@@ -101,7 +101,7 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.skill_need.SkillNeedClassifier._model_classify")
+    @patch("codex_cognitive_runtime.skill_need.SkillNeedClassifier._model_classify")
     def test_complex_task_uses_model_skill_need_decision(self, model_classify):
         model_classify.return_value = SkillNeedDecision(
             True,
@@ -162,9 +162,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_generation_uses_model_synthesizer(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="model_generated_logo_intake",
@@ -188,9 +188,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_cache_avoids_repeated_synthesis(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="cached_logo_intake",
@@ -221,9 +221,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_cache_invalidates_when_basis_changes(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="cached_logo_intake",
@@ -263,7 +263,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.close()
 
     def test_runtime_skill_cache_key_includes_basis_metadata_model_and_privacy(self):
-        from codex_memory.service import _runtime_skill_cache_key
+        from codex_cognitive_runtime.service import _runtime_skill_cache_key
 
         basis = {
             "memories": [{"id": "mem1", "updated_at": "t1", "status": "active", "confidence": 0.9, "importance": 0.7}],
@@ -304,7 +304,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 self.assertIn("品牌名称是什么？", context)
                 self.assertIn("极简", context)
                 self.assertIn("高端 B2B SaaS", context)
-                self.assertNotIn("Codex Memory context:", context)
+                self.assertNotIn("Codex Cognitive Runtime context:", context)
                 injections = [
                     item
                     for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
@@ -555,9 +555,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_reviewer_filters_unknown_basis_ids(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="bad_basis_logo",
@@ -588,9 +588,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_reviewer_corrects_missing_clarification_action(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="logo_without_questions",
@@ -618,9 +618,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_reviewer_fallbacks_unbacked_preference_claims(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="unbacked_preference_logo",
@@ -649,9 +649,9 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    @patch("codex_memory.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
+    @patch("codex_cognitive_runtime.runtime_skill.RuntimeSkillSynthesizer._model_synthesize")
     def test_runtime_skill_reviewer_drops_secret_like_skill(self, model_synthesize):
-        from codex_memory.runtime_skill import RuntimeSkill
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill
 
         model_synthesize.return_value = RuntimeSkill(
             name="secret_skill",
@@ -680,7 +680,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.close()
 
     def test_runtime_skill_reviewer_removes_conflicting_seed_basis(self):
-        from codex_memory.runtime_skill import RuntimeSkill, RuntimeSkillReviewer
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill, RuntimeSkillReviewer
 
         skill = RuntimeSkill(
             name="conflicting_logo",
@@ -812,7 +812,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.close()
 
     def test_feedback_classifier_targets_do_not_over_adjust(self):
-        from codex_memory.feedback_classifier import RuntimeSkillFeedbackClassifier
+        from codex_cognitive_runtime.feedback_classifier import RuntimeSkillFeedbackClassifier
 
         classifier = RuntimeSkillFeedbackClassifier()
         self.assertEqual(classifier.classify("很好").feedback_target, "final_result")
@@ -835,7 +835,7 @@ class RuntimeSkillTest(unittest.TestCase):
         self.assertFalse(mixed.adjust_durable_skill_strength)
 
     def test_feedback_classifier_uses_model_for_complex_feedback(self):
-        from codex_memory.feedback_classifier import RuntimeSkillFeedbackClassifier
+        from codex_cognitive_runtime.feedback_classifier import RuntimeSkillFeedbackClassifier
 
         class FeedbackModel:
             def __init__(self):
@@ -857,7 +857,7 @@ class RuntimeSkillTest(unittest.TestCase):
         self.assertTrue(decision.adjust_seed_skill_strength)
 
     def test_feedback_classifier_can_disable_model(self):
-        from codex_memory.feedback_classifier import RuntimeSkillFeedbackClassifier
+        from codex_cognitive_runtime.feedback_classifier import RuntimeSkillFeedbackClassifier
 
         class FeedbackModel:
             def complete_json(self, prompt, schema, timeout_seconds=None):
@@ -868,7 +868,7 @@ class RuntimeSkillTest(unittest.TestCase):
         self.assertFalse(decision.adjust_seed_skill_strength)
 
     def test_feedback_classifier_low_confidence_model_does_not_adjust_strength(self):
-        from codex_memory.feedback_classifier import RuntimeSkillFeedbackClassifier
+        from codex_cognitive_runtime.feedback_classifier import RuntimeSkillFeedbackClassifier
 
         class FeedbackModel:
             def complete_json(self, prompt, schema, timeout_seconds=None):
@@ -939,7 +939,7 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.close()
 
     def test_runtime_skill_reviewer_filters_conflicting_seed_basis(self):
-        from codex_memory.runtime_skill import RuntimeSkill, RuntimeSkillReviewer
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkill, RuntimeSkillReviewer
 
         memory = {
             "id": "mem_1",
@@ -993,8 +993,8 @@ class RuntimeSkillTest(unittest.TestCase):
         self.assertEqual(result["skill"].seed_skill_ids, [])
 
     def test_priority_runtime_skill_templates_trigger_with_fallback(self):
-        from codex_memory.runtime_skill import RuntimeSkillSynthesizer
-        from codex_memory.skill_need import SkillNeedClassifier
+        from codex_cognitive_runtime.runtime_skill import RuntimeSkillSynthesizer
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
 
         prompts = [
             "帮我做品牌定位",
@@ -1029,7 +1029,7 @@ class RuntimeSkillTest(unittest.TestCase):
             self.assertIn(skill.first_action["type"], {"ask_clarifying_questions", "inspect_repository", "proceed_or_clarify"})
 
     def test_runtime_word_does_not_trigger_time_direct_answer_path(self):
-        from codex_memory.skill_need import SkillNeedClassifier
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
 
         classifier = SkillNeedClassifier(model=None)
         for prompt in [
@@ -1042,7 +1042,7 @@ class RuntimeSkillTest(unittest.TestCase):
             self.assertEqual(decision.domain, "software_engineering")
 
     def test_memory_statement_does_not_trigger_engineering_runtime_skill(self):
-        from codex_memory.skill_need import SkillNeedClassifier
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
 
         classifier = SkillNeedClassifier(model=None)
         for prompt in [
@@ -1054,7 +1054,7 @@ class RuntimeSkillTest(unittest.TestCase):
             "[real-0026/water_gate] 水利工程经验：闸门调度异常时先核对上下游水位、传感器读数和执行机构状态。",
             "[real-0035/project_boundary] 项目架构决策：MCP 和 hook 必须是两条不重叠的路径，不能互相调用。",
             "[real-0037/project_boundary_conflict] 项目架构变更：MCP 和 hook 应该互相调用，形成统一链路。",
-            "[real-0040/fact_model] 事实：codex-memory 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。",
+            "[real-0040/fact_model] 事实：codex-cognitive-runtime 使用 GPT-5.4-Mini 作为 memory-engine 和 memory-review 模型。",
         ]:
             decision = classifier.classify(prompt)
             self.assertFalse(decision.skill_needed, prompt)
@@ -1062,7 +1062,7 @@ class RuntimeSkillTest(unittest.TestCase):
             self.assertNotEqual(decision.domain, "software_engineering")
 
     def test_runtime_skill_quality_evaluator_flags_unbacked_claims(self):
-        from codex_memory.runtime_quality import evaluate_runtime_skill
+        from codex_cognitive_runtime.runtime_quality import evaluate_runtime_skill
 
         result = evaluate_runtime_skill(
             {

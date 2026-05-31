@@ -8,10 +8,10 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-from codex_memory.config import Config
-from codex_memory.hooks import _session_start
-from codex_memory.schema import Evidence, MemoryCandidate
-from codex_memory.service import MemoryService
+from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.hooks import _session_start
+from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
+from codex_cognitive_runtime.service import MemoryService
 
 
 def _config(tmp: str, strict_privacy: bool = False, live_log: bool = False, enable_feedback_model: bool = True) -> Config:
@@ -45,10 +45,10 @@ def _candidate(content: str) -> MemoryCandidate:
 
 class RuntimeTraceTest(unittest.TestCase):
     def setUp(self):
-        os.environ["CODEX_MEMORY_FAKE_MODEL"] = "1"
+        os.environ["CODEX_COGNITIVE_RUNTIME_FAKE_MODEL"] = "1"
 
     def tearDown(self):
-        os.environ.pop("CODEX_MEMORY_FAKE_MODEL", None)
+        os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
 
     def test_direct_answer_trace_completes_with_recall_skipped(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -228,12 +228,12 @@ class RuntimeTraceTest(unittest.TestCase):
 
     def test_cli_traces_and_live_log(self):
         with tempfile.TemporaryDirectory() as tmp:
-            env = {**os.environ, "PYTHONPATH": "src", "CODEX_MEMORY_STATE_DIR": tmp, "CODEX_MEMORY_FAKE_MODEL": "1"}
+            env = {**os.environ, "PYTHONPATH": "src", "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp, "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1"}
             subprocess.run(
                 [
                     sys.executable,
                     "-c",
-                    "from codex_memory.config import load_config; from codex_memory.service import MemoryService; s=MemoryService(load_config()); s.prompt_context('帮我画一个品牌 logo', session_id='s1', turn_id='t1'); s.close()",
+                    "from codex_cognitive_runtime.config import load_config; from codex_cognitive_runtime.service import MemoryService; s=MemoryService(load_config()); s.prompt_context('帮我画一个品牌 logo', session_id='s1', turn_id='t1'); s.close()",
                 ],
                 cwd=".",
                 env=env,
@@ -244,7 +244,7 @@ class RuntimeTraceTest(unittest.TestCase):
                 check=True,
             )
             listed = subprocess.run(
-                [sys.executable, "-m", "codex_memory.cli", "traces", "list"],
+                [sys.executable, "-m", "codex_cognitive_runtime.cli", "traces", "list"],
                 cwd=".",
                 env=env,
                 stdout=subprocess.PIPE,
@@ -258,7 +258,7 @@ class RuntimeTraceTest(unittest.TestCase):
             trace_id = traces[0]["id"]
             for cmd in ("show", "events", "summary", "audit", "export"):
                 proc = subprocess.run(
-                    [sys.executable, "-m", "codex_memory.cli", "traces", cmd, trace_id] if cmd not in {"audit"} else [sys.executable, "-m", "codex_memory.cli", "traces", cmd],
+                    [sys.executable, "-m", "codex_cognitive_runtime.cli", "traces", cmd, trace_id] if cmd not in {"audit"} else [sys.executable, "-m", "codex_cognitive_runtime.cli", "traces", cmd],
                     cwd=".",
                     env=env,
                     stdout=subprocess.PIPE,
@@ -272,10 +272,10 @@ class RuntimeTraceTest(unittest.TestCase):
                 [
                     sys.executable,
                     "-c",
-                    "from codex_memory.config import load_config; from codex_memory.service import MemoryService; s=MemoryService(load_config()); s.prompt_context('帮我画一个品牌 logo', session_id='s2', turn_id='t1'); s.close()",
+                    "from codex_cognitive_runtime.config import load_config; from codex_cognitive_runtime.service import MemoryService; s=MemoryService(load_config()); s.prompt_context('帮我画一个品牌 logo', session_id='s2', turn_id='t1'); s.close()",
                 ],
                 cwd=".",
-                env={**env, "CODEX_MEMORY_TRACE_LIVE_LOG": "1"},
+                env={**env, "CODEX_COGNITIVE_RUNTIME_TRACE_LIVE_LOG": "1"},
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
