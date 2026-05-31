@@ -14,6 +14,7 @@ MARKETPLACE_ROOT = HOME
 MARKETPLACE_NAME = "personal"
 MARKETPLACE_PATH = HOME / ".agents" / "plugins" / "marketplace.json"
 PLUGIN_NAME = "codex-cognitive-runtime"
+LEGACY_PLUGIN_NAMES = ("codex-memory",)
 PLUGIN_CONFIG_KEY = f'{PLUGIN_NAME}@{MARKETPLACE_NAME}'
 PLUGIN_INSTALL_PATH = HOME / "plugins" / PLUGIN_NAME
 CODEX_CONFIG = HOME / ".codex" / "config.toml"
@@ -117,7 +118,9 @@ def uninstall(delete_files: bool = False, dry_run: bool = False, show_diff: bool
     if dry_run:
         return _uninstall_plan(delete_files=delete_files, show_diff=show_diff)
     market = _read_marketplace()
-    market["plugins"] = [entry for entry in market.get("plugins", []) if entry.get("name") != PLUGIN_NAME]
+    market["plugins"] = [
+        entry for entry in market.get("plugins", []) if entry.get("name") not in {PLUGIN_NAME, *LEGACY_PLUGIN_NAMES}
+    ]
     _save_marketplace(market)
     _remove_plugin_config()
     if delete_files and PLUGIN_INSTALL_PATH.exists():
@@ -143,7 +146,7 @@ def _write_marketplace(policy: str) -> None:
     market = _read_marketplace()
     market["name"] = MARKETPLACE_NAME
     market.setdefault("interface", {}).setdefault("displayName", "Personal")
-    plugins = [entry for entry in market.get("plugins", []) if entry.get("name") != PLUGIN_NAME]
+    plugins = [entry for entry in market.get("plugins", []) if entry.get("name") not in {PLUGIN_NAME, *LEGACY_PLUGIN_NAMES}]
     plugins.append(
         {
             "name": PLUGIN_NAME,
@@ -191,6 +194,8 @@ def _build_config_text(text: str, enabled: bool) -> str:
     _validate_toml(text)
     text = _remove_section(text, f"marketplaces.{MARKETPLACE_NAME}")
     text = _remove_section(text, f'plugins."{PLUGIN_CONFIG_KEY}"')
+    for legacy_name in LEGACY_PLUGIN_NAMES:
+        text = _remove_section(text, f'plugins."{legacy_name}@{MARKETPLACE_NAME}"')
     block_text = (
         f'\n[marketplaces.{MARKETPLACE_NAME}]\n'
         f'last_updated = "{datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")}"\n'
@@ -208,6 +213,8 @@ def _remove_plugin_config() -> None:
     text = _read_config()
     _validate_toml(text)
     text = _remove_section(text, f'plugins."{PLUGIN_CONFIG_KEY}"')
+    for legacy_name in LEGACY_PLUGIN_NAMES:
+        text = _remove_section(text, f'plugins."{legacy_name}@{MARKETPLACE_NAME}"')
     _write_config(text.rstrip() + "\n")
 
 

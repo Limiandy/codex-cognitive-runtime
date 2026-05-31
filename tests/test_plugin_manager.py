@@ -29,12 +29,16 @@ model = "gpt-5.4-mini"
 
 [plugins."other@personal"]
 enabled = true
+
+[plugins."codex-memory@personal"]
+enabled = true
 """
         after = plugin_manager._build_config_text(before, enabled=True)
         self.assertIn("# keep this comment", after)
         self.assertIn("[profiles.dev]", after)
         self.assertIn('[plugins."other@personal"]', after)
         self.assertIn('[plugins."codex-cognitive-runtime@personal"]', after)
+        self.assertNotIn('[plugins."codex-memory@personal"]', after)
         parsed = plugin_manager._validate_toml(after)
         self.assertTrue(parsed["plugins"]["codex-cognitive-runtime@personal"]["enabled"])
 
