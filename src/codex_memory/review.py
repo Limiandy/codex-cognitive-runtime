@@ -250,14 +250,16 @@ def _low_quality_verbose_preference(content: str) -> bool:
     verbose_terms = (
         "极长",
         "特别长",
+        "很长",
         "越长越好",
+        "篇幅越长越好",
         "铺垫很多",
         "大量铺垫",
         "长篇铺垫",
         "very long",
         "verbose",
     )
-    answer_terms = ("回答", "回复", "写作", "文章", "response", "answer", "writing")
+    answer_terms = ("回答", "回复", "写作", "文章", "内容", "response", "answer", "writing", "content")
     return any(term in text for term in verbose_terms) and any(term in text for term in answer_terms)
 
 

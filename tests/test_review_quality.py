@@ -87,6 +87,19 @@ class ReviewQualityTest(unittest.TestCase):
             self.assertEqual(result["status"], "quarantined")
             self.assertIn("low_quality_verbose_preference", result["reasons"])
 
+    def test_final_gate_quarantines_low_quality_verbose_content_preference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = _reviewer(tmp).review(
+                _candidate(
+                    content="用户希望以后所有物联网内容都写得很长、铺垫很多，篇幅越长越好。",
+                    confidence=0.99,
+                    importance=0.86,
+                    evidence=[Evidence(source="user_message", quote="以后所有物联网内容都写得很长、铺垫很多，篇幅越长越好。")],
+                )
+            )
+            self.assertEqual(result["status"], "quarantined")
+            self.assertIn("low_quality_verbose_preference", result["reasons"])
+
     def test_final_gate_quarantines_overbroad_visual_style_preference(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = _reviewer(tmp).review(
