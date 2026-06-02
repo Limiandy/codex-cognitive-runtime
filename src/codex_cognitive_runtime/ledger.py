@@ -6,16 +6,18 @@ import sqlite3
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from .schema import MemoryCandidate
 from .security import redact_secrets
+from .seed_calibration import apply_seed_scoring_feedback
 from .taxonomy import enrich_candidate, near_duplicate_text
+from .timeutil import local_after_iso, local_now, local_now_iso, parse_timestamp
 
 
 _WIPE_TABLES = (
+    "outcome_attributions",
     "runtime_trace_links",
     "runtime_trace_events",
     "runtime_trace_spans",
@@ -36,6 +38,8 @@ RUNTIME_SKILL_GOVERNANCE_MIGRATION_VERSION = 2
 RUNTIME_SKILL_GOVERNANCE_MIGRATION_NAME = "runtime_skill_governance_shape"
 RUNTIME_TRACE_MIGRATION_VERSION = 3
 RUNTIME_TRACE_MIGRATION_NAME = "runtime_trace_flow_monitor"
+OUTCOME_ATTRIBUTION_MIGRATION_VERSION = 4
+OUTCOME_ATTRIBUTION_MIGRATION_NAME = "outcome_attribution_engine"
 
 
 class Ledger:
@@ -266,6 +270,21 @@ class Ledger:
                 UNIQUE(trace_id, target_type, target_id, relation)
             );
 
+            CREATE TABLE IF NOT EXISTS outcome_attributions (
+                id TEXT PRIMARY KEY,
+                trace_id TEXT NOT NULL,
+                layer TEXT NOT NULL,
+                outcome TEXT NOT NULL,
+                contribution TEXT NOT NULL,
+                confidence REAL NOT NULL DEFAULT 0,
+                summary TEXT NOT NULL DEFAULT '',
+                evidence_json TEXT NOT NULL DEFAULT '[]',
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(trace_id, layer)
+            );
+
             CREATE TABLE IF NOT EXISTS schema_migrations (
                 version INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -280,10 +299,15 @@ class Ledger:
         self._ensure_cognitive_record_columns()
         self._ensure_indexes()
         self._ensure_runtime_trace_columns()
+        self._ensure_outcome_attribution_columns()
         self.run_runtime_skill_governance_migration()
         self.conn.execute(
             "INSERT OR IGNORE INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
             (RUNTIME_TRACE_MIGRATION_VERSION, RUNTIME_TRACE_MIGRATION_NAME, _now()),
+        )
+        self.conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations(version,name,applied_at) VALUES(?,?,?)",
+            (OUTCOME_ATTRIBUTION_MIGRATION_VERSION, OUTCOME_ATTRIBUTION_MIGRATION_NAME, _now()),
         )
         self._commit()
 
@@ -454,6 +478,21 @@ class Ledger:
         if not {"runtime_traces", "runtime_trace_spans", "runtime_trace_events", "runtime_trace_links"}.issubset(tables):
             return
 
+    def _ensure_outcome_attribution_columns(self) -> None:
+        tables = {
+            row["name"]
+            for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+        if "outcome_attributions" not in tables:
+            return
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(outcome_attributions)").fetchall()}
+        if "summary" not in columns:
+            self.conn.execute("ALTER TABLE outcome_attributions ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
+        if "evidence_json" not in columns:
+            self.conn.execute("ALTER TABLE outcome_attributions ADD COLUMN evidence_json TEXT NOT NULL DEFAULT '[]'")
+        if "metadata_json" not in columns:
+            self.conn.execute("ALTER TABLE outcome_attributions ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")
+
     def _ensure_governance_policy_columns(self) -> None:
         columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(governance_policies)").fetchall()}
         if not columns:
@@ -549,6 +588,8 @@ class Ledger:
             CREATE INDEX IF NOT EXISTS idx_runtime_trace_spans_trace ON runtime_trace_spans(trace_id,started_at);
             CREATE INDEX IF NOT EXISTS idx_runtime_trace_events_trace ON runtime_trace_events(trace_id,created_at);
             CREATE INDEX IF NOT EXISTS idx_runtime_trace_links_trace ON runtime_trace_links(trace_id,target_type,target_id);
+            CREATE INDEX IF NOT EXISTS idx_outcome_attributions_trace ON outcome_attributions(trace_id,layer);
+            CREATE INDEX IF NOT EXISTS idx_outcome_attributions_layer ON outcome_attributions(layer,updated_at);
             """
         )
 
@@ -792,6 +833,105 @@ class Ledger:
             "spans": self.list_trace_spans(trace_id),
             "events": self.list_trace_events(trace_id, limit=5000),
             "links": self.list_trace_links(trace_id),
+            "outcome_attributions": self.list_outcome_attributions(trace_id=trace_id),
+        }
+
+    def record_outcome_attributions(self, trace_id: str, layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        now = _now()
+        normalized_layers = [dict(layer) for layer in layers if layer.get("layer")]
+        with self.transaction():
+            for layer in normalized_layers:
+                layer_name = str(layer.get("layer") or "")
+                attribution_id = str(layer.get("id") or f"attr_{hashlib.sha256(f'{trace_id}:{layer_name}'.encode('utf-8')).hexdigest()[:24]}")
+                evidence = layer.get("evidence") if isinstance(layer.get("evidence"), list) else []
+                metadata = {
+                    key: value
+                    for key, value in layer.items()
+                    if key
+                    not in {
+                        "id",
+                        "trace_id",
+                        "layer",
+                        "outcome",
+                        "contribution",
+                        "confidence",
+                        "summary",
+                        "evidence",
+                    }
+                }
+                self.conn.execute(
+                    """
+                    INSERT INTO outcome_attributions(
+                        id,trace_id,layer,outcome,contribution,confidence,summary,evidence_json,metadata_json,created_at,updated_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(trace_id, layer) DO UPDATE SET
+                        outcome=excluded.outcome,
+                        contribution=excluded.contribution,
+                        confidence=excluded.confidence,
+                        summary=excluded.summary,
+                        evidence_json=excluded.evidence_json,
+                        metadata_json=excluded.metadata_json,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        attribution_id,
+                        trace_id,
+                        layer_name,
+                        str(layer.get("outcome") or "unknown"),
+                        str(layer.get("contribution") or "neutral"),
+                        float(layer.get("confidence") or 0),
+                        str(layer.get("summary") or ""),
+                        json.dumps(evidence, ensure_ascii=False),
+                        json.dumps(metadata, ensure_ascii=False),
+                        now,
+                        now,
+                    ),
+                )
+        return self.list_outcome_attributions(trace_id=trace_id)
+
+    def list_outcome_attributions(
+        self,
+        trace_id: str | None = None,
+        layer: str | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        where = []
+        params: list[Any] = []
+        if trace_id:
+            where.append("trace_id=?")
+            params.append(trace_id)
+        if layer:
+            where.append("layer=?")
+            params.append(layer)
+        sql = "SELECT * FROM outcome_attributions"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY updated_at DESC, created_at DESC LIMIT ?"
+        params.append(max(1, min(int(limit), 5000)))
+        rows = self.conn.execute(sql, params).fetchall()
+        records = [_outcome_attribution_row_to_dict(row) for row in rows]
+        if trace_id:
+            order = {
+                "task_understanding": 0,
+                "recall": 1,
+                "seed_scoring": 2,
+                "fragment_selection": 3,
+                "final_context": 4,
+                "execution_guard": 5,
+            }
+            records.sort(key=lambda item: (order.get(str(item.get("layer") or ""), 99), str(item.get("created_at") or "")))
+        return records
+
+    def get_trace_attribution(self, trace_id: str) -> dict[str, Any] | None:
+        trace = self.get_trace(trace_id)
+        if not trace:
+            return None
+        layers = self.list_outcome_attributions(trace_id=trace_id)
+        return {
+            "trace_id": trace_id,
+            "trace": trace,
+            "overall_outcome": trace.get("final_outcome") or "pending",
+            "layers": layers,
         }
 
     def prune_traces(self, older_than_days: int | None = None) -> dict[str, Any]:
@@ -803,6 +943,7 @@ class Ledger:
         trace_ids = [str(row["id"]) for row in rows]
         with self.transaction():
             for trace_id in trace_ids:
+                self.conn.execute("DELETE FROM outcome_attributions WHERE trace_id=?", (trace_id,))
                 self.conn.execute("DELETE FROM runtime_trace_links WHERE trace_id=?", (trace_id,))
                 self.conn.execute("DELETE FROM runtime_trace_events WHERE trace_id=?", (trace_id,))
                 self.conn.execute("DELETE FROM runtime_trace_spans WHERE trace_id=?", (trace_id,))
@@ -1000,46 +1141,94 @@ class Ledger:
         evidence: dict[str, Any],
     ) -> dict[str, Any]:
         existing = self.list_open_workflow_violations(workflow_id=workflow_id)
+        violation_key = _workflow_violation_key(violation_type, evidence)
         for item in existing:
             metadata = item.get("metadata_json") or {}
-            if metadata.get("violation_type") == violation_type:
+            if (metadata.get("violation_key") or _workflow_violation_key(str(metadata.get("violation_type") or ""), metadata.get("evidence") or {})) == violation_key:
                 return item
+        workflow = self.get_cognitive_record(workflow_id) or {}
+        workflow_metadata = workflow.get("metadata_json") or {}
+        session_id = str(workflow_metadata.get("session_id") or workflow.get("session_id") or "") or None
+        turn_id = str(workflow_metadata.get("turn_id") or "") or None
+        project_key = str(workflow_metadata.get("project_key") or workflow.get("project_key") or "") or None
         return self.record_cognitive_record(
             "audit",
             "workflow_violation",
-            f"violation:{workflow_id}:{violation_type}",
+            f"violation:{workflow_id}:{violation_key}",
             f"{severity}: {violation_type}",
             "active",
             "session",
             importance=0.95 if severity == "high" else 0.75,
             metadata={
                 "workflow_id": workflow_id,
+                "session_id": session_id,
+                "turn_id": turn_id,
+                "project_key": project_key,
                 "violation_type": violation_type,
+                "violation_key": violation_key,
                 "severity": severity,
                 "evidence": evidence,
                 "resolved_at": None,
             },
+            project_key=project_key,
+            session_id=session_id,
             source_kind="workflow_violation",
         )
 
-    def list_open_workflow_violations(self, workflow_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    def list_open_workflow_violations(
+        self,
+        workflow_id: str | None = None,
+        session_id: str | None = None,
+        turn_id: str | None = None,
+        project_key: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
         records = self.list_cognitive_records(layer="audit", status="active", limit=max(limit, 200))
         violations = []
         for record in records:
             if record.get("record_type") != "workflow_violation":
                 continue
             metadata = record.get("metadata_json") or {}
+            metadata = self._workflow_violation_metadata(record, metadata)
+            record = {**record, "metadata_json": metadata}
             if metadata.get("resolved_at"):
                 continue
             if workflow_id and metadata.get("workflow_id") != workflow_id:
+                continue
+            record_session_id = metadata.get("session_id") or record.get("session_id")
+            record_turn_id = metadata.get("turn_id")
+            record_project_key = metadata.get("project_key") or record.get("project_key")
+            if session_id and record_session_id != session_id:
+                continue
+            if turn_id and record_turn_id != turn_id:
+                continue
+            if project_key and record_project_key != project_key:
                 continue
             violations.append(record)
             if len(violations) >= limit:
                 break
         return violations
 
-    def resolve_workflow_violation(self, violation_id: str) -> dict[str, Any] | None:
-        return self.set_cognitive_record_status(violation_id, "resolved", {"resolved_at": _now()})
+    def _workflow_violation_metadata(self, record: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+        workflow_id = str(metadata.get("workflow_id") or "")
+        if not workflow_id or metadata.get("session_id"):
+            return metadata
+        workflow = self.get_cognitive_record(workflow_id)
+        workflow_metadata = (workflow or {}).get("metadata_json") or {}
+        hydrated = dict(metadata)
+        if workflow_metadata.get("session_id"):
+            hydrated["session_id"] = workflow_metadata.get("session_id")
+        if workflow_metadata.get("turn_id"):
+            hydrated["turn_id"] = workflow_metadata.get("turn_id")
+        if workflow_metadata.get("project_key"):
+            hydrated["project_key"] = workflow_metadata.get("project_key")
+        return hydrated
+
+    def resolve_workflow_violation(self, violation_id: str, note: str = "") -> dict[str, Any] | None:
+        patch: dict[str, Any] = {"resolved_at": _now()}
+        if note:
+            patch["resolution_note"] = note
+        return self.set_cognitive_record_status(violation_id, "resolved", patch)
 
     def record_runtime_observation(
         self,
@@ -1091,6 +1280,8 @@ class Ledger:
                 "cwd_sha256": hashlib.sha256(str(cwd or "").encode("utf-8", errors="replace")).hexdigest() if cwd else None,
                 "project_key_sha256": hashlib.sha256(str(project_key or "").encode("utf-8", errors="replace")).hexdigest() if project_key else None,
             }
+        selected_fragments = _runtime_skill_fragments_for_storage(skill, strict_privacy=strict_privacy)
+        fragment_rule_mappings = _runtime_skill_mappings_for_storage(skill, strict_privacy=strict_privacy)
         stored_skill = skill
         if strict_privacy:
             stored_skill = {
@@ -1102,6 +1293,11 @@ class Ledger:
                 "memory_basis_ids": [str(item) for item in skill.get("memory_basis_ids") or []],
                 "durable_skill_ids": [str(item) for item in skill.get("durable_skill_ids") or []],
                 "seed_skill_ids": [str(item) for item in skill.get("seed_skill_ids") or []],
+                "source_skill_ids": [str(item) for item in skill.get("source_skill_ids") or []],
+                "selected_fragments": selected_fragments,
+                "fragment_rule_mappings": fragment_rule_mappings,
+                "workflow_required_steps": [str(item) for item in skill.get("workflow_required_steps") or []],
+                "task_profile": skill.get("task_profile") if isinstance(skill.get("task_profile"), dict) else {},
             }
         return self.record_cognitive_record(
             "runtime_skill",
@@ -1123,6 +1319,12 @@ class Ledger:
                 "memory_basis_ids": [str(item) for item in skill.get("memory_basis_ids") or []],
                 "durable_skill_ids": [str(item) for item in skill.get("durable_skill_ids") or []],
                 "seed_skill_ids": [str(item) for item in skill.get("seed_skill_ids") or []],
+                "source_skill_ids": [str(item) for item in skill.get("source_skill_ids") or []],
+                "distilled_from": [dict(item) for item in skill.get("distilled_from") or [] if isinstance(item, dict)],
+                "selected_fragments": selected_fragments,
+                "fragment_rule_mappings": fragment_rule_mappings,
+                "workflow_required_steps": [str(item) for item in skill.get("workflow_required_steps") or []],
+                "task_profile": skill.get("task_profile") if isinstance(skill.get("task_profile"), dict) else {},
                 "session_id": session_id,
                 "turn_id": turn_id,
                 **location_metadata,
@@ -1173,12 +1375,17 @@ class Ledger:
         evidence = {**evidence, "feedback_target": feedback_target}
         classifier_dimensions = evidence.get("classifier_dimensions") if isinstance(evidence.get("classifier_dimensions"), dict) else {}
         dimensions = dict(classifier_dimensions) if classifier_dimensions else _runtime_skill_feedback_dimensions(outcome, evidence)
+        fragment_attribution = _runtime_skill_fragment_feedback_attribution(metadata, outcome, feedback_target, dimensions)
+        if fragment_attribution:
+            evidence = {**evidence, "fragment_attribution": fragment_attribution}
+        trace_id = str(metadata.get("trace_id") or "")
         metadata.update(
             {
                 "feedback_status": outcome,
                 "feedback_at": _now(),
                 "feedback_source": evidence.get("source"),
                 "feedback_dimensions": dimensions,
+                "feedback_fragment_attribution": fragment_attribution,
             }
         )
         self.conn.execute(
@@ -1205,21 +1412,46 @@ class Ledger:
                 "outcome": outcome,
                 "dimensions": dimensions,
                 "evidence": evidence,
+                "fragment_attribution": fragment_attribution,
                 "seed_skill_ids": metadata.get("seed_skill_ids") or [],
                 "durable_skill_ids": metadata.get("durable_skill_ids") or [],
                 "shape_version": 2,
             },
             source_kind="runtime_skill_feedback",
         )
+        if trace_id and fragment_attribution:
+            self.record_trace_event(
+                trace_id,
+                "runtime_skill_fragment_feedback_attributed",
+                severity="warn" if outcome in {"negative", "failure"} else "info",
+                subject_type="runtime_skill_feedback",
+                subject_id=str(feedback.get("id") or ""),
+                metadata={
+                    "feedback_id": feedback.get("id"),
+                    "injection_id": injection_id,
+                    "outcome": outcome,
+                    "feedback_target": feedback_target,
+                    "fragment_attribution": fragment_attribution,
+                },
+        )
         should_adjust_seed_strength = bool(evidence.get("adjust_seed_skill_strength", True))
-        trace_id = str(metadata.get("trace_id") or "")
         if should_adjust_seed_strength and outcome in {"positive", "success", "negative", "failure"}:
             success = outcome in {"positive", "success"}
+            feedback_profile = _seed_feedback_profile(injection, metadata)
+            feedback_domain = _seed_feedback_domain(injection, metadata)
             for seed_id in metadata.get("seed_skill_ids") or []:
-                self._record_seed_skill_feedback(str(seed_id), success)
+                calibration_action = self._record_seed_skill_feedback(
+                    str(seed_id),
+                    success,
+                    task_profile=feedback_profile,
+                    domain=feedback_domain,
+                    outcome=outcome,
+                    evidence=evidence,
+                )
                 if trace_id:
                     seed = self.get_cognitive_record(str(seed_id)) or {}
                     seed_metadata = seed.get("metadata_json") or {}
+                    calibration_metadata = calibration_action or {}
                     self.record_trace_event(
                         trace_id,
                         "seed_skill_adjusted",
@@ -1234,8 +1466,23 @@ class Ledger:
                             "failure_count": seed_metadata.get("failure_count"),
                             "new_trust_state": seed_metadata.get("trust_state"),
                             "new_status": seed.get("status"),
+                            "calibration_action": calibration_metadata,
                         },
                     )
+                    if calibration_metadata:
+                        self.record_trace_event(
+                            trace_id,
+                            "seed_skill_calibration_applied",
+                            severity="info",
+                            subject_type="seed_skill",
+                            subject_id=str(seed_id),
+                            metadata={
+                                "skill_id": str(seed_id),
+                                "calibration_action": calibration_metadata,
+                                "task_profile": feedback_profile,
+                                "domain": feedback_domain,
+                            },
+                        )
                     self.link_trace(trace_id, "seed_skill", str(seed_id), "adjusted")
         should_adjust_durable_strength = bool(evidence.get("adjust_durable_skill_strength", False))
         if should_adjust_durable_strength and outcome in {"positive", "success", "negative", "failure"}:
@@ -1264,24 +1511,37 @@ class Ledger:
                     self.link_trace(trace_id, "durable_skill", str(skill_id), "adjusted")
         return feedback
 
-    def _record_seed_skill_feedback(self, seed_id: str, success: bool) -> None:
+    def _record_seed_skill_feedback(
+        self,
+        seed_id: str,
+        success: bool,
+        task_profile: dict[str, Any] | None = None,
+        domain: str | None = None,
+        outcome: str | None = None,
+        evidence: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         seed = self.get_cognitive_record(seed_id)
         if not seed or seed.get("record_type") != "seed_skill":
-            return
+            return None
         metadata = dict(seed.get("metadata_json") or {})
         metadata["reuse_count"] = int(metadata.get("reuse_count") or 0) + 1
         metadata["success_count"] = int(metadata.get("success_count") or 0) + (1 if success else 0)
         metadata["failure_count"] = int(metadata.get("failure_count") or 0) + (0 if success else 1)
         metadata["last_feedback_at"] = _now()
-        if metadata["failure_count"] >= 3 and metadata["failure_count"] > metadata["success_count"]:
-            metadata["trust_state"] = "suppressed"
-            self.set_cognitive_record_status(seed_id, "suppressed", metadata)
-            return
-        elif metadata.get("trust_state") == "suppressed" and metadata["success_count"] >= metadata["failure_count"]:
+        metadata, calibration_action = apply_seed_scoring_feedback(
+            metadata,
+            task_profile=task_profile,
+            domain=domain,
+            outcome=outcome or ("positive" if success else "negative"),
+            now=metadata["last_feedback_at"],
+            evidence=evidence,
+        )
+        if metadata.get("trust_state") == "suppressed" and success and metadata["success_count"] >= metadata["failure_count"]:
             metadata["trust_state"] = "trusted" if metadata.get("source_verified") else "unverified"
             self.set_cognitive_record_status(seed_id, "active", metadata)
-            return
-        self.adjust_cognitive_record_strength(seed_id, 0.05 if success else -0.1, metadata)
+            return calibration_action
+        self.adjust_cognitive_record_strength(seed_id, 0.03 if success else -0.04, metadata)
+        return calibration_action
 
     def _record_durable_skill_feedback(self, skill_id: str, success: bool) -> None:
         skill = self.get_cognitive_record(skill_id)
@@ -1307,8 +1567,8 @@ class Ledger:
     ) -> dict[str, Any]:
         return self.add_workflow_violation(workflow_id, violation_type, severity, evidence)
 
-    def resolve_runtime_violation(self, violation_id: str) -> dict[str, Any] | None:
-        return self.resolve_workflow_violation(violation_id)
+    def resolve_runtime_violation(self, violation_id: str, note: str = "") -> dict[str, Any] | None:
+        return self.resolve_workflow_violation(violation_id, note=note)
 
     def record_recipe_recommendation(self, workflow_id: str, recipe_ids: list[str]) -> dict[str, Any] | None:
         self.record_cognitive_record(
@@ -1500,6 +1760,10 @@ class Ledger:
         row = self.conn.execute("SELECT * FROM memories WHERE id=?", (memory_id,)).fetchone()
         return _row_to_dict(row) if row else None
 
+    def get_usable_memory(self, memory_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT * FROM memories WHERE id=? AND status<>'deleted'", (memory_id,)).fetchone()
+        return _row_to_dict(row) if row else None
+
     def find_active_duplicates(
         self,
         content: str,
@@ -1612,6 +1876,40 @@ class Ledger:
         review["manual_review"] = {"action": "delete", "note": note, "at": _now()}
         self.set_status(memory_id, "deleted", review)
         return self.add_review_feedback(memory_id, "delete", note)
+
+    def update_memory_content(self, memory_id: str, content: str, note: str = "") -> dict[str, Any]:
+        memory = self.get_memory(memory_id)
+        if memory is None:
+            raise ValueError(f"memory not found: {memory_id}")
+        review = dict(memory.get("review_json") or {})
+        review["manual_edit"] = {"note": note, "at": _now()}
+        self.conn.execute(
+            "UPDATE memories SET content=?, review_json=?, updated_at=? WHERE id=?",
+            (content, json.dumps(review, ensure_ascii=False), _now(), memory_id),
+        )
+        self._commit()
+        return self.add_review_feedback(memory_id, "manual_edit", note)
+
+    def activate_user_preferences(self) -> int:
+        now = _now()
+        rows = self.conn.execute(
+            """
+            SELECT * FROM memories
+            WHERE memory_type='user_preference' AND status NOT IN ('active', 'deleted')
+            """
+        ).fetchall()
+        for row in rows:
+            memory = _row_to_dict(row)
+            review = dict(memory.get("review_json") or {})
+            review["status"] = "active"
+            review["auto_activation"] = {"reason": "user_preferences_default_active", "at": now}
+            self.conn.execute(
+                "UPDATE memories SET status='active', review_json=?, updated_at=? WHERE id=?",
+                (json.dumps(review, ensure_ascii=False), now, memory["id"]),
+            )
+        if rows:
+            self._commit()
+        return len(rows)
 
     def expire_due(self) -> list[dict[str, Any]]:
         now = _now()
@@ -2059,6 +2357,7 @@ class Ledger:
             "runtime_trace_spans": _select_json_rows(self.conn, "runtime_trace_spans", limit),
             "runtime_trace_events": _select_json_rows(self.conn, "runtime_trace_events", limit),
             "runtime_trace_links": _select_json_rows(self.conn, "runtime_trace_links", limit),
+            "outcome_attributions": self.list_outcome_attributions(limit=limit),
         }
 
     def wipe_all(self) -> dict[str, Any]:
@@ -2075,7 +2374,7 @@ class Ledger:
             where = "processed_at IS NOT NULL"
             params: tuple[Any, ...] = ()
         else:
-            cutoff = (datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=older_than_days)).isoformat().replace("+00:00", "Z")
+            cutoff = local_after_iso(days=-older_than_days)
             where = "processed_at IS NOT NULL AND created_at < ?"
             params = (cutoff,)
         count = self.conn.execute(f"SELECT COUNT(*) AS count FROM events WHERE {where}", params).fetchone()["count"]
@@ -2088,7 +2387,7 @@ class Ledger:
             raise ValueError("older_than_days must be non-negative")
         cutoff = None
         if older_than_days is not None:
-            cutoff = (datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=older_than_days)).isoformat().replace("+00:00", "Z")
+            cutoff = local_after_iso(days=-older_than_days)
         audit_record_types = {"workflow_observation", "recipe_recommendation", "recipe_reuse", "runtime_skill_injection", "runtime_skill_feedback"}
         runtime_skill_record_types = {"injection", "feedback"}
         ids: list[str] = []
@@ -2184,16 +2483,119 @@ class Ledger:
             )
         self._commit()
 
-    def list_memories(self, status: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
+    def list_memories(
+        self,
+        status: str | None = None,
+        exclude_statuses: list[str] | tuple[str, ...] | None = None,
+        memory_type: str | None = None,
+        exclude_memory_types: list[str] | tuple[str, ...] | None = None,
+        name: str | None = None,
+        scope: str | None = None,
+        project_key: str | None = None,
+        session_id: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
         limit = max(1, min(limit, 200))
+        where = []
+        params: list[Any] = []
         if status:
-            rows = self.conn.execute(
-                "SELECT * FROM memories WHERE status=? ORDER BY created_at DESC LIMIT ?",
-                (status, limit),
-            ).fetchall()
-        else:
-            rows = self.conn.execute("SELECT * FROM memories ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+            where.append("status=?")
+            params.append(status)
+        elif exclude_statuses:
+            excluded_statuses = [str(item) for item in exclude_statuses if str(item)]
+            if excluded_statuses:
+                where.append("status NOT IN (" + ",".join("?" for _ in excluded_statuses) + ")")
+                params.extend(excluded_statuses)
+        if memory_type:
+            where.append("memory_type=?")
+            params.append(memory_type)
+        elif exclude_memory_types:
+            excluded = [str(item) for item in exclude_memory_types if str(item)]
+            if excluded:
+                where.append("memory_type NOT IN (" + ",".join("?" for _ in excluded) + ")")
+                params.extend(excluded)
+        if name:
+            where.append("content LIKE ? ESCAPE '\\'")
+            params.append(f"%{_like_escape(name)}%")
+        if scope:
+            where.append("scope=?")
+            params.append(scope)
+        if project_key:
+            where.append("project_key=?")
+            params.append(project_key)
+        if session_id:
+            where.append("source_session_id=?")
+            params.append(session_id)
+        sql = "SELECT * FROM memories"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        rows = self.conn.execute(sql, params).fetchall()
         return [_row_to_dict(row) for row in rows]
+
+    def memory_page(
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        status: str | None = None,
+        exclude_statuses: list[str] | tuple[str, ...] | None = None,
+        memory_type: str | None = None,
+        exclude_memory_types: list[str] | tuple[str, ...] | None = None,
+        name: str | None = None,
+        scope: str | None = None,
+        project_key: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        page = max(1, page)
+        page_size = max(1, min(page_size, 100))
+        where = []
+        params: list[Any] = []
+        if status:
+            where.append("status=?")
+            params.append(status)
+        elif exclude_statuses:
+            excluded_statuses = [str(item) for item in exclude_statuses if str(item)]
+            if excluded_statuses:
+                where.append("status NOT IN (" + ",".join("?" for _ in excluded_statuses) + ")")
+                params.extend(excluded_statuses)
+        if memory_type:
+            where.append("memory_type=?")
+            params.append(memory_type)
+        elif exclude_memory_types:
+            excluded = [str(item) for item in exclude_memory_types if str(item)]
+            if excluded:
+                where.append("memory_type NOT IN (" + ",".join("?" for _ in excluded) + ")")
+                params.extend(excluded)
+        if name:
+            where.append("content LIKE ? ESCAPE '\\'")
+            params.append(f"%{_like_escape(name)}%")
+        if scope:
+            where.append("scope=?")
+            params.append(scope)
+        if project_key:
+            where.append("project_key=?")
+            params.append(project_key)
+        if session_id:
+            where.append("source_session_id=?")
+            params.append(session_id)
+        where_sql = " WHERE " + " AND ".join(where) if where else ""
+        total = int(self.conn.execute(f"SELECT COUNT(*) AS count FROM memories{where_sql}", params).fetchone()["count"])
+        rows = self.conn.execute(
+            f"SELECT * FROM memories{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (*params, page_size, (page - 1) * page_size),
+        ).fetchall()
+        count_rows = self.conn.execute(
+            f"SELECT status, COUNT(*) AS count FROM memories{where_sql} GROUP BY status",
+            params,
+        ).fetchall()
+        return {
+            "items": [_row_to_dict(row) for row in rows],
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "status_counts": {row["status"]: row["count"] for row in count_rows},
+        }
 
     def stats(self) -> dict[str, Any]:
         rows = self.conn.execute("SELECT status, COUNT(*) AS count FROM memories GROUP BY status").fetchall()
@@ -2323,18 +2725,31 @@ def _trace_link_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return data
 
 
+def _outcome_attribution_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    try:
+        data["evidence_json"] = json.loads(data["evidence_json"])
+    except (TypeError, json.JSONDecodeError):
+        data["evidence_json"] = []
+    try:
+        data["metadata_json"] = json.loads(data["metadata_json"])
+    except (TypeError, json.JSONDecodeError):
+        data["metadata_json"] = {}
+    return data
+
+
 def _id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:24]}"
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return local_now_iso()
 
 
 def _duration_ms(started_at: str, ended_at: str) -> int | None:
     try:
-        started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-        ended = datetime.fromisoformat(ended_at.replace("Z", "+00:00"))
+        started = parse_timestamp(started_at)
+        ended = parse_timestamp(ended_at)
     except ValueError:
         return None
     return int((ended - started).total_seconds() * 1000)
@@ -2343,7 +2758,7 @@ def _duration_ms(started_at: str, ended_at: str) -> int | None:
 def _cutoff(older_than_days: int | None) -> str | None:
     if older_than_days is None:
         return None
-    return (datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=older_than_days)).isoformat().replace("+00:00", "Z")
+    return local_after_iso(days=-older_than_days)
 
 
 def _record_age_minutes(record: dict[str, Any]) -> float:
@@ -2351,10 +2766,101 @@ def _record_age_minutes(record: dict[str, Any]) -> float:
     if not created_at:
         return float("inf")
     try:
-        created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        created = parse_timestamp(created_at)
     except ValueError:
         return float("inf")
-    return (datetime.now(timezone.utc) - created).total_seconds() / 60
+    return (local_now() - created).total_seconds() / 60
+
+
+def _runtime_skill_fragments_for_storage(skill: dict[str, Any], strict_privacy: bool) -> list[dict[str, Any]]:
+    fragments = [dict(item) for item in skill.get("selected_fragments") or [] if isinstance(item, dict)]
+    if not strict_privacy:
+        return fragments
+    sanitized = []
+    for fragment in fragments:
+        item = dict(fragment)
+        item.pop("text_preview", None)
+        item.pop("source_path", None)
+        sanitized.append(item)
+    return sanitized
+
+
+def _runtime_skill_mappings_for_storage(skill: dict[str, Any], strict_privacy: bool) -> list[dict[str, Any]]:
+    mappings = [dict(item) for item in skill.get("fragment_rule_mappings") or [] if isinstance(item, dict)]
+    if not strict_privacy:
+        return mappings
+    sanitized = []
+    for mapping in mappings:
+        item = dict(mapping)
+        item.pop("source_text_preview", None)
+        item.pop("final_rule_preview", None)
+        sanitized.append(item)
+    return sanitized
+
+
+def _runtime_skill_fragment_feedback_attribution(
+    injection_metadata: dict[str, Any],
+    outcome: str,
+    feedback_target: str,
+    dimensions: dict[str, str],
+) -> list[dict[str, Any]]:
+    if outcome not in {"negative", "failure", "mixed"}:
+        return []
+    mappings = [item for item in injection_metadata.get("fragment_rule_mappings") or [] if isinstance(item, dict)]
+    if not mappings:
+        return []
+    target_fields = _feedback_target_fields(feedback_target, dimensions)
+    source_kinds = _feedback_source_kinds(feedback_target, dimensions)
+    candidates = []
+    for mapping in mappings:
+        if target_fields and str(mapping.get("target_field") or "") not in target_fields:
+            continue
+        if source_kinds and str(mapping.get("source_kind") or "") not in source_kinds:
+            continue
+        candidates.append(mapping)
+    if not candidates:
+        candidates = mappings
+    ranked = sorted(candidates, key=lambda item: float(item.get("score") or 0.0), reverse=True)[:8]
+    attribution = []
+    for item in ranked:
+        attribution.append(
+            {
+                "fragment_id": item.get("fragment_id"),
+                "source_skill_id": item.get("source_skill_id"),
+                "source_kind": item.get("source_kind"),
+                "source_field": item.get("source_field"),
+                "target_field": item.get("target_field"),
+                "final_rule_hash": item.get("final_rule_hash"),
+                "final_context_sha256": item.get("final_context_sha256"),
+                "mapping_score": item.get("score"),
+                "risk": item.get("risk"),
+                "reason": f"negative feedback target={feedback_target} matched fragment mapping to {item.get('target_field')}",
+            }
+        )
+    return attribution
+
+
+def _feedback_target_fields(feedback_target: str, dimensions: dict[str, str]) -> set[str]:
+    target = str(feedback_target or "")
+    fields: set[str] = set()
+    if target in {"skill_strategy", "first_action"}:
+        fields.update({"implementation_scope", "final_context.task_rules"})
+    if target in {"execution", "workflow_execution"} or dimensions.get("execution_compliance") in {"failed", "mixed"}:
+        fields.add("acceptance_criteria")
+    if target == "final_result":
+        fields.update({"implementation_scope", "acceptance_criteria", "final_context.task_rules"})
+    if target in {"seed_skill", "durable_skill"}:
+        fields.update({"implementation_scope", "acceptance_criteria", "final_context.task_rules"})
+    return fields
+
+
+def _feedback_source_kinds(feedback_target: str, dimensions: dict[str, str]) -> set[str]:
+    target = str(feedback_target or "")
+    if target == "seed_skill" or dimensions.get("seed_skill_quality") in {"negative", "mixed"}:
+        return {"seed_skill"}
+    if target == "durable_skill" or dimensions.get("durable_skill_quality") in {"negative", "mixed"}:
+        return {"dynamic_skill"}
+    return set()
 
 
 def _runtime_skill_feedback_dimensions(outcome: str, evidence: dict[str, Any]) -> dict[str, str]:
@@ -2412,6 +2918,31 @@ def _runtime_skill_feedback_target(outcome: str, evidence: dict[str, Any]) -> st
     return "unknown"
 
 
+def _seed_feedback_profile(injection: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    profile = metadata.get("task_profile") if isinstance(metadata.get("task_profile"), dict) else {}
+    if not profile:
+        skill = metadata.get("skill") if isinstance(metadata.get("skill"), dict) else {}
+        profile = skill.get("task_profile") if isinstance(skill.get("task_profile"), dict) else {}
+    result = dict(profile or {})
+    domain = _seed_feedback_domain(injection, metadata)
+    if domain and not result.get("domain"):
+        result["domain"] = domain
+    return result
+
+
+def _seed_feedback_domain(injection: dict[str, Any], metadata: dict[str, Any]) -> str:
+    skill = metadata.get("skill") if isinstance(metadata.get("skill"), dict) else {}
+    profile = metadata.get("task_profile") if isinstance(metadata.get("task_profile"), dict) else {}
+    return str(
+        injection.get("domain")
+        or metadata.get("domain")
+        or skill.get("domain")
+        or profile.get("domain")
+        or profile.get("task_domain")
+        or ""
+    )
+
+
 def _json_obj(raw: Any) -> dict[str, Any]:
     if isinstance(raw, dict):
         return dict(raw)
@@ -2463,7 +2994,7 @@ def _normalized_seed_skill_state(status: str, metadata: dict[str, Any]) -> tuple
 def _days_from_now(days: int | None) -> str | None:
     if days is None:
         return None
-    return (datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=days)).isoformat().replace("+00:00", "Z")
+    return local_after_iso(days=days)
 
 
 def project_key_for_cwd(cwd: str | None) -> str | None:
@@ -2476,11 +3007,10 @@ def project_key_for_cwd(cwd: str | None) -> str | None:
 
 
 def _expiry_for_ttl(ttl: str) -> str | None:
-    now = datetime.now(timezone.utc).replace(microsecond=0)
     if ttl == "short":
-        return (now + timedelta(days=7)).isoformat().replace("+00:00", "Z")
+        return local_after_iso(days=7)
     if ttl == "session":
-        return (now + timedelta(hours=12)).isoformat().replace("+00:00", "Z")
+        return local_after_iso(hours=12)
     return None
 
 
@@ -2681,3 +3211,19 @@ def _architecture_relation_polarity(lowered: str) -> int:
     if any(item in lowered for item in integrated):
         return 1
     return 0
+
+
+def _workflow_violation_key(violation_type: str, evidence: dict[str, Any]) -> str:
+    if violation_type == "missing_required_workflow_step":
+        missing_step = str((evidence or {}).get("missing_step") or "").strip()
+        if missing_step:
+            return f"{violation_type}:{missing_step}"
+    if violation_type in {"acceptance_missing", "acceptance_failed"}:
+        criterion_id = str((evidence or {}).get("criterion_id") or "").strip()
+        if criterion_id:
+            return f"{violation_type}:{criterion_id}"
+    return violation_type
+
+
+def _like_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

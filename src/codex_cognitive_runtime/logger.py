@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .security import redact_secrets
+from .timeutil import local_now_iso
 
 
 LEVELS = {"DEBUG": 10, "INFO": 20, "WARN": 30, "ERROR": 40}
@@ -33,7 +33,7 @@ def log(level: str, message: str, **fields: Any) -> None:
         return
     log_dir = Path(os.environ.get("CODEX_COGNITIVE_RUNTIME_LOG_DIR", "~/.codex-cognitive-runtime/logs")).expanduser()
     record = _redact({
-        "ts": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "ts": local_now_iso(),
         "level": level,
         "message": message,
         **fields,

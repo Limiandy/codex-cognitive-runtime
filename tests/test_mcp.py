@@ -49,6 +49,7 @@ class McpTest(unittest.TestCase):
                 self.assertIn("codex_cognitive_runtime_trace_show", names)
                 self.assertIn("codex_cognitive_runtime_trace_events", names)
                 self.assertIn("codex_cognitive_runtime_trace_summary", names)
+                self.assertIn("codex_cognitive_runtime_trace_attribution", names)
                 self.assertIn("codex_cognitive_runtime_trace_audit", names)
                 self.assertIn("codex_cognitive_runtime_promote_dynamic_skill", names)
                 self.assertIn("codex_cognitive_runtime_disable_seed_skill", names)
@@ -194,7 +195,7 @@ class McpTest(unittest.TestCase):
                 self.assertGreaterEqual(len(trace_list_text), 1)
                 self.assertIn("trace_count", trace_audit_text)
                 trace_id = trace_list_text[0]["id"]
-                for index, name in enumerate(("codex_cognitive_runtime_trace_show", "codex_cognitive_runtime_trace_events", "codex_cognitive_runtime_trace_summary"), start=11):
+                for index, name in enumerate(("codex_cognitive_runtime_trace_show", "codex_cognitive_runtime_trace_events", "codex_cognitive_runtime_trace_summary", "codex_cognitive_runtime_trace_attribution"), start=11):
                     proc.stdin.write(
                         json.dumps(
                             {
@@ -210,9 +211,11 @@ class McpTest(unittest.TestCase):
                 trace_show = json.loads(proc.stdout.readline())
                 trace_events = json.loads(proc.stdout.readline())
                 trace_summary = json.loads(proc.stdout.readline())
+                trace_attribution = json.loads(proc.stdout.readline())
                 self.assertIn("trace", json.loads(trace_show["result"]["content"][0]["text"]))
                 self.assertIsInstance(json.loads(trace_events["result"]["content"][0]["text"]), list)
                 self.assertIn("runtime_skill", json.loads(trace_summary["result"]["content"][0]["text"]))
+                self.assertIn("layers", json.loads(trace_attribution["result"]["content"][0]["text"]))
                 self.assertTrue((Path(tmp) / "ledger.sqlite3").exists())
             finally:
                 for stream in (proc.stdin, proc.stdout, proc.stderr):

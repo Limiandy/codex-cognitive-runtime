@@ -211,9 +211,13 @@ class CognitiveRuntimeTest(unittest.TestCase):
                     project_key=str(Path(tmp).resolve()).lower(),
                 )
                 context = service.prompt_context("继续实现前端工程里的 hook 自动注入并跑测试", cwd=tmp)
-                self.assertIn("Codex Cognitive Runtime context:", context)
-                self.assertIn("reasoning_policy:", context)
-                self.assertIn("workflow:", context)
+                self.assertIn("用户需求：继续实现前端工程里的 hook 自动注入并跑测试", context)
+                self.assertIn("项目规则：组织知识：当前 codex-cognitive-runtime 项目要求 hook 与 MCP 不混用", context)
+                self.assertIn("本次对话你的角色是：软件工程专家", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Codex Cognitive Runtime context:", context)
+                self.assertNotIn("reasoning_policy:", context)
+                self.assertNotIn("workflow:", context)
             finally:
                 service.close()
 

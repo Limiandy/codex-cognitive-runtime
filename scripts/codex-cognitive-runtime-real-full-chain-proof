@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="${PLUGIN_ROOT}/src${PYTHONPATH:+:${PYTHONPATH}}"
+unset CODEX_COGNITIVE_RUNTIME_FAKE_MODEL
+python3 -m codex_cognitive_runtime.real_full_chain_proof "$@"

@@ -4,9 +4,10 @@ import difflib
 import json
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .timeutil import local_now, local_now_iso
 
 
 HOME = Path.home()
@@ -177,7 +178,7 @@ def _write_config(text: str) -> Path | None:
     CODEX_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     backup = None
     if CODEX_CONFIG.exists():
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        stamp = local_now().strftime("%Y%m%d%H%M%S")
         backup = CODEX_CONFIG.with_suffix(f".toml.codex-cognitive-runtime-{stamp}.bak")
         shutil.copy2(CODEX_CONFIG, backup)
     CODEX_CONFIG.write_text(text, encoding="utf-8")
@@ -198,7 +199,7 @@ def _build_config_text(text: str, enabled: bool) -> str:
         text = _remove_section(text, f'plugins."{legacy_name}@{MARKETPLACE_NAME}"')
     block_text = (
         f'\n[marketplaces.{MARKETPLACE_NAME}]\n'
-        f'last_updated = "{datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")}"\n'
+        f'last_updated = "{local_now_iso()}"\n'
         f'source_type = "local"\n'
         f'source = {json.dumps(str(MARKETPLACE_ROOT))}\n'
         f'\n[plugins."{PLUGIN_CONFIG_KEY}"]\n'
@@ -338,7 +339,7 @@ def _validate_toml(text: str) -> dict[str, Any]:
 def _backup_installed_plugin() -> Path | None:
     if not PLUGIN_INSTALL_PATH.exists():
         return None
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    stamp = local_now().strftime("%Y%m%d%H%M%S")
     backup = PLUGIN_INSTALL_PATH.with_name(f"{PLUGIN_INSTALL_PATH.name}.codex-cognitive-runtime-{stamp}.bak")
     if backup.exists():
         shutil.rmtree(backup)

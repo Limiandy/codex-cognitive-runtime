@@ -4,11 +4,11 @@ import hashlib
 import json
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from .ledger import Ledger, project_key_for_cwd
 from .security import redact_secrets
+from .timeutil import local_now, local_now_iso, parse_timestamp
 
 
 @dataclass(frozen=True)
@@ -155,7 +155,7 @@ class RuntimeMonitor:
     def trace_audit(self) -> dict[str, Any]:
         traces = self.ledger.list_traces(limit=5000)
         events_by_trace: dict[str, list[dict[str, Any]]] = {}
-        now = datetime.now(timezone.utc)
+        now = local_now()
         stale = []
         incomplete = []
         failed = []
@@ -169,7 +169,7 @@ class RuntimeMonitor:
             status = str(trace.get("status") or "")
             if status not in {"completed", "failed"}:
                 try:
-                    updated = datetime.fromisoformat(str(trace.get("updated_at") or "").replace("Z", "+00:00"))
+                    updated = parse_timestamp(str(trace.get("updated_at") or ""))
                     if (now - updated).total_seconds() > 86400:
                         stale.append(trace)
                 except ValueError:
@@ -216,6 +216,8 @@ def _summary(trace: dict[str, Any], events: list[dict[str, Any]], links: list[di
     reviewed = by_name.get("runtime_skill_reviewed", {}).get("metadata_json", {})
     feedback = by_name.get("runtime_skill_feedback_recorded", {}).get("metadata_json", {})
     stop = by_name.get("workflow_stop_audited", {}).get("metadata_json", {})
+    acceptance = by_name.get("acceptance_coverage_evaluated", {}).get("metadata_json", {})
+    attribution = by_name.get("outcome_attribution_completed", {}).get("metadata_json", {})
     latency = {}
     for event in events:
         metadata = event.get("metadata_json") or {}
@@ -245,14 +247,22 @@ def _summary(trace: dict[str, Any], events: list[dict[str, Any]], links: list[di
             "observed": bool(stop),
             "completed": stop.get("completed"),
             "violations": stop.get("violations") or [],
+            "acceptance_coverage": stop.get("acceptance_coverage") or {},
         },
         "feedback": {
             "outcome": feedback.get("outcome"),
             "target": feedback.get("feedback_target"),
             "dimensions": feedback.get("dimensions") or {},
         },
+        "closed_loop": {
+            "complete": attribution.get("closed_loop_complete"),
+            "primary_failure_layer": attribution.get("primary_failure_layer"),
+            "layer_results": attribution.get("layer_results") or {},
+            "acceptance_coverage": acceptance,
+        },
         "adjustments": {
             "seed_skills": [event.get("metadata_json") for event in events if event.get("name") == "seed_skill_adjusted"],
+            "seed_skill_calibrations": [event.get("metadata_json") for event in events if event.get("name") == "seed_skill_calibration_applied"],
             "durable_skills": [event.get("metadata_json") for event in events if event.get("name") == "durable_skill_adjusted"],
         },
         "latency": latency,
@@ -270,17 +280,53 @@ def _orphan_feedback(events_by_trace: dict[str, list[dict[str, Any]]]) -> list[d
 
 
 def _strict(metadata: dict[str, Any]) -> dict[str, Any]:
-    strict = redact_secrets(metadata)
-    for key in ("prompt_preview", "cwd", "project_key", "command", "path", "feedback_prompt"):
-        if key in strict and strict[key]:
-            strict[f"{key}_sha256"] = _sha(str(strict[key]))
-            strict[f"{key}_chars"] = len(str(strict[key]))
-            strict[key] = "omitted_by_strict_privacy"
-    if "files_changed" in strict and isinstance(strict["files_changed"], list):
-        strict["files_changed_hashes"] = [_sha(str(item)) for item in strict["files_changed"]]
-        strict["files_changed_count"] = len(strict["files_changed"])
-        strict["files_changed"] = []
-    return strict
+    return _strict_value(redact_secrets(metadata), parent_key="")
+
+
+def _strict_value(value: Any, parent_key: str) -> Any:
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            key_text = str(key)
+            lowered = key_text.lower()
+            if _strict_omit_key(lowered) and item not in (None, "", [], {}):
+                result[f"{key_text}_sha256"] = _sha(str(item))
+                result[f"{key_text}_chars"] = len(str(item))
+                result[key_text] = "omitted_by_strict_privacy"
+            elif lowered == "files_changed" and isinstance(item, list):
+                result[f"{key_text}_hashes"] = [_sha(str(entry)) for entry in item]
+                result[f"{key_text}_count"] = len(item)
+                result[key_text] = []
+            else:
+                result[key_text] = _strict_value(item, lowered)
+        return result
+    if isinstance(value, list):
+        return [_strict_value(item, parent_key) for item in value[:20]]
+    if isinstance(value, str) and _strict_omit_key(parent_key) and value:
+        return "omitted_by_strict_privacy"
+    return value
+
+
+def _strict_omit_key(key: str) -> bool:
+    return any(
+        marker in key
+        for marker in (
+            "prompt",
+            "request",
+            "context",
+            "content",
+            "command",
+            "path",
+            "cwd",
+            "project_key",
+            "feedback",
+            "question",
+            "answer",
+            "message",
+            "preview",
+            "text",
+        )
+    )
 
 
 def _live_log(event: dict[str, Any]) -> None:
@@ -306,4 +352,4 @@ def _sha(text: str) -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return local_now_iso()

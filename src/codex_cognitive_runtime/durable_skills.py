@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from .ledger import project_key_for_cwd
 from .taxonomy import tokenize
+from .timeutil import local_now_iso
 
 
 ACTIVE_DURABLE_STATUSES = {"active"}
@@ -27,7 +27,7 @@ class DurableSkillManager:
         return record
 
     def promote(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
-        return self._set_status(skill_id, "active", note=note, source="manual_promote", extra={"review_required": False, "last_promoted_at": _utc_now()})
+        return self._set_status(skill_id, "active", note=note, source="manual_promote", extra={"review_required": False, "last_promoted_at": _now()})
 
     def reject(self, skill_id: str, note: str = "") -> dict[str, Any] | None:
         return self._set_status(skill_id, "rejected", note=note, source="manual_reject")
@@ -65,7 +65,7 @@ class DurableSkillManager:
         record = self.get(skill_id)
         if not record:
             return None
-        now = _utc_now()
+        now = _now()
         patch = {
             "review_note": note,
             "reviewed_at": now,
@@ -79,8 +79,10 @@ class DurableSkillManager:
         return self.ledger.set_cognitive_record_status(skill_id, status, patch)
 
 
-def relevant_durable_skills(ledger: Any, prompt: str, cwd: str | None = None, limit: int = 3) -> list[dict[str, Any]]:
+def relevant_durable_skills(ledger: Any, prompt: str, cwd: str | None = None, limit: int = 3, task_profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     tokens = set(tokenize(prompt))
+    for surface in (task_profile or {}).get("surfaces") or []:
+        tokens.add(str(surface).lower())
     if not tokens:
         return []
     project_key = project_key_for_cwd(cwd) if cwd else None
@@ -99,6 +101,8 @@ def relevant_durable_skills(ledger: Any, prompt: str, cwd: str | None = None, li
             ]
         )
         overlap = len(tokens.intersection(set(tokenize(haystack))))
+        if task_profile and set(task_profile.get("surfaces") or []) & set(tokenize(haystack)):
+            overlap += 2
         if overlap <= 0:
             continue
         success_count = int(metadata.get("success_count") or 0)
@@ -134,8 +138,8 @@ def durable_skill_basis_summary(skills: list[dict[str, Any]]) -> str:
     return " | ".join(parts)
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+def _now() -> str:
+    return local_now_iso()
 
 
 def _top(skills: list[dict[str, Any]], field: str) -> list[dict[str, Any]]:

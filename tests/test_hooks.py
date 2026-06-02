@@ -26,8 +26,9 @@ class HookTest(unittest.TestCase):
                     "model": "gpt-5.5",
                 },
             )
-            self.assertEqual(first, {})
-            self.assertTrue(_wait_for_active_memory(env))
+            self.assertIn("hookSpecificOutput", first)
+            self.assertFalse(first.get("codexMemoryRuntime", {}).get("started", False))
+            self.assertTrue(_wait_for_active_user_preference(env))
 
             second = _run_hook(
                 env,
@@ -39,10 +40,43 @@ class HookTest(unittest.TestCase):
                 },
             )
             context = second["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("Codex Cognitive Runtime context:", context)
+            self.assertIn("用户需求：我的回答语言偏好是什么？", context)
+            self.assertIn("基础规则：", context)
             self.assertIn("用户偏好默认使用中文回答", context)
 
-    def test_observed_runtime_hook_chain_records_violation_and_injects_control(self):
+    def test_session_start_does_not_inject_recalled_memory_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                **os.environ,
+                "PYTHONPATH": "src",
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
+            }
+
+            _run_hook(
+                env,
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "prompt": "默认使用中文回答",
+                    "cwd": "/tmp/project",
+                    "model": "gpt-5.5",
+                },
+            )
+            self.assertTrue(_wait_for_active_user_preference(env))
+
+            started = _run_hook(
+                env,
+                {
+                    "hook_event_name": "SessionStart",
+                    "cwd": "/tmp/project",
+                    "session_id": "new-session",
+                },
+                "session_start",
+            )
+            self.assertIn("systemMessage", started)
+            self.assertNotIn("hookSpecificOutput", started)
+
+    def test_observed_runtime_hook_chain_records_violation_without_next_turn_control(self):
         with tempfile.TemporaryDirectory() as tmp:
             env = {
                 **os.environ,
@@ -80,9 +114,34 @@ class HookTest(unittest.TestCase):
                 },
                 "user_message",
             )
-            context = followup["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("Runtime control:", context)
-            self.assertIn("changed_without_verification", context)
+            self.assertIn("hookSpecificOutput", followup)
+            self.assertIn("用户需求：继续处理", followup["hookSpecificOutput"]["additionalContext"])
+            self.assertIn("基础规则：", followup["hookSpecificOutput"]["additionalContext"])
+            self.assertFalse(followup.get("codexMemoryRuntime", {}).get("started", False))
+
+    def test_direct_answer_prompt_does_not_start_runtime_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {
+                **os.environ,
+                "PYTHONPATH": "src",
+                "CODEX_COGNITIVE_RUNTIME_FAKE_MODEL": "1",
+                "CODEX_COGNITIVE_RUNTIME_STATE_DIR": tmp,
+            }
+            result = _run_hook(
+                env,
+                {
+                    "session_id": "runtime-session",
+                    "turn_id": "runtime-turn",
+                    "cwd": tmp,
+                    "model": "gpt-5.5",
+                    "hook_event_name": "UserPromptSubmit",
+                    "prompt": "失败指的是我们的 workflow 失败，不是 Codex 本身执行失败对吧？",
+                },
+                "user_message",
+            )
+            self.assertFalse(result.get("codexMemoryRuntime", {}).get("started", False))
+            if "hookSpecificOutput" in result:
+                self.assertNotIn("Runtime Skill:", result["hookSpecificOutput"]["additionalContext"])
 
 
 def _run_hook(env, payload, hook_name="user_message"):
@@ -114,6 +173,33 @@ def _wait_for_active_memory(env):
         )
         memories = json.loads(proc.stdout)
         if memories:
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def _wait_for_active_user_preference(env):
+    for _ in range(30):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from codex_cognitive_runtime.config import load_config; "
+                "from codex_cognitive_runtime.service import MemoryService; "
+                "s=MemoryService(load_config()); "
+                "p=s.user_preferences_page(page=1,page_size=20,status='active'); "
+                "print(__import__('json').dumps(p,ensure_ascii=False)); "
+                "s.close()",
+            ],
+            cwd=".",
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+        )
+        page = json.loads(proc.stdout)
+        if any("默认使用中文回答" in item.get("content", "") for item in page.get("items", [])):
             return True
         time.sleep(0.2)
     return False

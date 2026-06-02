@@ -125,7 +125,36 @@ def _apply_custom_rules(
 def _tool_kind(tool_name: str, command: str, text: str) -> tuple[str, float, str]:
     tool_and_command = " ".join((tool_name, command)).lower()
     lowered = " ".join((tool_name, command, text)).lower()
-    verify_signals = ("pytest", "unittest", "npm test", "pnpm test", "yarn test", "ruff", "mypy", "build", "lint", "tsc", "go test", "cargo test")
+    verify_signals = (
+        "pytest",
+        "unittest",
+        "npm test",
+        "pnpm test",
+        "yarn test",
+        "npm run typecheck",
+        "pnpm run typecheck",
+        "yarn typecheck",
+        "typecheck",
+        "vue-tsc",
+        "npm run check",
+        "pnpm run check",
+        "pnpm check",
+        "yarn check",
+        "python -m compileall",
+        "python3 -m compileall",
+        "compileall",
+        "ruff",
+        "mypy",
+        "build",
+        "lint",
+        "tsc",
+        "go test",
+        "cargo test",
+        "chrome",
+        "browser",
+        "playwright",
+        "screenshot",
+    )
     edit_signals = ("apply_patch", "write_file", "edit", "*** begin patch", "update file", "add file", "delete file")
     inspect_signals = ("read_file", "grep", "search", "list", "git diff", "cat ", "sed ", "rg ", "ls ", "find ", "nl ", "wc ")
     for signal in edit_signals:

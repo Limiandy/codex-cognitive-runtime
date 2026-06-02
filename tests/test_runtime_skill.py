@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from codex_cognitive_runtime.config import Config
+from codex_cognitive_runtime.memory_retriever import CleanMemoryRetriever
 from codex_cognitive_runtime.seed_skills import is_seed_skill_eligible, relevant_seed_skills
 from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
 from codex_cognitive_runtime.service import MemoryService
@@ -81,12 +82,18 @@ class RuntimeSkillTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
             try:
+                service.ledger.add_candidate(
+                    _candidate("用户偏好默认使用中文回答。"),
+                    "active",
+                    {"status": "active", "risk_flags": []},
+                )
                 context = service.prompt_context("现在天气怎么样？", cwd=tmp, session_id="s1")
                 self.assertNotIn("Runtime Skill:", context)
-                self.assertNotIn("Codex Cognitive Runtime context:", context)
-                self.assertEqual(context, "")
+                self.assertIn("用户需求：现在天气怎么样？", context)
+                self.assertIn("基础规则：", context)
+                self.assertIn("用户偏好默认使用中文回答。", context)
                 recalls = service.ledger.conn.execute("SELECT COUNT(*) FROM recall_events").fetchone()[0]
-                self.assertEqual(recalls, 0)
+                self.assertGreaterEqual(recalls, 1)
             finally:
                 service.close()
 
@@ -96,7 +103,8 @@ class RuntimeSkillTest(unittest.TestCase):
             service = _service(tmp)
             try:
                 context = service.prompt_context("测试", cwd=tmp, session_id="s1")
-                self.assertEqual(context, "")
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertIn("用户需求：测试", context)
                 model_classify.assert_not_called()
             finally:
                 service.close()
@@ -117,8 +125,11 @@ class RuntimeSkillTest(unittest.TestCase):
             service = _service(tmp)
             try:
                 context = service.prompt_context("请帮我设计一套视觉识别方向", cwd=tmp, session_id="s1")
-                self.assertIn("Runtime Skill: brand_logo_design_intake", context)
-                model_classify.assert_called_once()
+                self.assertIn("用户需求：请帮我设计一套视觉识别方向", context)
+                self.assertIn("本次对话你的角色是：品牌设计专家", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
+                model_classify.assert_not_called()
             finally:
                 service.close()
 
@@ -157,7 +168,8 @@ class RuntimeSkillTest(unittest.TestCase):
             service.model = TimeoutModel()
             try:
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
-                self.assertIn("Runtime Skill: timeout_checked_logo", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
                 self.assertEqual(service.model.timeouts, [12, 12])
             finally:
                 service.close()
@@ -183,7 +195,8 @@ class RuntimeSkillTest(unittest.TestCase):
             service = _service(tmp)
             try:
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
-                self.assertIn("Runtime Skill: model_generated_logo_intake", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
                 model_synthesize.assert_called_once()
             finally:
                 service.close()
@@ -299,9 +312,9 @@ class RuntimeSkillTest(unittest.TestCase):
 
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
 
-                self.assertIn("Runtime Skill: brand_logo_design_intake", context)
-                self.assertIn("First action: ask_clarifying_questions", context)
-                self.assertIn("品牌名称是什么？", context)
+                self.assertIn("用户需求：帮我画一个品牌 logo", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
                 self.assertIn("极简", context)
                 self.assertIn("高端 B2B SaaS", context)
                 self.assertNotIn("Codex Cognitive Runtime context:", context)
@@ -341,10 +354,9 @@ class RuntimeSkillTest(unittest.TestCase):
 
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
 
-                self.assertIn("Runtime Skill: brand_logo_design_intake", context)
-                self.assertIn("Seed skill basis:", context)
-                self.assertIn("Brand Guardian", context)
-                self.assertIn("No clean long-term memory matched", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertNotIn("Seed skill basis:", context)
                 injections = [
                     item
                     for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
@@ -352,6 +364,72 @@ class RuntimeSkillTest(unittest.TestCase):
                 ]
                 metadata = injections[0].get("metadata_json") or {}
                 self.assertEqual(metadata["seed_skill_ids"], ["agency-agents:design/design-brand-guardian.md"])
+            finally:
+                service.close()
+
+    @patch("codex_cognitive_runtime.seed_skills._clone_repo")
+    def test_default_seed_skills_use_bundled_source_without_network(self, clone_repo):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                seeded = service.seed_skills(category="design")
+
+                self.assertTrue(seeded["ok"])
+                self.assertGreater(seeded["skill_count"], 0)
+                clone_repo.assert_not_called()
+                seed_record = service.ledger.get_cognitive_record("agency-agents:design/design-ui-designer.md")
+                self.assertIsNotNone(seed_record)
+                self.assertIn("Source Guidance", seed_record["content"])
+                self.assertEqual(seed_record["status"], "active")
+                self.assertEqual(seed_record["metadata_json"]["trust_state"], "trusted")
+                self.assertTrue(seed_record["metadata_json"]["source_verified"])
+            finally:
+                service.close()
+
+    @patch("codex_cognitive_runtime.seed_skills._clone_repo")
+    def test_runtime_skill_cold_start_auto_imports_bundled_seed_skills(self, clone_repo):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("帮我设计一个数据产品的品牌界面", cwd=tmp, session_id="s1")
+
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertNotIn("Seed skill basis:", context)
+                clone_repo.assert_not_called()
+                stats = service.seed_skill_stats()
+                self.assertGreater(stats["count"], 0)
+            finally:
+                service.close()
+
+    @patch("codex_cognitive_runtime.seed_skills._clone_repo")
+    def test_seed_skill_list_auto_imports_bundled_seed_skills(self, clone_repo):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                skills = service.list_seed_skills(limit=20)
+
+                self.assertTrue(skills)
+                self.assertTrue(any((item.get("metadata_json") or {}).get("source_path") == "design/design-ui-designer.md" for item in skills))
+                clone_repo.assert_not_called()
+            finally:
+                service.close()
+
+    def test_seed_skill_page_filters_by_name_and_category(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                page = service.seed_skill_page(page=1, page_size=5, name="UI", category="design")
+
+                self.assertEqual(page["page"], 1)
+                self.assertEqual(page["page_size"], 5)
+                self.assertGreaterEqual(page["total"], 1)
+                self.assertIn("design", page["categories"])
+                self.assertTrue(all((item["metadata_json"] or {}).get("category") == "design" for item in page["items"]))
+                self.assertTrue(any((item["metadata_json"] or {}).get("name") == "UI Designer" for item in page["items"]))
+
+                second = service.seed_skill_page(page=2, page_size=1, category="design")
+                self.assertEqual(len(second["items"]), 1)
             finally:
                 service.close()
 
@@ -370,7 +448,7 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    def test_seed_skills_with_too_many_failures_are_not_retrieved(self):
+    def test_seed_skill_failure_counts_do_not_disable_without_trust_suppression(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
             source_path = Path(source)
             _write_seed_source(source_path)
@@ -382,7 +460,13 @@ class RuntimeSkillTest(unittest.TestCase):
                     {"failure_count": 3, "success_count": 0},
                 )
                 skills = relevant_seed_skills(service.ledger, "帮我画一个品牌 logo")
-                self.assertFalse([item for item in skills if item["id"] == "agency-agents:design/design-brand-guardian.md"])
+                self.assertTrue([item for item in skills if item["id"] == "agency-agents:design/design-brand-guardian.md"])
+                service.ledger.set_cognitive_record_status(
+                    "agency-agents:design/design-brand-guardian.md",
+                    "suppressed",
+                    {"trust_state": "suppressed"},
+                )
+                self.assertFalse(relevant_seed_skills(service.ledger, "帮我画一个品牌 logo"))
             finally:
                 service.close()
 
@@ -535,7 +619,7 @@ class RuntimeSkillTest(unittest.TestCase):
             finally:
                 service.close()
 
-    def test_negative_feedback_suppresses_seed_skill_after_repeated_failures(self):
+    def test_negative_feedback_calibrates_seed_profile_without_suppressing_skill(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
             source_path = Path(source)
             _write_seed_source(source_path)
@@ -549,9 +633,115 @@ class RuntimeSkillTest(unittest.TestCase):
                 seed = service.ledger.get_cognitive_record("agency-agents:design/design-brand-guardian.md")
                 metadata = seed["metadata_json"]
                 self.assertEqual(metadata["failure_count"], 3)
-                self.assertEqual(metadata["trust_state"], "suppressed")
-                self.assertEqual(seed["status"], "suppressed")
-                self.assertFalse(relevant_seed_skills(service.ledger, "帮我画一个品牌 logo"))
+                self.assertEqual(metadata["trust_state"], "unverified")
+                self.assertEqual(seed["status"], "active")
+                self.assertIn("seed_scoring_calibration", metadata)
+                calibration = metadata["seed_scoring_calibration"]
+                self.assertTrue(calibration["profiles"])
+                self.assertTrue(is_seed_skill_eligible(seed))
+            finally:
+                service.close()
+
+    def test_wrong_ranked_seed_skill_drops_for_same_profile_after_feedback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                profile = {
+                    "task_type": "brand_logo_design",
+                    "domain": "brand_design",
+                    "surfaces": ["design"],
+                    "project_type": "unknown",
+                    "confidence": 0.92,
+                }
+                wrong = service.ledger.record_cognitive_record(
+                    "skill",
+                    "seed_skill",
+                    "seed:wrong-brand",
+                    "Brand logo visual identity design system with irrelevant campaign-first advice.",
+                    "active",
+                    "global",
+                    domain="brand_design",
+                    importance=0.92,
+                    metadata={
+                        "skill_type": "seed_skill",
+                        "name": "Wrong Brand Template",
+                        "description": "brand logo visual identity design",
+                        "category": "design",
+                        "trust_level": "external_seed",
+                        "trust_state": "trusted",
+                        "source_verified": True,
+                        "success_count": 0,
+                        "failure_count": 0,
+                        "reuse_count": 0,
+                    },
+                )
+                right = service.ledger.record_cognitive_record(
+                    "skill",
+                    "seed_skill",
+                    "seed:right-brand",
+                    "Brand logo visual identity design intake that asks constraints before directions.",
+                    "active",
+                    "global",
+                    domain="brand_design",
+                    importance=0.3,
+                    metadata={
+                        "skill_type": "seed_skill",
+                        "name": "Right Brand Intake",
+                        "description": "brand logo visual identity design",
+                        "category": "design",
+                        "trust_level": "external_seed",
+                        "trust_state": "trusted",
+                        "source_verified": True,
+                        "success_count": 0,
+                        "failure_count": 0,
+                        "reuse_count": 0,
+                    },
+                )
+                before = CleanMemoryRetriever(service.ledger).retrieve(
+                    "帮我画一个品牌 logo",
+                    cwd=tmp,
+                    session_id="s1",
+                    task_profile=profile,
+                )
+                before_scores = {item["id"]: item for item in before["seed_skill_selection_scores"]}
+                self.assertLess(before_scores[wrong["id"]]["rank"], before_scores[right["id"]]["rank"])
+
+                trace = service.monitor.start_trace("帮我画一个品牌 logo", session_id="s1", turn_id="t1", cwd=tmp)
+                injection = service.ledger.record_runtime_skill_injection(
+                    "帮我画一个品牌 logo",
+                    {
+                        "name": "wrong_seed_runtime_skill",
+                        "intent": "brand_logo_design",
+                        "domain": "brand_design",
+                        "confidence": 0.8,
+                        "memory_basis_ids": [],
+                        "durable_skill_ids": [],
+                        "seed_skill_ids": [wrong["id"]],
+                        "source_skill_ids": [wrong["id"]],
+                        "workflow_required_steps": [],
+                        "task_profile": profile,
+                    },
+                    session_id="s1",
+                    turn_id="t1",
+                    cwd=tmp,
+                    project_key=str(Path(tmp).resolve()).lower(),
+                )
+                service.ledger.patch_cognitive_record_metadata(str(injection["id"]), {"trace_id": trace.trace_id})
+                feedback = service.runtime_skill_feedback(str(injection["id"]), "negative", target="seed_skill", note="wrong seed")
+                self.assertEqual(feedback["metadata_json"]["outcome"], "negative")
+
+                after = CleanMemoryRetriever(service.ledger).retrieve(
+                    "帮我画一个品牌 logo",
+                    cwd=tmp,
+                    session_id="s2",
+                    task_profile=profile,
+                )
+                after_scores = {item["id"]: item for item in after["seed_skill_selection_scores"]}
+                self.assertGreater(after_scores[wrong["id"]]["rank"], after_scores[right["id"]]["rank"])
+                self.assertLess(after_scores[wrong["id"]]["score"], after_scores[wrong["id"]]["base_score"])
+                self.assertEqual(service.ledger.get_cognitive_record(str(wrong["id"]))["status"], "active")
+                names = {event["name"] for event in service.trace_events(trace.trace_id)}
+                self.assertIn("seed_skill_calibration_applied", names)
             finally:
                 service.close()
 
@@ -608,7 +798,8 @@ class RuntimeSkillTest(unittest.TestCase):
             service = _service(tmp)
             try:
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
-                self.assertIn("First action: ask_clarifying_questions", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("First action:", context)
                 injection = [
                     item
                     for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
@@ -638,7 +829,8 @@ class RuntimeSkillTest(unittest.TestCase):
             service = _service(tmp)
             try:
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
-                self.assertIn("Runtime Skill:", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
                 self.assertNotIn("according to your preferences", context.lower())
                 injection = [
                     item
@@ -722,11 +914,122 @@ class RuntimeSkillTest(unittest.TestCase):
 
                 context = service.prompt_context("帮我修复这个 bug", cwd=tmp, session_id="s1")
 
-                self.assertIn("Runtime Skill: software_change_guarded_workflow", context)
-                self.assertIn("Inspect the relevant repository context", context)
-                self.assertIn("工程经验", context)
-                self.assertIn("Codex Cognitive Runtime context:", context)
-                self.assertIn("workflow:", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertIn("修改前检查相关仓库上下文", context)
+                self.assertNotIn("工程经验", context)
+                self.assertNotIn("Codex Cognitive Runtime context:", context)
+                self.assertNotIn("workflow:", context)
+            finally:
+                service.close()
+
+    def test_fullstack_task_injects_one_distilled_runtime_skill_with_profile_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text('{"scripts":{"typecheck":"tsc --noEmit"}}\n', encoding="utf-8")
+            (root / "src").mkdir()
+            (root / "src" / "api.py").write_text("def list_items():\n    return []\n", encoding="utf-8")
+            service = _service(tmp)
+            try:
+                payload = {
+                    "prompt": "实现 API 分页接口和前端分类筛选，并用浏览器验证",
+                    "session_id": "s1",
+                    "turn_id": "t1",
+                    "cwd": tmp,
+                }
+                service.start_task_from_prompt(payload)
+                context = service.prompt_context(payload["prompt"], cwd=tmp, session_id="s1", turn_id="t1")
+
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertNotIn("Agent Personality", context)
+                self.assertNotIn("Source Guidance", context)
+                self.assertNotIn("Workflow checks:", context)
+                injections = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
+                ]
+                self.assertEqual(len(injections), 1)
+                metadata = injections[0]["metadata_json"]
+                skill = metadata["skill"]
+                self.assertEqual(skill["task_profile"]["task_type"], "fullstack_integration_change")
+                self.assertIn("frontend", skill["task_profile"]["surfaces"])
+                self.assertIn("backend", skill["task_profile"]["surfaces"])
+                self.assertTrue(skill["source_skill_ids"])
+                self.assertEqual(metadata["source_skill_ids"], skill["source_skill_ids"])
+                selected_fragments = metadata["selected_fragments"]
+                fragment_mappings = metadata["fragment_rule_mappings"]
+                self.assertTrue(selected_fragments)
+                self.assertTrue(fragment_mappings)
+                self.assertEqual(skill["selected_fragments"], selected_fragments)
+                self.assertEqual(skill["fragment_rule_mappings"], fragment_mappings)
+                self.assertEqual(metadata["final_rule_hashes"]["final_context_sha256"], metadata["final_context_sha256"])
+                self.assertEqual(len(metadata["final_context_sha256"]), 64)
+                fragment_ids = {item["fragment_id"] for item in selected_fragments}
+                target_fields = {item["target_field"] for item in fragment_mappings}
+                self.assertIn("implementation_scope", target_fields)
+                self.assertIn("acceptance_criteria", target_fields)
+                self.assertIn("final_context.task_rules", target_fields)
+                for mapping in fragment_mappings:
+                    self.assertIn(mapping["fragment_id"], fragment_ids)
+                    self.assertEqual(len(mapping["final_rule_hash"]), 64)
+                    self.assertEqual(mapping["final_context_sha256"], metadata["final_context_sha256"])
+                    self.assertIn(mapping["risk"], {"low", "medium", "high"})
+                    self.assertGreaterEqual(mapping["score"], 0)
+                self.assertIn("backend_test", metadata["workflow_required_steps"])
+                self.assertIn("frontend_typecheck", metadata["workflow_required_steps"])
+                self.assertIn("browser_verify", metadata["workflow_required_steps"])
+            finally:
+                service.close()
+
+    def test_negative_feedback_is_attributed_to_selected_fragment_mapping(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as source:
+            source_path = Path(source)
+            _write_seed_source(source_path)
+            service = _service(tmp)
+            try:
+                service.seed_skills(source=str(source_path), activate=True)
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                injection = [
+                    item
+                    for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                    if item.get("record_type") == "injection"
+                ][0]
+                metadata = injection["metadata_json"]
+                self.assertTrue(metadata["selected_fragments"])
+                self.assertTrue(metadata["fragment_rule_mappings"])
+
+                feedback = service.apply_natural_feedback("这个模板不适合", session_id="s1")
+
+                feedback_metadata = feedback["runtime_skill_feedback"]["metadata_json"]
+                attribution = feedback_metadata["fragment_attribution"]
+                self.assertTrue(attribution)
+                self.assertEqual(attribution[0]["source_kind"], "seed_skill")
+                self.assertEqual(attribution[0]["source_skill_id"], "agency-agents:design/design-brand-guardian.md")
+                self.assertEqual(len(attribution[0]["final_rule_hash"]), 64)
+                updated_injection = service.ledger.get_cognitive_record(str(injection["id"]))
+                self.assertEqual((updated_injection["metadata_json"] or {})["feedback_fragment_attribution"], attribution)
+                events = service.trace_events(str(metadata["trace_id"]))
+                self.assertTrue(any(event["name"] == "runtime_skill_fragment_feedback_attributed" for event in events))
+            finally:
+                service.close()
+
+    def test_thread_resume_prompt_without_active_workflow_does_not_inject_business_skill(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                context = service.prompt_context("读取会话并继续工作", cwd=tmp, session_id="s1", turn_id="t1")
+
+                self.assertIn("用户需求：读取会话并继续工作", context)
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertFalse(
+                    [
+                        item
+                        for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
+                        if item.get("record_type") == "injection"
+                    ]
+                )
             finally:
                 service.close()
 
@@ -760,7 +1063,8 @@ class RuntimeSkillTest(unittest.TestCase):
                 service.promote_dynamic_skill(str(candidate["id"]), note="validated")
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s2")
 
-                self.assertIn("Durable skill basis:", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Durable skill basis:", context)
                 injection = [
                     item
                     for item in service.ledger.list_cognitive_records(layer="runtime_skill", status="active", limit=20)
@@ -1040,6 +1344,179 @@ class RuntimeSkillTest(unittest.TestCase):
             decision = classifier.classify(prompt)
             self.assertTrue(decision.skill_needed, prompt)
             self.assertEqual(decision.domain, "software_engineering")
+
+    def test_ui_engineering_short_requests_trigger_runtime_skill(self):
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
+
+        classifier = SkillNeedClassifier(model=None)
+        for prompt in [
+            "你看这个页面的三个部分，它们应该都有独立的滚动条",
+            "调整重置按钮大小，增加下拉 select placeholder",
+            "这个列表筛选区布局不对，修一下",
+        ]:
+            decision = classifier.classify(prompt)
+            self.assertTrue(decision.skill_needed, prompt)
+            self.assertEqual(decision.domain, "software_engineering")
+            self.assertEqual(decision.mode, "generate_runtime_skill")
+
+    def test_tab_editable_model_powered_request_relies_on_model_semantics(self):
+        from codex_cognitive_runtime.model_client import CodexMiniClient
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
+
+        prompt = "将“用户偏好”单独拉出一个tab页来，用户可编辑，可使用大模型进行优化"
+        fallback_decision = SkillNeedClassifier(model=None).classify(prompt)
+        self.assertFalse(fallback_decision.skill_needed)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            modeled_decision = SkillNeedClassifier(
+                CodexMiniClient(
+                    Config(
+                        model="gpt-5.4-mini",
+                        state_dir=tmp_path,
+                        ledger_path=tmp_path / "ledger.sqlite3",
+                        min_active_confidence=0.82,
+                        min_quarantine_confidence=0.62,
+                        duplicate_threshold=0.9,
+                        max_evidence_quote_chars=500,
+                    )
+                )
+            ).classify(prompt)
+        self.assertTrue(modeled_decision.skill_needed)
+        self.assertEqual(modeled_decision.domain, "software_engineering")
+        stages = [stage["stage"] for stage in modeled_decision.decision_chain["stages"]]
+        self.assertIn("model_classification", stages)
+
+    def test_direct_answer_prompts_stay_without_runtime_skill(self):
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
+
+        classifier = SkillNeedClassifier(model=None)
+        for prompt in [
+            "这是什么页面？",
+            "为什么判定它不需要 skill 呢？只需要回答原因就行",
+            "解释这个词是什么意思",
+            "现在时间",
+            "翻译 hello",
+        ]:
+            decision = classifier.classify(prompt)
+            self.assertFalse(decision.skill_needed, prompt)
+            self.assertEqual(decision.mode, "direct_answer")
+
+    def test_privacy_execution_request_triggers_runtime_skill(self):
+        from codex_cognitive_runtime.task_understanding import TaskUnderstandingEngine
+
+        task = TaskUnderstandingEngine(model=None).understand("教育平台：检查学生隐私数据在日志、反馈和报告中的脱敏闭环")
+        self.assertTrue(task.skill_needed)
+        self.assertEqual(task.domain, "software_engineering")
+        self.assertIn("privacy", task.surfaces)
+
+    def test_chinese_dashboard_request_is_treated_as_ui_task(self):
+        from codex_cognitive_runtime.task_understanding import TaskUnderstandingEngine
+
+        task = TaskUnderstandingEngine(model=None).understand("制造质检看板：展示缺陷率、批次、工站和追溯入口，要求异常优先级清晰")
+        self.assertTrue(task.skill_needed)
+        self.assertIn("frontend", task.surfaces)
+        self.assertIn("ui", task.surfaces)
+
+    def test_seed_scoring_treats_negated_domain_mentions_as_guards(self):
+        from codex_cognitive_runtime.memory_retriever import _seed_compatibility_score, _target_terms
+
+        roblox_target = _target_terms("普通 Web UI 任务中不要误选 Roblox 脚本类 seed，除非任务明确是 Roblox", {"surfaces": ["frontend", "ui", "ux"]})
+        self.assertNotIn("game", roblox_target["domains"])
+        roblox_score = _seed_compatibility_score(
+            "roblox experience designer game ui",
+            roblox_target,
+            {"name": "Roblox Experience Designer", "description": "Roblox game experience design", "category": "game"},
+        )
+        ui_score = _seed_compatibility_score(
+            "ui designer frontend ux interface",
+            roblox_target,
+            {"name": "UI Designer", "description": "General frontend UI and UX design", "category": "design"},
+        )
+        self.assertLess(roblox_score, ui_score)
+
+        growth_target = _target_terms("电商增长活动：规划活动配置后台，但不要把营销 seed 错注入到普通 UI 任务", {"surfaces": ["frontend", "ui", "ux"]})
+        self.assertNotIn("growth", growth_target["domains"])
+        marketing_score = _seed_compatibility_score(
+            "wechat official account marketing campaign",
+            growth_target,
+            {"name": "WeChat Official Account Manager", "description": "Marketing campaign and official account", "category": "marketing"},
+        )
+        self.assertLess(marketing_score, ui_score)
+
+    def test_seed_scoring_keeps_mini_program_only_for_explicit_wechat_tasks(self):
+        from codex_cognitive_runtime.memory_retriever import _seed_compatibility_score, _target_terms
+
+        mini_metadata = {"name": "WeChat Mini Program Developer", "description": "Wechat mini program WXML WXSS UI", "category": "engineering"}
+        generic_target = _target_terms("开发者工具：优化插件设置页的权限、开关、状态提示和错误恢复 UI", {"surfaces": ["frontend", "ui", "privacy"]})
+        explicit_target = _target_terms("优化微信小程序订单页 UI 布局，保留小程序交互习惯", {"surfaces": ["frontend", "ui"]})
+        generic_score = _seed_compatibility_score("wechat mini program wxml wxss ui frontend", generic_target, mini_metadata)
+        explicit_score = _seed_compatibility_score("wechat mini program wxml wxss ui frontend", explicit_target, mini_metadata)
+        self.assertLess(generic_score, 4)
+        self.assertGreater(explicit_score, generic_score)
+
+    def test_model_false_negative_is_corrected_for_ui_engineering_change(self):
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
+
+        class WrongModel:
+            def complete_json(self, prompt, schema, timeout_seconds=None):
+                return {
+                    "skill_needed": False,
+                    "mode": "direct_answer",
+                    "intent": "direct_answer",
+                    "domain": "general",
+                    "complexity": "low",
+                    "requires_memory": False,
+                    "requires_clarification": False,
+                    "reason": "wrong direct answer",
+                }
+
+        decision = SkillNeedClassifier(WrongModel()).classify("这个页面的三个部分应该都有独立滚动条")
+        self.assertTrue(decision.skill_needed)
+        self.assertEqual(decision.mode, "generate_runtime_skill")
+        self.assertEqual(decision.domain, "software_engineering")
+
+    def test_model_false_positive_is_corrected_for_direct_answer(self):
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
+
+        class WrongModel:
+            def complete_json(self, prompt, schema, timeout_seconds=None):
+                return {
+                    "skill_needed": True,
+                    "mode": "generate_runtime_skill",
+                    "intent": "software_engineering_change",
+                    "domain": "software_engineering",
+                    "complexity": "medium",
+                    "requires_memory": True,
+                    "requires_clarification": False,
+                    "reason": "wrong skill",
+                }
+
+        decision = SkillNeedClassifier(WrongModel()).classify("现在时间")
+        self.assertFalse(decision.skill_needed)
+        self.assertEqual(decision.mode, "direct_answer")
+        self.assertEqual(decision.domain, "general")
+
+    def test_model_mode_contradiction_is_normalized(self):
+        from codex_cognitive_runtime.skill_need import SkillNeedClassifier
+
+        class ContradictoryModel:
+            def complete_json(self, prompt, schema, timeout_seconds=None):
+                return {
+                    "skill_needed": True,
+                    "mode": "direct_answer",
+                    "intent": "software_engineering_change",
+                    "domain": "software_engineering",
+                    "complexity": "medium",
+                    "requires_memory": True,
+                    "requires_clarification": False,
+                    "reason": "contradictory mode",
+                }
+
+        decision = SkillNeedClassifier(ContradictoryModel()).classify("调整按钮样式")
+        self.assertTrue(decision.skill_needed)
+        self.assertEqual(decision.mode, "generate_runtime_skill")
+        self.assertEqual(decision.domain, "software_engineering")
 
     def test_memory_statement_does_not_trigger_engineering_runtime_skill(self):
         from codex_cognitive_runtime.skill_need import SkillNeedClassifier

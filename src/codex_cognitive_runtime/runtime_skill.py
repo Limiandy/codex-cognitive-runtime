@@ -27,6 +27,12 @@ class RuntimeSkill:
     confidence: float = 0.0
     intent: str = ""
     domain: str = ""
+    task_profile: dict[str, Any] = field(default_factory=dict)
+    source_skill_ids: list[str] = field(default_factory=list)
+    distilled_from: list[dict[str, Any]] = field(default_factory=list)
+    selected_fragments: list[dict[str, Any]] = field(default_factory=list)
+    fragment_rule_mappings: list[dict[str, Any]] = field(default_factory=list)
+    workflow_required_steps: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -46,6 +52,12 @@ class RuntimeSkill:
             "confidence": self.confidence,
             "intent": self.intent,
             "domain": self.domain,
+            "task_profile": self.task_profile,
+            "source_skill_ids": self.source_skill_ids,
+            "distilled_from": self.distilled_from,
+            "selected_fragments": self.selected_fragments,
+            "fragment_rule_mappings": self.fragment_rule_mappings,
+            "workflow_required_steps": self.workflow_required_steps,
         }
 
 
@@ -65,6 +77,8 @@ class RuntimeSkillSynthesizer:
         durable_summary = str(memory_basis.get("durable_skill_basis_summary") or "")
         seed_skill_ids = [str(item.get("id")) for item in seed_skills if item.get("id")]
         seed_summary = str(memory_basis.get("seed_skill_basis_summary") or "")
+        task_profile = memory_basis.get("task_profile") if isinstance(memory_basis.get("task_profile"), dict) else {}
+        distillation = memory_basis.get("skill_distillation") if isinstance(memory_basis.get("skill_distillation"), dict) else {}
         if self.model is not None:
             modeled = self._model_synthesize(
                 prompt,
@@ -78,12 +92,16 @@ class RuntimeSkillSynthesizer:
                 seed_skills,
                 seed_skill_ids,
                 seed_summary,
+                task_profile,
+                distillation,
             )
             if modeled:
                 if durable_skill_ids and not modeled.durable_skill_ids:
                     modeled = replace(modeled, durable_skill_ids=durable_skill_ids, durable_skill_basis_summary=durable_summary)
+                modeled = _attach_distillation(modeled, task_profile, distillation)
                 return modeled
-        return self._fallback_synthesize(decision, basis_ids, basis_summary, memories, durable_skill_ids, durable_summary, seed_skill_ids, seed_summary)
+        fallback = self._fallback_synthesize(decision, basis_ids, basis_summary, memories, durable_skill_ids, durable_summary, seed_skill_ids, seed_summary, task_profile, distillation)
+        return _attach_distillation(fallback, task_profile, distillation)
 
     def _fallback_synthesize(
         self,
@@ -95,7 +113,14 @@ class RuntimeSkillSynthesizer:
         durable_summary: str,
         seed_skill_ids: list[str],
         seed_summary: str,
+        task_profile: dict[str, Any] | None = None,
+        distillation: dict[str, Any] | None = None,
     ) -> RuntimeSkill:
+        task_profile = task_profile or {}
+        distillation = distillation or {}
+        distilled_steps = [str(item) for item in distillation.get("workflow_steps") or [] if item]
+        distilled_verification = [str(item) for item in distillation.get("verification") or [] if item]
+        distilled_avoid = [str(item) for item in distillation.get("avoid") or [] if item]
         if decision.intent == "brand_logo_design":
             return RuntimeSkill(
                 name="brand_logo_design_intake",
@@ -125,15 +150,22 @@ class RuntimeSkillSynthesizer:
                 avoid=[
                     "Do not invent organization positioning that is not present in memory basis.",
                     "Do not use complex gradients, noisy symbols, or cartoon-like style unless the user asks for them.",
-                ],
+                    *distilled_avoid,
+                ][:5],
                 confidence=0.86 if memories else 0.72,
                 intent=decision.intent,
                 domain=decision.domain,
             )
         if decision.domain == "software_engineering":
+            strategy = [
+                "Inspect the relevant repository context before editing.",
+                *distilled_steps,
+                *distilled_verification,
+                "Report verification evidence honestly before claiming completion.",
+            ]
             return RuntimeSkill(
-                name="software_change_guarded_workflow",
-                applies_to="bug fixes, code changes, refactors, and implementation tasks",
+                name=_profile_runtime_skill_name(task_profile),
+                applies_to=_profile_applies_to(task_profile),
                 goal="Make code changes through inspected context, minimal edits, and explicit verification evidence.",
                 memory_basis_ids=basis_ids,
                 memory_basis_summary=basis_summary,
@@ -141,17 +173,14 @@ class RuntimeSkillSynthesizer:
                 durable_skill_basis_summary=durable_summary,
                 seed_skill_ids=seed_skill_ids,
                 seed_skill_basis_summary=seed_summary,
-                strategy=[
-                    "Inspect the relevant repository context before editing.",
-                    "Make the smallest focused change that satisfies the task.",
-                    "Run the most relevant test, build, or lint command and report the result honestly.",
-                ],
+                strategy=_dedupe(strategy)[:6],
                 first_action={"type": "inspect_repository"},
                 avoid=[
                     "Do not edit before inspecting relevant files.",
                     "Do not claim completion without verification evidence.",
                     "Do not describe failed verification as success.",
-                ],
+                    *distilled_avoid,
+                ][:5],
                 confidence=0.84,
                 intent=decision.intent,
                 domain=decision.domain,
@@ -191,18 +220,24 @@ class RuntimeSkillSynthesizer:
         seed_skills: list[dict[str, Any]],
         seed_skill_ids: list[str],
         seed_summary: str,
+        task_profile: dict[str, Any],
+        distillation: dict[str, Any],
     ) -> RuntimeSkill | None:
         prompt_text = (
             "Generate a Runtime Skill for the current Codex request. "
             "A Runtime Skill is temporary, task-specific guidance for this turn. "
             "Use only the supplied clean memory basis, durable skills, and seed skills. Do not invent user preferences, organization facts, or project constraints. "
+            "Use seed and dynamic skills as source material only; do not copy full skill/persona text. "
+            "Return one distilled runtime skill for this request, not a concatenation of multiple skills. "
             "Priority: current user request, clean memory, active durable skills, then seed skills as general fallback. "
             "If key information is missing, make first_action ask clarifying questions. "
             "Return concise JSON only.\n\n"
             f"User request:\n{redact_secrets(prompt)[:1200]}\n\n"
-            f"Skill need decision:\n{decision.to_dict()}\n\n"
+            f"Skill need decision:\n{_skill_need_decision_for_model(decision)}\n\n"
+            f"Task profile:\n{task_profile}\n\n"
             f"Allowed memory basis:\n{_memory_basis_for_model(memories)}\n\n"
             f"Allowed durable skills:\n{_durable_skills_for_model(durable_skills)}\n\n"
+            f"Distilled skill material:\n{_distillation_for_model(distillation)}\n\n"
             f"Allowed seed skills:\n{_seed_skills_for_model(seed_skills)}"
         )
         schema = {
@@ -214,6 +249,7 @@ class RuntimeSkillSynthesizer:
             "seed_skill_ids": ["ids from allowed seed skills only"],
             "strategy": ["3-5 concise execution steps"],
             "first_action": {"type": "ask_clarifying_questions|inspect_repository|proceed_or_clarify", "questions": ["optional"]},
+            "workflow_required_steps": ["inspect_repository|execute_change|backend_test|frontend_typecheck|browser_verify|execute_and_verify"],
             "avoid": ["2-5 concise anti-patterns"],
             "confidence": 0.0,
         }
@@ -228,7 +264,8 @@ class RuntimeSkillSynthesizer:
             return None
         if not isinstance(result, dict):
             return None
-        return _skill_from_model(result, decision, basis_ids, basis_summary, durable_skill_ids, durable_summary, seed_skill_ids, seed_summary)
+        skill = _skill_from_model(result, decision, basis_ids, basis_summary, durable_skill_ids, durable_summary, seed_skill_ids, seed_summary)
+        return _attach_distillation(skill, task_profile, distillation) if skill else None
 
 
 class RuntimeSkillReviewer:
@@ -321,6 +358,10 @@ class RuntimeSkillInjector:
             lines.append(f"{index}. {step}")
         if skill.first_action:
             lines.append("First action: " + _first_action_text(skill.first_action))
+        if skill.workflow_required_steps:
+            lines.append("Workflow checks:")
+            for item in skill.workflow_required_steps[:8]:
+                lines.append(f"- {item}")
         if skill.avoid:
             lines.append("Avoid:")
             for item in skill.avoid[:5]:
@@ -384,6 +425,19 @@ def _durable_skills_for_model(durable_skills: list[dict[str, Any]]) -> list[dict
     return basis
 
 
+def _skill_need_decision_for_model(decision: SkillNeedDecision) -> dict[str, Any]:
+    return {
+        "skill_needed": decision.skill_needed,
+        "mode": decision.mode,
+        "intent": decision.intent,
+        "domain": decision.domain,
+        "complexity": decision.complexity,
+        "requires_memory": decision.requires_memory,
+        "requires_clarification": decision.requires_clarification,
+        "reason": decision.reason,
+    }
+
+
 def _skill_from_model(
     result: dict[str, Any],
     decision: SkillNeedDecision,
@@ -432,6 +486,66 @@ def _skill_from_model(
         intent=decision.intent,
         domain=decision.domain,
     )
+
+
+def _attach_distillation(skill: RuntimeSkill | None, task_profile: dict[str, Any], distillation: dict[str, Any]) -> RuntimeSkill | None:
+    if not skill:
+        return None
+    source_skill_ids = [str(item) for item in distillation.get("source_skill_ids") or [] if item]
+    workflow_steps = [str(item) for item in distillation.get("workflow_required_steps") or [] if item]
+    distilled_from = [dict(item) for item in distillation.get("distilled_from") or [] if isinstance(item, dict)]
+    selected_fragments = [dict(item) for item in distillation.get("selected_fragments") or [] if isinstance(item, dict)]
+    fragment_rule_mappings = [dict(item) for item in distillation.get("fragment_rule_mappings") or [] if isinstance(item, dict)]
+    return replace(
+        skill,
+        task_profile=dict(task_profile or {}),
+        source_skill_ids=source_skill_ids,
+        distilled_from=distilled_from,
+        selected_fragments=selected_fragments,
+        fragment_rule_mappings=fragment_rule_mappings,
+        workflow_required_steps=workflow_steps,
+    )
+
+
+def _distillation_for_model(distillation: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source_skill_ids": distillation.get("source_skill_ids") or [],
+        "principles": distillation.get("principles") or [],
+        "workflow_steps": distillation.get("workflow_steps") or [],
+        "verification": distillation.get("verification") or [],
+        "avoid": distillation.get("avoid") or [],
+        "selected_fragments": distillation.get("selected_fragments") or [],
+        "fragment_rule_mappings": distillation.get("fragment_rule_mappings") or [],
+        "workflow_required_steps": distillation.get("workflow_required_steps") or [],
+    }
+
+
+def _profile_runtime_skill_name(task_profile: dict[str, Any]) -> str:
+    task_type = str(task_profile.get("task_type") or "")
+    if task_type == "fullstack_integration_change":
+        return "fullstack_integration_change_strategy"
+    if task_type == "frontend_change":
+        return "frontend_change_strategy"
+    if task_type == "backend_api_change":
+        return "backend_api_change_strategy"
+    return "software_change_guarded_workflow"
+
+
+def _profile_applies_to(task_profile: dict[str, Any]) -> str:
+    surfaces = ", ".join(str(item) for item in task_profile.get("surfaces") or [])
+    return f"software engineering tasks touching {surfaces or 'repository'} surfaces"
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    result = []
+    seen = set()
+    for value in values:
+        clean = " ".join(str(value).split())
+        key = clean.lower()
+        if clean and key not in seen:
+            seen.add(key)
+            result.append(clean)
+    return result
 
 
 def _clean_text(value: Any, limit: int) -> str:

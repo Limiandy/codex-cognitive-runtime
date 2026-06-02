@@ -1,0 +1,7 @@
+{
+  "source_repo": "https://github.com/msitarzewski/agency-agents.git",
+  "source_commit": "783f6a72bfd7f3135700ac273c619d92821b419a",
+  "snapshot_date": "2026-06-01",
+  "license": "MIT",
+  "note": "Vendored seed skill snapshot. Runtime code must read this local copy instead of cloning during user request handling."
+}

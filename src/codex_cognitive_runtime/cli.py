@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     prune_runtime.add_argument("--include-skills", action="store_true")
     seed_skills = sub.add_parser("seed-skills")
     seed_skills.add_argument("--source", default=None)
-    seed_skills.add_argument("--repo-url", default="https://github.com/msitarzewski/agency-agents.git")
+    seed_skills.add_argument("--repo-url", default=None)
     seed_skills.add_argument("--limit", type=int, default=None)
     seed_skills.add_argument("--category", default=None)
     seed_skills.add_argument("--dry-run", action="store_true")

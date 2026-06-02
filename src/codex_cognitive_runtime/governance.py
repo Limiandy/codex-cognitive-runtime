@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import re
 from typing import Any
 
 from .taxonomy import near_duplicate_text, normalize_text, tokenize
+from .timeutil import local_now, local_now_iso, parse_timestamp
 
 
 class MemoryGovernance:
@@ -111,10 +112,10 @@ class MemoryGovernance:
         if not last:
             return True
         try:
-            parsed = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+            parsed = parse_timestamp(str(last))
         except ValueError:
             return True
-        return datetime.now(timezone.utc) - parsed >= timedelta(minutes=interval_minutes)
+        return local_now() - parsed >= timedelta(minutes=interval_minutes)
 
     def run_periodic_if_due(self, interval_minutes: int = 60) -> dict[str, Any]:
         if not self.should_run_periodic(interval_minutes):
@@ -433,7 +434,7 @@ def _feedback_sentiment(prompt: str) -> str | None:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return local_now_iso()
 
 
 def _candidate_from_memory(memory: dict[str, Any]):

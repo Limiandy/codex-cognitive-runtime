@@ -14,7 +14,13 @@ from codex_cognitive_runtime.schema import Evidence, MemoryCandidate
 from codex_cognitive_runtime.service import MemoryService
 
 
-def _config(tmp: str, strict_privacy: bool = False, live_log: bool = False, enable_feedback_model: bool = True) -> Config:
+def _config(
+    tmp: str,
+    strict_privacy: bool = False,
+    live_log: bool = False,
+    enable_feedback_model: bool = True,
+    development_audit: bool = False,
+) -> Config:
     return Config(
         model="gpt-5.4-mini",
         state_dir=Path(tmp),
@@ -26,6 +32,9 @@ def _config(tmp: str, strict_privacy: bool = False, live_log: bool = False, enab
         strict_privacy=strict_privacy,
         trace_live_log=live_log,
         enable_feedback_model=enable_feedback_model,
+        development_audit=development_audit,
+        store_raw_events=development_audit,
+        store_runtime_observation_previews=development_audit,
     )
 
 
@@ -50,20 +59,74 @@ class RuntimeTraceTest(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("CODEX_COGNITIVE_RUNTIME_FAKE_MODEL", None)
 
-    def test_direct_answer_trace_completes_with_recall_skipped(self):
+    def test_direct_answer_trace_recalls_memory_without_runtime_skill(self):
         with tempfile.TemporaryDirectory() as tmp:
-            service = MemoryService(_config(tmp, enable_feedback_model=False))
+            service = MemoryService(_config(tmp, enable_feedback_model=False, development_audit=True))
             try:
+                service.ledger.add_candidate(
+                    _candidate("用户偏好默认使用中文回答。"),
+                    "active",
+                    {"status": "active", "risk_flags": []},
+                )
                 context = service.prompt_context("现在天气怎么样？", cwd=tmp, session_id="s1", turn_id="t1")
-                self.assertEqual(context, "")
+                self.assertIn("用户需求：现在天气怎么样？", context)
+                self.assertIn("基础规则：", context)
+                self.assertIn("用户偏好默认使用中文回答。", context)
+                self.assertNotIn("Runtime Skill:", context)
                 traces = service.list_traces(session_id="s1", turn_id="t1")
                 self.assertEqual(len(traces), 1)
                 self.assertEqual(traces[0]["status"], "completed")
                 self.assertEqual(traces[0]["final_outcome"], "direct_answer_no_runtime_skill")
                 events = service.trace_events(str(traces[0]["id"]))
-                self.assertIn("skill_need_decision", {event["name"] for event in events})
-                self.assertIn("recall_skipped", {event["name"] for event in events})
-                self.assertNotIn("runtime_skill_injected", {event["name"] for event in events})
+                by_name = {event["name"]: event for event in events}
+                self.assertIn("skill_need_decision", by_name)
+                self.assertIn("memory_recall_completed", by_name)
+                self.assertIn("development_audit_memory_recall", by_name)
+                self.assertIn("development_audit_prompt_context_built", by_name)
+                self.assertNotIn("recall_skipped", by_name)
+                self.assertNotIn("runtime_skill_injected", by_name)
+                built = by_name["development_audit_prompt_context_built"]["metadata_json"]
+                self.assertEqual(built["final_additional_context"], context)
+                self.assertEqual(built["final_combined_context_sent"], context)
+            finally:
+                service.close()
+
+    def test_skill_need_model_decision_chain_is_traced_and_audited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp, enable_feedback_model=False, development_audit=True))
+            try:
+                context = service.prompt_context(
+                    "将“用户偏好”单独拉出一个tab页来，用户可编辑，可使用大模型进行优化",
+                    cwd=tmp,
+                    session_id="s1",
+                    turn_id="t1",
+                )
+
+                self.assertIn("用户需求：将“用户偏好”单独拉出一个tab页来，用户可编辑，可使用大模型进行优化", context)
+                self.assertIn("基础规则：", context)
+                self.assertIn("项目规则：", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
+                self.assertNotIn("Runtime control:", context)
+                self.assertNotIn("Workflow checks:", context)
+                self.assertNotIn("Seed skill basis:", context)
+                trace = service.list_traces(session_id="s1", turn_id="t1")[0]
+                events = service.trace_events(str(trace["id"]))
+                by_name = {event["name"]: event for event in events}
+                decision = by_name["skill_need_decision"]["metadata_json"]
+                chain = decision["decision_chain"]
+
+                self.assertTrue(decision["skill_needed"])
+                self.assertEqual(decision["domain"], "software_engineering")
+                self.assertEqual(chain["final"]["skill_needed"], True)
+                self.assertIn("model_classification", [stage["stage"] for stage in chain["stages"]])
+                self.assertIn("rule_validation", [stage["stage"] for stage in chain["stages"]])
+
+                audit_events = [event for event in events if event["name"] == "development_audit_skill_need_decision"]
+                self.assertTrue(audit_events)
+                audit = audit_events[-1]["metadata_json"]
+                self.assertEqual(audit["source"], "prompt_context")
+                self.assertEqual(audit["decision_chain"]["final"]["domain"], "software_engineering")
             finally:
                 service.close()
 
@@ -107,7 +170,8 @@ class RuntimeTraceTest(unittest.TestCase):
                     metadata={"skill_type": "dynamic_skill", "title": "Logo intake", "trigger": ["logo", "品牌"], "procedure": ["Ask brand name."], "success_count": 0, "failure_count": 0},
                 )
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1", turn_id="t1")
-                self.assertIn("Runtime Skill:", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("Runtime Skill:", context)
                 trace = service.list_traces(session_id="s1", turn_id="t1")[0]
                 events = service.trace_events(str(trace["id"]))
                 names = {event["name"] for event in events}
@@ -115,6 +179,12 @@ class RuntimeTraceTest(unittest.TestCase):
                 self.assertIn("runtime_skill_synthesized", names)
                 self.assertIn("runtime_skill_reviewed", names)
                 self.assertIn("runtime_skill_injected", names)
+                injected = [event for event in events if event["name"] == "runtime_skill_injected"][0]["metadata_json"]
+                self.assertTrue(injected["evidence_chain"]["source_skills"])
+                self.assertTrue(injected["evidence_chain"]["distilled_material"]["principles"])
+                self.assertTrue(injected["runtime_skill"]["strategy"])
+                self.assertIn("Runtime Skill:", injected["runtime_skill_context_preview"])
+                self.assertTrue(injected["runtime_skill_context_sha256"])
                 links = service.ledger.list_trace_links(str(trace["id"]))
                 self.assertTrue(any(link["target_id"] == memory_id and link["target_type"] == "memory" for link in links))
                 self.assertTrue(any(link["target_id"] == seed["id"] and link["target_type"] == "seed_skill" for link in links))
@@ -150,16 +220,33 @@ class RuntimeTraceTest(unittest.TestCase):
                 service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg failing_test tests", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
                 service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
                 service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
-                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "测试通过，已完成"})
+                stop_result = service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "测试通过，已完成"})
                 trace = service.list_traces(session_id="s1", turn_id="t1")[0]
                 self.assertEqual(trace["status"], "completed")
                 self.assertEqual(trace["final_outcome"], "success")
-                names = [event["name"] for event in service.trace_events(str(trace["id"]))]
+                events = service.trace_events(str(trace["id"]))
+                names = [event["name"] for event in events]
+                by_name = {event["name"]: event for event in events}
+                self.assertTrue(stop_result["acceptance_coverage"]["summary"]["complete"])
                 self.assertIn("workflow_step_completed", names)
                 self.assertIn("workflow_stop_audited", names)
+                self.assertIn("acceptance_coverage_evaluated", names)
                 self.assertIn("runtime_skill_feedback_recorded", names)
                 self.assertIn("verification_recipe_learned", names)
                 self.assertIn("dynamic_skill_candidate_created", names)
+                self.assertTrue(by_name["workflow_stop_audited"]["metadata_json"]["acceptance_coverage"]["summary"]["complete"])
+                summary = service.trace_summary(str(trace["id"]))
+                self.assertTrue(summary["workflow"]["acceptance_coverage"]["summary"]["complete"])
+                attribution = service.trace_attribution(str(trace["id"]))
+                self.assertIsNone(attribution["primary_failure_layer"])
+                self.assertEqual(
+                    {layer["layer"] for layer in attribution["layers"]},
+                    {"task_understanding", "recall", "seed_scoring", "fragment_selection", "final_context", "execution_guard"},
+                )
+                by_layer = {layer["layer"]: layer for layer in attribution["layers"]}
+                self.assertEqual(by_layer["execution_guard"]["outcome"], "success")
+                self.assertEqual(by_layer["final_context"]["outcome"], "success")
+                self.assertEqual(len(service.ledger.list_outcome_attributions(trace_id=str(trace["id"]))), 6)
             finally:
                 service.close()
 
@@ -223,6 +310,42 @@ class RuntimeTraceTest(unittest.TestCase):
                 self.assertNotIn("PRIVATE_PROJECT", rendered)
                 self.assertNotIn("PRIVATE_SECRET", rendered)
                 self.assertIn("prompt_sha256", rendered)
+            finally:
+                service.close()
+
+    def test_development_audit_records_full_runtime_flow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(tmp, enable_feedback_model=False, development_audit=True))
+            try:
+                prompt = "帮我修复这个 bug"
+                service.start_task_from_prompt({"prompt": prompt, "cwd": tmp, "session_id": "s1", "turn_id": "t1"})
+                context = service.prompt_context(prompt, cwd=tmp, session_id="s1", turn_id="t1")
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg bug src", "stdout": "matched bug", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "还没有完成"})
+
+                trace = service.list_traces(session_id="s1", turn_id="t1")[0]
+                events = service.trace_events(str(trace["id"]))
+                by_name = {event["name"]: event for event in events}
+
+                self.assertIn("development_audit_prompt_context_started", by_name)
+                self.assertIn("development_audit_memory_recall", by_name)
+                self.assertIn("development_audit_runtime_skill_injection", by_name)
+                self.assertIn("development_audit_prompt_context_built", by_name)
+                self.assertIn("development_audit_tool_observation", by_name)
+                self.assertIn("development_audit_stop", by_name)
+                built = by_name["development_audit_prompt_context_built"]["metadata_json"]
+                self.assertEqual(built["final_additional_context"], context)
+                self.assertEqual(built["final_combined_context_sent"], context)
+                self.assertEqual(built["final_combined_context_chars"], len(context))
+                self.assertTrue(built["final_combined_context_sha256"])
+                self.assertIn("Codex final model input is assembled by the host app", built["codex_context_limitation"])
+                injected = by_name["development_audit_runtime_skill_injection"]["metadata_json"]
+                self.assertTrue(injected["evidence_chain"]["source_skills"])
+                self.assertIn("runtime_skill_context", injected)
+                tool = by_name["development_audit_tool_observation"]["metadata_json"]
+                self.assertEqual(tool["summary"]["stdout"], "matched bug")
+                stop = by_name["development_audit_stop"]["metadata_json"]
+                self.assertEqual(stop["result"]["observed"], True)
             finally:
                 service.close()
 

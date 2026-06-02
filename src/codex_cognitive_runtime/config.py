@@ -30,6 +30,7 @@ class Config:
     strict_privacy: bool = False
     enable_feedback_model: bool = True
     trace_live_log: bool = False
+    development_audit: bool = False
 
 
 def _default_state_dir() -> Path:
@@ -92,6 +93,14 @@ def load_config() -> Config:
         os.environ.get("CODEX_COGNITIVE_RUNTIME_TRACE_LIVE_LOG"),
         bool(data.get("trace_live_log", False)),
     )
+    development_audit = _bool(
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_DEVELOPMENT_AUDIT"),
+        bool(data.get("development_audit", False)),
+    )
+    if development_audit:
+        store_raw_events = True
+        store_runtime_observation_previews = True
+        strict_privacy = False
 
     return Config(
         model=str(model),
@@ -113,6 +122,7 @@ def load_config() -> Config:
         strict_privacy=strict_privacy,
         enable_feedback_model=enable_feedback_model,
         trace_live_log=trace_live_log,
+        development_audit=development_audit,
     )
 
 

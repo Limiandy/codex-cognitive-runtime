@@ -50,20 +50,8 @@ def _session_start(service: MemoryService, payload: dict[str, Any]) -> int:
     service.periodic_governance(interval_minutes=60)
     status = service.lightweight_status()
     active = status.get("ledger", {}).get("by_status", {}).get("active", 0)
-    search = service.search_context(
-        str(payload.get("cwd", "")),
-        limit=4,
-        cwd=str(payload.get("cwd") or ""),
-        session_id=str(payload.get("session_id") or "") or None,
-    )
-    context = search.get("context") or ""
     data: dict[str, Any] = {"systemMessage": f"Codex Cognitive Runtime ready: {active} active local memories."}
-    if context:
-        data["hookSpecificOutput"] = {
-            "hookEventName": "SessionStart",
-            "additionalContext": context,
-        }
-    logger.debug("session_start output prepared", active=active, context=context, output=data)
+    logger.debug("session_start output prepared", active=active, context_injected=False, output=data)
     _out(data)
     return 0
 

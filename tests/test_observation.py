@@ -49,6 +49,18 @@ class ToolObservationNormalizerTest(unittest.TestCase):
         self.assertTrue(observation.evidence_summary["failed"])
         self.assertEqual(observation.exit_code_source, "exit_code")
 
+    def test_typecheck_commands_are_verification(self):
+        for command in ("pnpm run typecheck", "npm run typecheck", "vue-tsc -b --noEmit"):
+            with self.subTest(command=command):
+                observation = normalize_tool_observation({"tool_name": "functions.exec_command", "cmd": command})
+                self.assertEqual(observation.tool_kind, "verify")
+                self.assertGreaterEqual(observation.confidence, 0.9)
+
+    def test_compileall_is_verification(self):
+        observation = normalize_tool_observation({"tool_name": "functions.exec_command", "cmd": "PYTHONPATH=src python3 -m compileall -q src tests"})
+        self.assertEqual(observation.tool_kind, "verify")
+        self.assertGreaterEqual(observation.confidence, 0.9)
+
     def test_stdout_only_command_mention_is_low_confidence(self):
         observation = normalize_tool_observation(
             {

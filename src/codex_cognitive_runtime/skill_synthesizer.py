@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from .taxonomy import tokenize
+from .timeutil import local_now_iso
 
 
 class SkillSynthesizer:
@@ -13,7 +13,7 @@ class SkillSynthesizer:
     def synthesize_from_workflow(self, workflow: dict[str, Any]) -> dict[str, Any] | None:
         metadata = dict(workflow.get("metadata_json") or {})
         observations = [dict(item) for item in metadata.get("observations") or []]
-        verify_commands = _commands_for_step(observations, "execute_and_verify")
+        verify_commands = _commands_for_step(observations, {"execute_and_verify", "backend_test", "frontend_typecheck", "browser_verify"})
         if not verify_commands:
             return None
         if "execute_and_verify" not in set(metadata.get("completed_steps") or []):
@@ -58,7 +58,7 @@ class SkillSynthesizer:
             "reuse_count": 0,
             "last_used_at": None,
             "review_required": True,
-            "created_at": _utc_now(),
+            "created_at": _now(),
         }
         content = _content(title, procedure, verify_commands)
         record = self.ledger.record_cognitive_record(
@@ -85,11 +85,12 @@ class SkillSynthesizer:
         return record
 
 
-def _commands_for_step(observations: list[dict[str, Any]], step_id: str) -> list[str]:
+def _commands_for_step(observations: list[dict[str, Any]], step_id: str | set[str]) -> list[str]:
+    step_ids = {step_id} if isinstance(step_id, str) else set(step_id)
     commands = []
     seen = set()
     for observation in observations:
-        if observation.get("matched_step_id") != step_id:
+        if observation.get("matched_step_id") not in step_ids:
             continue
         command = str(observation.get("command") or "").strip()
         if not command or command in seen:
@@ -170,12 +171,35 @@ def _title(user_goal: str, verify_command: str) -> str:
 
 
 def _content(title: str, procedure: list[str], verify_commands: list[str]) -> str:
-    return (
-        f"Dynamic skill: {title}. "
-        f"Procedure: {' '.join(procedure[:3])} "
-        f"Verification: {' && '.join(verify_commands[:3])}."
+    lines = [
+        f"# {title}",
+        "",
+        "## When To Use",
+        "",
+        "- Apply this skill to a matching software engineering task where repository context, focused edits, and verification evidence are required.",
+        "",
+        "## Workflow",
+        "",
+    ]
+    lines.extend(f"{index}. {step}" for index, step in enumerate(procedure, 1))
+    lines.extend(["", "## Verification", ""])
+    lines.extend(f"- `{command}`" for command in verify_commands[:5])
+    lines.extend(
+        [
+            "",
+            "## Avoid",
+            "",
+            "- Do not edit before inspecting relevant context.",
+            "- Do not claim completion without verification evidence.",
+            "- Do not describe failed verification as success.",
+            "",
+            "## Privacy",
+            "",
+            "- This skill stores reusable workflow structure, not the raw user prompt, command output, or full file-change list.",
+        ]
     )
+    return "\n".join(lines)
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+def _now() -> str:
+    return local_now_iso()

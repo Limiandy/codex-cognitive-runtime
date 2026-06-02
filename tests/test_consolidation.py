@@ -66,7 +66,11 @@ class ConsolidationTest(unittest.TestCase):
                 self.assertIn("Vue", memory["content"])
                 self.assertIn("React", memory["content"])
                 context = service.prompt_context("前端项目有什么通用经验？", cwd="/tmp/other-app")
-                self.assertIn("前端通用经验", context)
+                self.assertIn("用户需求：前端项目有什么通用经验？", context)
+                self.assertIn("遵循以下规则：", context)
+                self.assertNotIn("前端通用经验", context)
+                recall = service.ledger.latest_recall_event()
+                self.assertIn(memory["id"], recall["memory_ids_json"])
             finally:
                 service.close()
 

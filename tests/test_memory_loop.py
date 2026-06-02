@@ -54,7 +54,11 @@ class MemoryLoopTest(unittest.TestCase):
                     project_key=project_key_for_cwd("/tmp/project-a"),
                 )
                 context = service.prompt_context("hook 与 MCP 的约定是什么？", cwd="/tmp/project-b", limit=5)
-                self.assertEqual(context, "")
+                self.assertIn("用户需求：", context)
+                self.assertIn("hook", context)
+                self.assertIn("MCP", context)
+                self.assertIn("项目规则：无", context)
+                self.assertNotIn("hook 与 MCP 必须完全分离", context)
                 context = service.prompt_context("hook 与 MCP 的约定是什么？", cwd="/tmp/project-a", limit=5)
                 self.assertIn("hook 与 MCP 必须完全分离", context)
             finally:

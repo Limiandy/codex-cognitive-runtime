@@ -36,7 +36,12 @@ class GovernanceTest(unittest.TestCase):
                 second = service.ingest_event("manual", {"text": "默认使用中文回答"})
                 self.assertEqual(first["results"][0]["status"], "active")
                 self.assertEqual(second["results"][0]["status"], "superseded")
-                self.assertEqual(len(service.list_memories(status="active")), 1)
+                non_default = [
+                    memory
+                    for memory in service.user_preferences_page(page=1, page_size=20, status="active")["items"]
+                    if (memory.get("review_json") or {}).get("source_id") != "default:global_agents_collaboration_rules"
+                ]
+                self.assertEqual(len(non_default), 1)
             finally:
                 service.close()
 

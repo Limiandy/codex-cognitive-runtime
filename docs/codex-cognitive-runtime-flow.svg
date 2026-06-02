@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1150" viewBox="0 0 1800 1150" role="img" aria-labelledby="title desc">
+  <title id="title">Codex Cognitive Runtime Business Flow</title>
+  <desc id="desc">A complete flowchart from user input to runtime skill generation, execution observation, feedback governance, and durable skill growth.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 34px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 18px Arial, sans-serif; fill: #475569; }
+      .section { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 14; }
+      .decision { fill: #ecfeff; stroke: #0891b2; stroke-width: 2; }
+      .trace { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 14; }
+      .ledger { fill: #fefce8; stroke: #ca8a04; stroke-width: 2; rx: 14; }
+      .loop { fill: #eef2ff; stroke: #4f46e5; stroke-width: 2; rx: 14; }
+      .num { font: 700 15px Arial, sans-serif; fill: #0369a1; }
+      .head { font: 700 18px Arial, sans-serif; fill: #0f172a; }
+      .body { font: 400 14px Arial, sans-serif; fill: #334155; }
+      .small { font: 400 12px Arial, sans-serif; fill: #64748b; }
+      .arrow { stroke: #334155; stroke-width: 2.4; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke: #64748b; stroke-width: 1.8; stroke-dasharray: 7 7; fill: none; marker-end: url(#arrow-muted); }
+      .loop-arrow { stroke: #4f46e5; stroke-width: 2.4; fill: none; stroke-dasharray: 8 6; marker-end: url(#arrow-loop); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-muted" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-loop" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1150"/>
+  <text class="title" x="70" y="70">Codex Cognitive Runtime Business Flow</text>
+  <text class="subtitle" x="70" y="102">Clean Memory + Durable Skills + Trusted Seed Skills → Runtime Skill → Observed Execution → Feedback Governance</text>
+
+  <!-- Row 1 -->
+  <rect class="section" x="70" y="155" width="235" height="150"/>
+  <text class="num" x="92" y="185">1</text>
+  <text class="head" x="92" y="212">User Input</text>
+  <text class="body" x="92" y="242">UserPromptSubmit</text>
+  <text class="body" x="92" y="264">session / turn / cwd</text>
+  <text class="body" x="92" y="286">Trace starts</text>
+
+  <path class="arrow" d="M305 230 H355"/>
+  <path class="decision" d="M470 155 L585 230 L470 305 L355 230 Z"/>
+  <text class="num" x="450" y="190">2</text>
+  <text class="head" x="412" y="220">Skill Need</text>
+  <text class="body" x="405" y="244">direct answer?</text>
+  <text class="body" x="405" y="266">skill needed?</text>
+
+  <path class="arrow" d="M585 230 H635"/>
+  <rect class="section" x="635" y="155" width="245" height="150"/>
+  <text class="num" x="657" y="185">3</text>
+  <text class="head" x="657" y="212">Basis Retrieval</text>
+  <text class="body" x="657" y="242">Clean active memory</text>
+  <text class="body" x="657" y="264">Active durable skill</text>
+  <text class="body" x="657" y="286">Trusted seed skill</text>
+
+  <path class="arrow" d="M880 230 H930"/>
+  <rect class="section" x="930" y="155" width="250" height="150"/>
+  <text class="num" x="952" y="185">4</text>
+  <text class="head" x="952" y="212">Runtime Skill</text>
+  <text class="body" x="952" y="242">Model-assisted strategy</text>
+  <text class="body" x="952" y="264">Deterministic fallback</text>
+  <text class="body" x="952" y="286">Cache + latency metrics</text>
+
+  <path class="arrow" d="M1180 230 H1230"/>
+  <rect class="section" x="1230" y="155" width="255" height="150"/>
+  <text class="num" x="1252" y="185">5</text>
+  <text class="head" x="1252" y="212">Review Gate</text>
+  <text class="body" x="1252" y="242">Allowed basis IDs</text>
+  <text class="body" x="1252" y="264">No unsupported claims</text>
+  <text class="body" x="1252" y="286">No secrets, check clarify</text>
+
+  <path class="arrow" d="M470 305 V365 H188 V415"/>
+  <rect class="section" x="70" y="415" width="235" height="115"/>
+  <text class="head" x="92" y="450">Direct Answer Path</text>
+  <text class="body" x="92" y="480">Skip recall</text>
+  <text class="body" x="92" y="502">Complete trace</text>
+
+  <!-- Row 2 -->
+  <path class="arrow" d="M1358 305 V390"/>
+  <rect class="section" x="1230" y="390" width="255" height="150"/>
+  <text class="num" x="1252" y="420">6</text>
+  <text class="head" x="1252" y="447">Context Injection</text>
+  <text class="body" x="1252" y="477">Inject reviewed skill</text>
+  <text class="body" x="1252" y="499">Record runtime_skill</text>
+  <text class="body" x="1252" y="521">Store cache metadata</text>
+
+  <path class="arrow" d="M1230 465 H1180"/>
+  <rect class="section" x="925" y="390" width="255" height="150"/>
+  <text class="num" x="947" y="420">7</text>
+  <text class="head" x="947" y="447">Agent Execution</text>
+  <text class="body" x="947" y="477">Inspect repository</text>
+  <text class="body" x="947" y="499">Edit / act</text>
+  <text class="body" x="947" y="521">Verify / test</text>
+
+  <path class="arrow" d="M925 465 H875"/>
+  <rect class="section" x="620" y="390" width="255" height="150"/>
+  <text class="num" x="642" y="420">8</text>
+  <text class="head" x="642" y="447">Workflow Guard</text>
+  <text class="body" x="642" y="477">Missing inspection</text>
+  <text class="body" x="642" y="499">Missing verification</text>
+  <text class="body" x="642" y="521">False completion claims</text>
+
+  <path class="arrow" d="M620 465 H570"/>
+  <rect class="section" x="315" y="390" width="255" height="150"/>
+  <text class="num" x="337" y="420">9</text>
+  <text class="head" x="337" y="447">Stop Audit</text>
+  <text class="body" x="337" y="477">Workflow completed?</text>
+  <text class="body" x="337" y="499">Violations?</text>
+  <text class="body" x="337" y="521">success / failure / unknown</text>
+
+  <!-- Trace monitor band -->
+  <rect class="trace" x="70" y="605" width="1415" height="115"/>
+  <text class="head" x="92" y="642">Runtime Trace Monitor</text>
+  <text class="body" x="92" y="672">trace / spans / events / links across every stage</text>
+  <text class="body" x="92" y="694">optional live JSONL log; strict privacy stores hashes, counts, and IDs instead of raw prompt / command / path</text>
+
+  <path class="dashed" d="M188 305 V605"/>
+  <path class="dashed" d="M470 305 V605"/>
+  <path class="dashed" d="M758 305 V605"/>
+  <path class="dashed" d="M1055 305 V605"/>
+  <path class="dashed" d="M1358 540 V605"/>
+  <path class="dashed" d="M1052 540 V605"/>
+  <path class="dashed" d="M748 540 V605"/>
+  <path class="dashed" d="M442 540 V605"/>
+
+  <!-- Row 3 -->
+  <path class="arrow" d="M442 540 V790"/>
+  <rect class="section" x="315" y="790" width="255" height="150"/>
+  <text class="num" x="337" y="820">10</text>
+  <text class="head" x="337" y="847">Feedback</text>
+  <text class="body" x="337" y="877">Natural / workflow / CLI</text>
+  <text class="body" x="337" y="899">Target + dimensions</text>
+  <text class="body" x="337" y="921">Model-assisted if ambiguous</text>
+
+  <path class="arrow" d="M570 865 H620"/>
+  <rect class="section" x="620" y="790" width="255" height="150"/>
+  <text class="num" x="642" y="820">11</text>
+  <text class="head" x="642" y="847">Governance Updates</text>
+  <text class="body" x="642" y="877">Seed strength / trust</text>
+  <text class="body" x="642" y="899">Durable reuse / success / failure</text>
+  <text class="body" x="642" y="921">Memory governance policies</text>
+
+  <path class="arrow" d="M875 865 H925"/>
+  <rect class="loop" x="925" y="790" width="255" height="150"/>
+  <text class="num" x="947" y="820">12</text>
+  <text class="head" x="947" y="847">Skill Growth Loop</text>
+  <text class="body" x="947" y="877">Successful workflow</text>
+  <text class="body" x="947" y="899">Dynamic skill candidate</text>
+  <text class="body" x="947" y="921">Review + promote active</text>
+
+  <path class="loop-arrow" d="M1052 790 V745 C1052 745 760 745 758 305"/>
+  <text class="small" x="800" y="772">active durable skill feeds future basis</text>
+
+  <rect class="ledger" x="1230" y="790" width="255" height="150"/>
+  <text class="head" x="1252" y="847">Local SQLite Ledger</text>
+  <text class="body" x="1252" y="877">Single source of truth</text>
+  <text class="body" x="1252" y="899">CLI + MCP expose status</text>
+  <text class="body" x="1252" y="921">traces, skills, governance</text>
+
+  <path class="arrow" d="M1180 865 H1230"/>
+  <path class="dashed" d="M1358 540 V790"/>
+  <path class="dashed" d="M748 940 V985 H1358 V940"/>
+  <path class="dashed" d="M442 940 V1010 H1358 V940"/>
+
+  <text class="small" x="70" y="1080">Default path: input → decision → basis → skill → review → inject → observe → audit → feedback → governance → durable skill loop.</text>
+  <text class="small" x="70" y="1104">Privacy path: strict privacy replaces raw prompt, cwd, project key, command, and file paths with hashes and counts.</text>
+</svg>

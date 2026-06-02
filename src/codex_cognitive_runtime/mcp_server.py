@@ -209,6 +209,10 @@ TOOLS = {
         "description": "Summarize a Runtime Trace lifecycle.",
         "inputSchema": {"type": "object", "properties": {"trace_id": {"type": "string"}}, "required": ["trace_id"]},
     },
+    "codex_cognitive_runtime_trace_attribution": {
+        "description": "Attribute a Runtime Trace outcome across task understanding, recall, seed scoring, fragment selection, final context, and execution guard layers.",
+        "inputSchema": {"type": "object", "properties": {"trace_id": {"type": "string"}}, "required": ["trace_id"]},
+    },
     "codex_cognitive_runtime_trace_audit": {
         "description": "Audit Runtime Trace health and incomplete flows.",
         "inputSchema": {"type": "object", "properties": {}},
@@ -256,7 +260,12 @@ def main() -> int:
         "codex_cognitive_runtime_ingest": lambda args: _with_service(
             lambda service: service.ingest_event(_event_type(args.get("event_type", "manual")), {"text": _text(args["text"]), "source": "mcp"})
         ),
-        "codex_cognitive_runtime_queue": lambda args: ledger.list_memories(_status_arg(args.get("status")), _limit(args.get("limit", 20))),
+        "codex_cognitive_runtime_queue": lambda args: _with_service(
+            lambda service: service.list_memories(
+                status=_status_arg(args.get("status")),
+                limit=_limit(args.get("limit", 20)),
+            )
+        ),
         "codex_cognitive_runtime_runtime_status": lambda args: _with_service(
             lambda service: service.runtime_status(
                 cwd=args.get("cwd"),
@@ -319,6 +328,7 @@ def main() -> int:
         "codex_cognitive_runtime_trace_show": lambda args: _with_service(lambda service: service.get_trace(_id_arg(args["trace_id"], "trace_id"))),
         "codex_cognitive_runtime_trace_events": lambda args: _with_service(lambda service: service.trace_events(_id_arg(args["trace_id"], "trace_id"), limit=_limit(args.get("limit", 100), maximum=500))),
         "codex_cognitive_runtime_trace_summary": lambda args: _with_service(lambda service: service.trace_summary(_id_arg(args["trace_id"], "trace_id"))),
+        "codex_cognitive_runtime_trace_attribution": lambda args: _with_service(lambda service: service.trace_attribution(_id_arg(args["trace_id"], "trace_id"))),
         "codex_cognitive_runtime_trace_audit": lambda args: _with_service(lambda service: service.trace_audit()),
         "codex_cognitive_runtime_promote_dynamic_skill": lambda args: _with_service(
             lambda service: service.promote_dynamic_skill(_id_arg(args["skill_id"], "skill_id"), note=str(args.get("note") or ""))
@@ -347,6 +357,7 @@ def _status(config, ledger: Ledger) -> dict[str, Any]:
             "runtime_observer_enabled": config.enable_runtime_observer,
             "runtime_observation_previews": "stored" if config.store_runtime_observation_previews else "redacted",
             "strict_privacy": config.strict_privacy,
+            "development_audit": config.development_audit,
         },
     }
 

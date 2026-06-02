@@ -46,19 +46,23 @@ class RecallTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
             try:
-                service.ledger.add_candidate(
+                lighting_id = service.ledger.add_candidate(
                     _candidate("经验：电灯不亮时，先检查开关、灯泡和空气开关，再判断线路问题。"),
                     "active",
                     {"status": "active"},
                 )
-                service.ledger.add_candidate(
+                hook_id = service.ledger.add_candidate(
                     _candidate("经验：hook 内部调用 codex exec 时必须设置 internal 标记，否则会递归触发。"),
                     "active",
                     {"status": "active"},
                 )
                 context = service.prompt_context("家里灯不亮怎么办？", limit=5)
-                self.assertIn("电灯不亮", context)
+                self.assertIn("用户需求：家里灯不亮怎么办？", context)
+                self.assertNotIn("电灯不亮", context)
                 self.assertNotIn("codex exec", context)
+                recall = service.ledger.latest_recall_event()
+                self.assertIn(lighting_id, recall["memory_ids_json"])
+                self.assertNotIn(hook_id, recall["memory_ids_json"])
             finally:
                 service.close()
 
@@ -66,18 +70,20 @@ class RecallTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
             try:
-                service.ledger.add_candidate(
+                memory_id = service.ledger.add_candidate(
                     _candidate("经验：hook 内部调用 codex exec 时必须设置 internal 标记，否则会递归触发。"),
                     "active",
                     {"status": "active"},
                 )
                 context = service.prompt_context("hook 又递归触发了怎么处理？", limit=5)
-                self.assertIn("internal 标记", context)
-                self.assertIn("memory_system", context)
+                self.assertIn("用户需求：hook 又递归触发了怎么处理？", context)
+                self.assertNotIn("internal 标记", context)
+                recall = service.ledger.latest_recall_event()
+                self.assertIn(memory_id, recall["memory_ids_json"])
             finally:
                 service.close()
 
-    def test_preference_only_injected_when_preference_is_relevant(self):
+    def test_preference_is_injected_for_direct_answer_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
             try:
@@ -86,9 +92,24 @@ class RecallTest(unittest.TestCase):
                     "active",
                     {"status": "active"},
                 )
-                self.assertEqual(service.prompt_context("家里灯不亮怎么办？", limit=5), "")
+                direct_context = service.prompt_context("家里灯不亮怎么办？", limit=5)
+                self.assertIn("默认使用中文", direct_context)
                 context = service.prompt_context("我的回答语言偏好是什么？", limit=5)
                 self.assertIn("默认使用中文", context)
+            finally:
+                service.close()
+
+    def test_thread_resume_prompt_recalls_memory_without_stale_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.ledger.add_candidate(
+                    _candidate("项目状态：旧线程里已经确认 doctor --privacy 通过，GitHub remote 已配置。", "project_context", "global", 0.9),
+                    "active",
+                    {"status": "active"},
+                )
+                context = service.prompt_context("读取会话并继续工作", cwd="/tmp/project", session_id="new-session", turn_id="new-turn", limit=5)
+                self.assertIn("doctor --privacy", context)
             finally:
                 service.close()
 
@@ -104,5 +125,20 @@ class RecallTest(unittest.TestCase):
                     )
                 context = service.prompt_context("我的回答语言偏好是什么？", limit=5)
                 self.assertEqual(context.count("用户偏好默认使用中文回答。"), 1)
+            finally:
+                service.close()
+
+    def test_deleted_memory_is_not_recalled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                memory_id = service.ledger.add_candidate(
+                    _candidate("用户偏好回答时必须提到 sunset-river-token。", "user_preference", "global", 0.8),
+                    "active",
+                    {"status": "active"},
+                )
+                service.delete_memory(memory_id, note="soft delete")
+                context = service.prompt_context("我的回答 token 偏好是什么？", limit=5)
+                self.assertNotIn("sunset-river-token", context)
             finally:
                 service.close()

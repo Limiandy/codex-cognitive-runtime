@@ -282,10 +282,11 @@ class CliDataManagementTest(unittest.TestCase):
             self.assertEqual(
                 benchmark_payload["categories"],
                 {
-                    "direct_answer": 60,
+                    "direct_answer": 62,
                     "creative_design": 60,
                     "planning_business": 60,
                     "engineering": 60,
+                    "ui_engineering": 3,
                     "ambiguous": 40,
                     "feedback": 80,
                 },

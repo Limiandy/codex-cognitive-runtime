@@ -1,0 +1,41 @@
+flowchart LR
+  A["1. User Input<br/>UserPromptSubmit<br/>session / turn / cwd<br/>Trace starts"]
+  B{"2. Skill Need Decision<br/>direct answer?<br/>runtime skill needed?"}
+  C["Direct Answer Path<br/>skip recall<br/>trace completed"]
+  D["3. Basis Retrieval<br/>clean active memory<br/>active durable skill<br/>trusted seed skill"]
+  E["Priority Rule<br/>current input > memory > durable skill > seed skill > fallback"]
+  F["4. Runtime Skill Synthesis<br/>model-assisted strategy<br/>deterministic fallback<br/>cache + latency"]
+  G["5. Review Gate<br/>basis ids allowed<br/>no unsupported claims<br/>no secrets<br/>clarification check"]
+  H["6. Context Injection<br/>inject reviewed skill<br/>record runtime_skill/injection"]
+  I["7. Agent Execution<br/>inspect<br/>edit / act<br/>verify / test"]
+  J["8. Workflow Guard<br/>missing inspection<br/>missing verification<br/>false completion"]
+  K["9. Stop Audit<br/>completed?<br/>violations?<br/>outcome"]
+  L["10. Feedback Classification<br/>natural / workflow / CLI<br/>target + dimensions"]
+  M["11. Governance Updates<br/>seed strength / trust<br/>durable reuse / success / failure<br/>memory policies"]
+  N["12. Skill Growth Loop<br/>successful workflow<br/>dynamic skill candidate<br/>review + promote<br/>active durable skill"]
+
+  T["Runtime Trace Monitor<br/>trace / spans / events / links<br/>optional live JSONL log<br/>strict privacy hashes raw data"]
+  DB[("Local SQLite Ledger<br/>single source of truth")]
+
+  A --> B
+  B -->|"no skill needed"| C
+  B -->|"skill needed"| D
+  D --> E --> F --> G --> H --> I --> J --> K --> L --> M --> N
+  N -. "feeds future basis" .-> D
+
+  A -. observed by .-> T
+  B -. observed by .-> T
+  D -. observed by .-> T
+  F -. observed by .-> T
+  G -. observed by .-> T
+  H -. observed by .-> T
+  I -. observed by .-> T
+  K -. observed by .-> T
+  L -. observed by .-> T
+  M -. observed by .-> T
+
+  H --> DB
+  K --> DB
+  L --> DB
+  M --> DB
+  N --> DB

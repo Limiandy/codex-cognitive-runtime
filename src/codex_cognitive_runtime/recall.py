@@ -158,27 +158,31 @@ class MemoryRecall:
         return score >= 22
 
     def _format_context(self, memories: list[dict[str, Any]]) -> str:
-        if not memories:
-            return ""
-        lines = ["Codex Cognitive Runtime context:"]
-        for item in memories:
-            content = str(item.get("content") or "").strip()
-            if not content:
-                continue
-            inferred = classify(content, str(item.get("memory_type") or ""))
-            path = "/".join(
-                part
-                for part in [
-                    str(item.get("domain") or inferred["domain"]),
-                    str(item.get("category") or inferred["category"]),
-                    str(item.get("subcategory") or inferred["subcategory"]),
-                ]
-                if part
-            )
-            memory_type = item.get("memory_type") or "memory"
-            scope = item.get("scope") or "unknown"
-            lines.append(f"- [{path} {memory_type}/{scope}] {content}")
-        return "\n".join(lines)
+        return format_memory_context(memories)
+
+
+def format_memory_context(memories: list[dict[str, Any]]) -> str:
+    if not memories:
+        return ""
+    lines = ["Codex Cognitive Runtime context:"]
+    for item in memories:
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        inferred = classify(content, str(item.get("memory_type") or ""))
+        path = "/".join(
+            part
+            for part in [
+                str(item.get("domain") or inferred["domain"]),
+                str(item.get("category") or inferred["category"]),
+                str(item.get("subcategory") or inferred["subcategory"]),
+            ]
+            if part
+        )
+        memory_type = item.get("memory_type") or "memory"
+        scope = item.get("scope") or "unknown"
+        lines.append(f"- [{path} {memory_type}/{scope}] {content}")
+    return "\n".join(lines)
 
 
 def _dedupe_key(memory: dict[str, Any]) -> str:

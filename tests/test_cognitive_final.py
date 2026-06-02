@@ -107,14 +107,19 @@ class FinalCognitiveRuntimeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
             try:
-                self.assertEqual(service.prompt_context("家里灯不亮怎么办？", cwd=tmp), "")
+                direct_context = service.prompt_context("家里灯不亮怎么办？", cwd=tmp)
+                self.assertIn("用户需求：家里灯不亮怎么办？", direct_context)
+                self.assertIn("遵循以下规则：", direct_context)
                 service.knowledge_build(source="repo")
                 plan = service.workflow_plan("修改 hook 自动注入代码并运行测试", cwd=tmp)
                 self.assertEqual(plan["policy"]["workflow_mode"], "dag")
                 self.assertTrue(plan["policy"]["verification_required"])
                 context = service.prompt_context("修改 hook 自动注入代码并运行测试", cwd=tmp)
-                self.assertIn("policy_gate:", context)
-                self.assertIn("organizational_knowledge:", context)
+                self.assertIn("用户需求：修改 hook 自动注入代码并运行测试", context)
+                self.assertIn("本次对话你的角色是：软件工程专家", context)
+                self.assertIn("任务规则：", context)
+                self.assertNotIn("policy_gate:", context)
+                self.assertNotIn("organizational_knowledge:", context)
             finally:
                 service.close()
 

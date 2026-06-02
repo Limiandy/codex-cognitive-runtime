@@ -56,8 +56,54 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertTrue(metadata["changed"])
 
                 context = service.prompt_context("继续处理", cwd=tmp, session_id="s1")
-                self.assertIn("Runtime control:", context)
-                self.assertIn("pending_required_step: execute_and_verify", context)
+                self.assertIn("用户需求：继续处理", context)
+                self.assertIn("遵循以下规则：", context)
+                self.assertNotIn("Runtime control:", context)
+                self.assertNotIn("pending_required_step:", context)
+                status = service.runtime_status(cwd=tmp, session_id="s1")
+                self.assertEqual(status["active_workflow"]["id"], workflow_id)
+                self.assertEqual(status["active_workflow"]["pending_required_step"], "execute_and_verify")
+
+                direct_context = service.prompt_context("为什么判定它不需要 skill 呢？只需要回答原因就行", cwd=tmp, session_id="s1")
+                self.assertNotIn("Runtime Skill:", direct_context)
+                self.assertNotIn("Runtime control:", direct_context)
+
+                page_question_context = service.prompt_context("这是什么页面？", cwd=tmp, session_id="s1")
+                self.assertNotIn("Runtime Skill:", page_question_context)
+                self.assertNotIn("Runtime control:", page_question_context)
+            finally:
+                service.close()
+
+    def test_direct_answer_prompt_does_not_start_observed_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                result = service.start_task_from_prompt(
+                    {
+                        "prompt": "失败指的是我们的 workflow 失败，并不是 Codex 本身执行任务失败对吧？",
+                        "session_id": "s1",
+                        "cwd": tmp,
+                    }
+                )
+                self.assertFalse(result["started"])
+                self.assertEqual(result["reason"], "runtime_skill_not_needed")
+                self.assertEqual(service.runtime_status(cwd=tmp, session_id="s1")["active_workflow"], None)
+            finally:
+                service.close()
+
+    def test_short_ui_engineering_prompt_starts_observed_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                result = service.start_task_from_prompt(
+                    {
+                        "prompt": "你看这个页面的三个部分，它们应该都有独立的滚动条",
+                        "session_id": "s1",
+                        "cwd": tmp,
+                    }
+                )
+                self.assertTrue(result["started"])
+                self.assertIn("execute_change", result["required_steps"])
             finally:
                 service.close()
 
@@ -172,9 +218,11 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertIn("changed_without_verification", violation_types)
 
                 context = service.prompt_context("继续", cwd=tmp, session_id="s1")
-                self.assertIn("Previous workflow violation:", context)
-                self.assertIn("changed_without_verification", context)
-                self.assertEqual(service.ledger.latest_state_for("workflow", workflow_id), "running")
+                self.assertIn("用户需求：继续", context)
+                self.assertIn("遵循以下规则：", context)
+                self.assertNotIn("Runtime control:", context)
+                self.assertEqual(service.ledger.latest_state_for("workflow", workflow_id), "failed")
+                self.assertIsNone(service.runtime_status(cwd=tmp, session_id="s1")["active_workflow"])
             finally:
                 service.close()
 
@@ -206,7 +254,7 @@ class RuntimeObserverTest(unittest.TestCase):
                 ]:
                     result = service.start_task_from_prompt({"prompt": prompt, "session_id": "s1", "cwd": tmp})
                     self.assertFalse(result["started"], prompt)
-                    self.assertEqual(result["reason"], "not_engineering_task")
+                    self.assertIn(result["reason"], {"not_engineering_task", "runtime_skill_not_needed"})
             finally:
                 service.close()
 
@@ -307,10 +355,32 @@ class RuntimeObserverTest(unittest.TestCase):
                 service.observe_stop({"session_id": "s1", "cwd": tmp, "last_assistant_message": "已完成"})
 
                 status = service.runtime_status(cwd=tmp, session_id="s1")
-                self.assertEqual(status["active_workflow"]["pending_required_step"], "execute_and_verify")
+                self.assertIsNone(status["active_workflow"])
                 self.assertTrue(status["open_violations"])
-                self.assertTrue(status["recent_observations"])
                 self.assertEqual((status["open_violations"][0].get("metadata_json") or {})["violation_type"], "changed_without_verification")
+            finally:
+                service.close()
+
+    def test_workflow_violations_do_not_leak_between_sessions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.start_task_from_prompt({"prompt": "实现这个功能", "session_id": "s1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg feature src", "session_id": "s1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "cwd": tmp})
+                service.observe_stop({"session_id": "s1", "cwd": tmp, "last_assistant_message": "已完成"})
+
+                s1_status = service.runtime_status(cwd=tmp, session_id="s1")
+                s2_status = service.runtime_status(cwd=tmp, session_id="s2")
+
+                self.assertTrue(s1_status["open_violations"])
+                violations = service.workflow_violations(session_id="s1")
+                self.assertTrue(violations)
+                self.assertIsNone(s2_status["active_workflow"])
+                self.assertEqual(s2_status["open_violations"], [])
+                metadata = s1_status["open_violations"][0].get("metadata_json") or {}
+                self.assertEqual(metadata["session_id"], "s1")
+                self.assertEqual((violations[0].get("metadata_json") or {})["session_id"], "s1")
             finally:
                 service.close()
 
@@ -342,10 +412,43 @@ class RuntimeObserverTest(unittest.TestCase):
 
                 first_context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t1")
                 second_context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
-                self.assertIn("pending_required_step: execute_and_verify", first_context)
-                self.assertIn("pending_required_step: inspect_repository", second_context)
+                self.assertNotIn("Runtime control:", first_context)
+                self.assertNotIn("Runtime control:", second_context)
+                self.assertNotIn("pending_required_step:", first_context)
+                self.assertNotIn("pending_required_step:", second_context)
                 self.assertNotIn(first["workflow_id"], second_context)
+                self.assertIn("用户需求：继续", first_context)
+                self.assertIn("用户需求：继续", second_context)
                 self.assertNotEqual(first["workflow_id"], second["workflow_id"])
+            finally:
+                service.close()
+
+    def test_new_prompt_without_turn_id_replaces_stale_active_workflow(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                first = service.start_task_from_prompt({"prompt": "修复第一个 bug", "session_id": "s1", "cwd": tmp})
+                second = service.start_task_from_prompt({"prompt": "修复第二个 bug", "session_id": "s1", "cwd": tmp})
+
+                self.assertTrue(first["started"])
+                self.assertTrue(second["started"])
+                self.assertNotEqual(first["workflow_id"], second["workflow_id"])
+                self.assertEqual(service.ledger.latest_state_for("workflow", first["workflow_id"]), "cancelled")
+                self.assertEqual(service.ledger.latest_state_for("workflow", second["workflow_id"]), "running")
+            finally:
+                service.close()
+
+    def test_non_resume_prompt_without_turn_id_does_not_reuse_stale_runtime_control(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                first = service.start_task_from_prompt({"prompt": "修复第一个 bug", "session_id": "s1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg first src", "session_id": "s1", "cwd": tmp})
+
+                context = service.prompt_context("我的回答语言偏好是什么？", cwd=tmp, session_id="s1")
+
+                self.assertNotIn(first["workflow_id"], context)
+                self.assertNotIn("Codex Runtime Control", context)
             finally:
                 service.close()
 
@@ -377,8 +480,12 @@ class RuntimeObserverTest(unittest.TestCase):
                 self.assertTrue(second["started"])
                 context = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
                 self.assertNotIn("Recommended dynamic skill:", context)
-                self.assertIn("Recommended verification recipe:", context)
-                self.assertIn("python3 -m unittest discover -s tests -v", context)
+                self.assertNotIn("Recommended verification recipe:", context)
+                self.assertNotIn("python3 -m unittest discover -s tests -v", context)
+                learned_recipes = service.runtime_status(cwd=tmp, session_id="s1", turn_id="t2")["learned_recipes"]
+                self.assertTrue(
+                    any("python3 -m unittest discover -s tests -v" in str(item.get("metadata_json") or {}) for item in learned_recipes)
+                )
 
                 dynamic_skill = [
                     item
@@ -387,8 +494,9 @@ class RuntimeObserverTest(unittest.TestCase):
                 ][0]
                 service.ledger.set_cognitive_record_status(str(dynamic_skill["id"]), "active", {"review_required": False})
                 context_after_review = service.prompt_context("继续", cwd=tmp, session_id="s1", turn_id="t2")
-                self.assertIn("Recommended dynamic skill:", context_after_review)
-                self.assertIn("Python unittest change workflow", context_after_review)
+                self.assertNotIn("Recommended dynamic skill:", context_after_review)
+                self.assertNotIn("Python unittest change workflow", context_after_review)
+                self.assertIn("用户需求：继续", context_after_review)
             finally:
                 service.close()
 
@@ -508,16 +616,13 @@ class RuntimeObserverTest(unittest.TestCase):
             finally:
                 service.close()
 
-    def test_successful_verify_resolves_changed_without_verification(self):
+    def test_successful_verify_before_stop_prevents_changed_without_verification(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = _service(tmp)
             try:
                 workflow_id = service.start_task_from_prompt({"prompt": "实现这个功能", "session_id": "s1", "turn_id": "t1", "cwd": tmp})["workflow_id"]
                 service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg feature src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
                 service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
-                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成"})
-                self.assertTrue(service.ledger.list_open_workflow_violations(workflow_id=workflow_id))
-
                 service.observe_tool_use(
                     {
                         "tool_name": "functions.exec_command",
@@ -529,11 +634,163 @@ class RuntimeObserverTest(unittest.TestCase):
                         "cwd": tmp,
                     }
                 )
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
                 open_types = [
                     (item.get("metadata_json") or {}).get("violation_type")
                     for item in service.ledger.list_open_workflow_violations(workflow_id=workflow_id)
                 ]
                 self.assertNotIn("changed_without_verification", open_types)
+            finally:
+                service.close()
+
+    def test_engineering_acceptance_coverage_is_recorded_when_verified(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                workflow_id = service.start_task_from_prompt({"prompt": "实现这个功能", "session_id": "s1", "turn_id": "t1", "cwd": tmp})["workflow_id"]
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg feature src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "cmd": "python3 -m unittest discover -s tests -v",
+                        "stdout": "OK",
+                        "exit_code": 0,
+                        "session_id": "s1",
+                        "turn_id": "t1",
+                        "cwd": tmp,
+                    }
+                )
+
+                result = service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，测试通过"})
+                coverage = result["acceptance_coverage"]
+
+                self.assertTrue(coverage["summary"]["complete"])
+                self.assertEqual({item["status"] for item in coverage["criteria"]}, {"covered"})
+                self.assertEqual(result["violations"], [])
+                metadata = service.ledger.get_cognitive_record(workflow_id)["metadata_json"]
+                self.assertEqual(metadata["acceptance_coverage"]["summary"]["covered"], coverage["summary"]["covered"])
+            finally:
+                service.close()
+
+    def test_ui_acceptance_missing_records_coverage_and_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                workflow_id = service.start_task_from_prompt({"prompt": "修改 UI 页面布局", "session_id": "s1", "turn_id": "t1", "cwd": tmp})["workflow_id"]
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg layout src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use(
+                    {
+                        "tool_name": "functions.exec_command",
+                        "cmd": "pnpm run typecheck",
+                        "stdout": "OK",
+                        "exit_code": 0,
+                        "session_id": "s1",
+                        "turn_id": "t1",
+                        "cwd": tmp,
+                    }
+                )
+
+                active_coverage = service.runtime_status(cwd=tmp, session_id="s1", turn_id="t1")["active_workflow"]["acceptance_coverage"]
+                self.assertTrue(
+                    any(item["status"] == "missing" and "Chrome" in item["criterion_text"] for item in active_coverage["criteria"])
+                )
+
+                result = service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，typecheck 通过"})
+                coverage = result["acceptance_coverage"]
+                missing = [item for item in coverage["criteria"] if item["status"] == "missing"]
+                violations = [(item.get("metadata_json") or {}) for item in result["violations"]]
+                acceptance_missing = [item for item in violations if item.get("violation_type") == "acceptance_missing"]
+
+                self.assertTrue(missing)
+                self.assertTrue(any("Chrome" in item["criterion_text"] and "browser_verify" in item["missing_steps"] for item in missing))
+                self.assertTrue(acceptance_missing)
+                self.assertTrue(any((item.get("evidence") or {}).get("attribution_signal") == "acceptance_missing" for item in acceptance_missing))
+                metadata = service.ledger.get_cognitive_record(workflow_id)["metadata_json"]
+                self.assertEqual(metadata["acceptance_coverage"]["summary"]["missing"], coverage["summary"]["missing"])
+                self.assertEqual(service.ledger.latest_state_for("workflow", workflow_id), "failed")
+            finally:
+                service.close()
+
+    def test_typecheck_counts_as_verification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                workflow_id = service.start_task_from_prompt({"prompt": "修改 UI", "session_id": "s1", "turn_id": "t1", "cwd": tmp})["workflow_id"]
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg logo src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "pnpm run typecheck", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                workflow = service.ledger.get_cognitive_record(workflow_id)
+                metadata = workflow["metadata_json"]
+                self.assertIn("execute_and_verify", metadata["completed_steps"])
+                self.assertTrue(metadata["verified"])
+                service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，typecheck 通过"})
+                self.assertFalse(service.ledger.list_open_workflow_violations(workflow_id=workflow_id))
+            finally:
+                service.close()
+
+    def test_runtime_skill_required_steps_drive_fullstack_workflow_completion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text('{"scripts":{"typecheck":"tsc --noEmit"}}\n', encoding="utf-8")
+            (root / "src").mkdir()
+            (root / "src" / "api.py").write_text("def list_items():\n    return []\n", encoding="utf-8")
+            service = _service(tmp)
+            try:
+                payload = {
+                    "prompt": "实现 API 分页接口和前端分类筛选，并用浏览器验证",
+                    "session_id": "s1",
+                    "turn_id": "t1",
+                    "cwd": tmp,
+                }
+                workflow_id = service.start_task_from_prompt(payload)["workflow_id"]
+                service.prompt_context(payload["prompt"], cwd=tmp, session_id="s1", turn_id="t1")
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg -n \"page\" src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "pnpm run typecheck", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "chrome", "command": "browser screenshot verifies pagination filter", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+
+                result = service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成，后端测试、前端 typecheck 和浏览器验证均通过"})
+
+                self.assertEqual(result["violations"], [])
+                metadata = service.ledger.get_cognitive_record(workflow_id)["metadata_json"]
+                self.assertEqual(metadata["missing_required_steps"], [])
+                self.assertIn("backend_test", metadata["completed_steps"])
+                self.assertIn("frontend_typecheck", metadata["completed_steps"])
+                self.assertIn("browser_verify", metadata["completed_steps"])
+                self.assertEqual(service.ledger.latest_state_for("workflow", workflow_id), "completed")
+            finally:
+                service.close()
+
+    def test_missing_fullstack_runtime_skill_step_records_specific_violation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "package.json").write_text('{"scripts":{"typecheck":"tsc --noEmit"}}\n', encoding="utf-8")
+            (root / "src").mkdir()
+            (root / "src" / "api.py").write_text("def list_items():\n    return []\n", encoding="utf-8")
+            service = _service(tmp)
+            try:
+                payload = {
+                    "prompt": "实现 API 分页接口和前端分类筛选，并用浏览器验证",
+                    "session_id": "s1",
+                    "turn_id": "t1",
+                    "cwd": tmp,
+                }
+                service.start_task_from_prompt(payload)
+                service.prompt_context(payload["prompt"], cwd=tmp, session_id="s1", turn_id="t1")
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "rg -n \"page\" src", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.apply_patch", "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+                service.observe_tool_use({"tool_name": "functions.exec_command", "cmd": "python3 -m unittest discover -s tests -v", "stdout": "OK", "exit_code": 0, "session_id": "s1", "turn_id": "t1", "cwd": tmp})
+
+                result = service.observe_stop({"session_id": "s1", "turn_id": "t1", "cwd": tmp, "last_assistant_message": "已完成"})
+                violations = [(item.get("metadata_json") or {}) for item in result["violations"]]
+                missing = [item for item in violations if item.get("violation_type") == "missing_required_workflow_step"]
+
+                self.assertTrue(missing)
+                self.assertIn("frontend_typecheck", {item["evidence"].get("missing_step") for item in missing})
+                self.assertIn("browser_verify", {item["evidence"].get("missing_step") for item in missing})
             finally:
                 service.close()
 

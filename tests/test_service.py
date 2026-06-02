@@ -25,7 +25,7 @@ class ServiceTest(unittest.TestCase):
             try:
                 result = service.ingest_event("manual", {"text": "默认使用中文回答"})
                 self.assertEqual(result["candidate_count"], 1)
-                memories = service.list_memories(limit=5)
+                memories = service.user_preferences_page(page=1, page_size=5, status="active")["items"]
                 self.assertTrue(memories)
                 self.assertEqual(memories[0]["status"], "active")
                 self.assertEqual(memories[0]["review_json"]["storage"], "ledger_only")
@@ -50,6 +50,11 @@ class ServiceTest(unittest.TestCase):
                 result = service.ingest_event("user_message", {"prompt": "不要记忆这条：默认使用中文回答"})
                 self.assertEqual(result["candidate_count"], 0)
                 self.assertEqual(result["skipped"], "memory_storage_opt_out")
-                self.assertEqual(service.list_memories(limit=5), [])
+                non_default = [
+                    memory
+                    for memory in service.list_memories(limit=5)
+                    if (memory.get("review_json") or {}).get("source_id") != "default:global_agents_collaboration_rules"
+                ]
+                self.assertEqual(non_default, [])
             finally:
                 service.close()
