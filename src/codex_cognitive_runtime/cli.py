@@ -96,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     export = sub.add_parser("export")
     export.add_argument("--output", default=None)
     export.add_argument("--limit", type=int, default=5000)
+    export.add_argument("--target", choices=["user", "team", "baseline", "all"], default="user")
 
     wipe = sub.add_parser("wipe")
     wipe.add_argument("--yes", action="store_true")
@@ -255,7 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "recall-feedback":
             return _print(service.recall_feedback(args.memory_id, args.outcome, note=args.note))
         if args.cmd == "export":
-            data = service.export_data(limit=args.limit)
+            data = service.export_data(limit=args.limit, target=args.target)
             if args.output:
                 output_path = Path(args.output).expanduser()
                 output_path.parent.mkdir(parents=True, exist_ok=True)

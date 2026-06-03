@@ -20,6 +20,7 @@ def _config(tmp):
         model="gpt-5.4-mini",
         state_dir=tmp_path,
         ledger_path=tmp_path / "ledger.sqlite3",
+        baseline_ledger_path=tmp_path / "baseline-ledger.sqlite3",
         min_active_confidence=0.82,
         min_quarantine_confidence=0.62,
         duplicate_threshold=0.9,
@@ -33,52 +34,55 @@ class DefaultMemoriesTest(unittest.TestCase):
             config = _config(tmp)
             service = MemoryService(config)
             try:
-                memories = service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
+                memories = service.baseline_ledger.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
                 matches = [memory for memory in memories if DEFAULT_AGENTS_MEMORY_TITLE in str(memory.get("content") or "")]
                 self.assertEqual(len(matches), 1)
                 self.assertIsNone(matches[0].get("project_key"))
                 self.assertEqual(matches[0]["review_json"]["source_id"], "default:global_agents_collaboration_rules")
+                user_memories = service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
+                self.assertFalse([memory for memory in user_memories if DEFAULT_AGENTS_MEMORY_TITLE in str(memory.get("content") or "")])
             finally:
                 service.close()
 
             service = MemoryService(config)
             try:
-                memories = service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
+                memories = service.baseline_ledger.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
                 matches = [memory for memory in memories if DEFAULT_AGENTS_MEMORY_TITLE in str(memory.get("content") or "")]
                 self.assertEqual(len(matches), 1)
             finally:
                 service.close()
 
-    def test_deleted_bundled_default_memory_is_not_recreated(self):
+    def test_user_library_does_not_delete_or_recreate_baseline_default_memory(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = _config(tmp)
             service = MemoryService(config)
             try:
-                memory = [
-                    item
-                    for item in service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
-                    if DEFAULT_AGENTS_MEMORY_TITLE in str(item.get("content") or "")
-                ][0]
-                service.ledger.set_status(str(memory["id"]), "deleted", {**memory["review_json"], "user_deleted": True})
+                self.assertFalse(
+                    [
+                        item
+                        for item in service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
+                        if DEFAULT_AGENTS_MEMORY_TITLE in str(item.get("content") or "")
+                    ]
+                )
             finally:
                 service.close()
 
             service = MemoryService(config)
             try:
-                memories = service.list_memories(memory_type="user_preference", scope="global", limit=20)
+                memories = service.baseline_ledger.list_memories(memory_type="user_preference", scope="global", limit=20)
                 active_matches = [
                     memory
                     for memory in memories
                     if memory.get("status") == "active" and DEFAULT_AGENTS_MEMORY_TITLE in str(memory.get("content") or "")
                 ]
-                self.assertEqual(active_matches, [])
+                self.assertEqual(len(active_matches), 1)
             finally:
                 service.close()
 
     def test_existing_old_title_memory_is_renamed(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = _config(tmp)
-            ledger = Ledger(config.ledger_path)
+            ledger = Ledger(config.baseline_ledger_path)
             try:
                 old_content = DEFAULT_AGENTS_MEMORY_CONTENT.replace(DEFAULT_AGENTS_MEMORY_TITLE, DEFAULT_AGENTS_MEMORY_OLD_TITLE, 1)
                 candidate = MemoryCandidate(
@@ -98,7 +102,7 @@ class DefaultMemoriesTest(unittest.TestCase):
 
             service = MemoryService(config)
             try:
-                memories = service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
+                memories = service.baseline_ledger.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
                 matches = [memory for memory in memories if "AGENTS" in str(memory.get("content") or "")]
                 self.assertEqual(len(matches), 1)
                 self.assertIn(DEFAULT_AGENTS_MEMORY_TITLE, matches[0]["content"])
@@ -109,7 +113,7 @@ class DefaultMemoriesTest(unittest.TestCase):
     def test_existing_bundled_memory_is_upgraded_to_latest_content(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = _config(tmp)
-            ledger = Ledger(config.ledger_path)
+            ledger = Ledger(config.baseline_ledger_path)
             try:
                 old_content = DEFAULT_AGENTS_MEMORY_CONTENT.split("多任务或主线/支线并行时", 1)[0]
                 candidate = MemoryCandidate(
@@ -138,7 +142,7 @@ class DefaultMemoriesTest(unittest.TestCase):
 
             service = MemoryService(config)
             try:
-                memories = service.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
+                memories = service.baseline_ledger.list_memories(status="active", memory_type="user_preference", scope="global", limit=20)
                 matches = [memory for memory in memories if DEFAULT_AGENTS_MEMORY_TITLE in str(memory.get("content") or "")]
                 self.assertEqual(len(matches), 1)
                 self.assertIn("多任务或主线/支线并行时", matches[0]["content"])

@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -57,9 +58,44 @@ class ApiServerTest(unittest.TestCase):
                     if (memory.get("review_json") or {}).get("source_id") != "default:global_agents_collaboration_rules"
                 ]
                 self.assertEqual(status["primary_store"], "ledger")
+                self.assertIn("user", status["ledger_layers"])
+                self.assertIn("baseline", status["ledger_layers"])
                 self.assertEqual([memory["id"] for memory in non_default], [memory_id])
                 detail = dispatch(service, "GET", f"/api/memories/{memory_id}", {}, {})
                 self.assertEqual(detail["status"], "active")
+            finally:
+                service.close()
+
+    def test_export_target_baseline_does_not_include_user_private_data(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = MemoryService(_config(Path(tmp)))
+            try:
+                sentinel = "PRIVATE_USER_SENTINEL_9f3a"
+                service.ledger.add_candidate(
+                    MemoryCandidate(
+                        content=f"用户私有偏好：{sentinel}",
+                        memory_type="user_preference",
+                        scope="global",
+                        ttl="long",
+                        confidence=0.9,
+                        importance=0.8,
+                        evidence=[Evidence(source="test", quote=sentinel)],
+                        reason="leak guard",
+                        proposed_action="store",
+                    ),
+                    "active",
+                    {"status": "active"},
+                )
+                service.seed_skills(category="design")
+
+                user_export = dispatch(service, "POST", "/api/export", {}, {"target": "user"})
+                baseline_export = dispatch(service, "POST", "/api/export", {}, {"target": "baseline"})
+
+                self.assertIn(sentinel, json.dumps(user_export, ensure_ascii=False))
+                self.assertNotIn(sentinel, json.dumps(baseline_export, ensure_ascii=False))
+                self.assertTrue(baseline_export["github_safe"])
+                self.assertEqual(baseline_export["target_ledger"], "baseline")
+                self.assertTrue(all(record.get("record_type") == "seed_skill" for record in baseline_export["cognitive_records"]))
             finally:
                 service.close()
 

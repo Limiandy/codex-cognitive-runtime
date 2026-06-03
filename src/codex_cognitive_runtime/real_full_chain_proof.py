@@ -10,6 +10,7 @@ from typing import Any
 
 from .config import Config
 from .memory_retriever import CleanMemoryRetriever
+from .schema import Evidence, MemoryCandidate
 from .service import MemoryService
 from .timeutil import local_now_iso
 
@@ -137,6 +138,7 @@ def _scenario_specs() -> list[dict[str, Any]]:
     specs.extend(_industry_depth_specs())
     specs.extend(_workflow_specs())
     specs.append({"name": "real_feedback_seed_calibration", "type": "feedback_calibration"})
+    specs.append({"name": "partition_split_ledger_closure", "type": "partition"})
     return specs
 
 
@@ -148,6 +150,8 @@ def _run_scenario_spec(service: MemoryService, spec: dict[str, Any]) -> dict[str
         return _workflow_scenario(service, **spec["workflow"])
     if scenario_type == "feedback_calibration":
         return _feedback_calibration_scenario(service)
+    if scenario_type == "partition":
+        return _partition_split_ledger_scenario(service)
     raise ValueError(f"unknown scenario type: {scenario_type}")
 
 
@@ -570,6 +574,63 @@ def _feedback_calibration_scenario(service: MemoryService) -> dict[str, Any]:
         "bad_profile_weight_delta": delta,
         "assertions": assertions,
         "failure_class": _classify_failure(assertions, attribution={}, scores=after, coverage=None),
+    }
+
+
+def _partition_split_ledger_scenario(service: MemoryService) -> dict[str, Any]:
+    sentinel = "PRIVATE_USER_SENTINEL_9f3a"
+    prompt = "帮我设计一个品牌 logo，先用品牌守护视角评估，不要直接乱画"
+    service.ledger.add_candidate(
+        MemoryCandidate(
+            content=f"用户私有偏好：{sentinel}",
+            memory_type="user_preference",
+            proposed_action="store",
+            confidence=0.95,
+            importance=0.9,
+            ttl="long",
+            scope="global",
+            evidence=[Evidence(source="real_full_chain", quote=sentinel)],
+            reason="partition leak guard",
+        ),
+        "active",
+        {"status": "active"},
+    )
+    context = service.prompt_context(prompt, cwd=str(PLUGIN_ROOT), session_id="real-partition", turn_id="partition")
+    seed_id = "agency-agents:design/design-brand-guardian.md"
+    baseline_seed = service.baseline_ledger.get_cognitive_record(seed_id) or {}
+    user_overlay = service.ledger.get_cognitive_record(seed_id) or {}
+    before_baseline_metadata = dict(baseline_seed.get("metadata_json") or {})
+    for _ in range(2):
+        service.apply_natural_feedback("这个模板不适合，不要用这个模板", session_id="real-partition", turn_id="partition")
+    updated_overlay = service.ledger.get_cognitive_record(seed_id) or {}
+    updated_baseline = service.baseline_ledger.get_cognitive_record(seed_id) or {}
+    baseline_export = service.export_data(target="baseline")
+    user_export = service.export_data(target="user")
+    baseline_blob = json.dumps(baseline_export, ensure_ascii=False)
+    user_blob = json.dumps(user_export, ensure_ascii=False)
+    assertions = {
+        "baseline_seed_available": bool(baseline_seed),
+        "user_overlay_created": bool(user_overlay) and (user_overlay.get("metadata_json") or {}).get("overlay_source_layer") == "baseline",
+        "feedback_calibrates_user_overlay": "seed_scoring_calibration" in (updated_overlay.get("metadata_json") or {}),
+        "baseline_not_calibrated_by_user_feedback": "seed_scoring_calibration" not in (updated_baseline.get("metadata_json") or {}),
+        "baseline_failure_count_unchanged": (updated_baseline.get("metadata_json") or {}).get("failure_count") == before_baseline_metadata.get("failure_count"),
+        "baseline_export_github_safe": bool(baseline_export.get("github_safe")),
+        "baseline_export_no_user_sentinel": sentinel not in baseline_blob,
+        "user_export_keeps_user_sentinel": sentinel in user_blob,
+        "context_uses_runtime_rules": "任务规则：" in context,
+    }
+    return {
+        "name": "partition_split_ledger_closure",
+        "type": "partition",
+        "passed": all(assertions.values()),
+        "prompt": prompt,
+        "domains": ["runtime_storage", "brand_design"],
+        "surfaces": ["baseline_distribution", "user_personalization", "feedback_calibration", "export_safety"],
+        "loop_segments": ["baseline_seed_import", "layered_recall", "user_overlay", "runtime_feedback", "baseline_export_guard"],
+        "ledger_layers": service.ledger_view.stats(),
+        "seed_id": seed_id,
+        "assertions": assertions,
+        "failure_class": _classify_failure(assertions, attribution={}, scores=[], coverage=None),
     }
 
 

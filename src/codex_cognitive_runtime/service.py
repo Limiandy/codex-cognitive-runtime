@@ -18,6 +18,7 @@ from .feedback_classifier import RuntimeSkillFeedbackClassifier
 from .governance import MemoryGovernance
 from .knowledge import KnowledgeBuilder
 from .ledger import Ledger, project_key_for_cwd
+from .ledger_router import LayeredLedgerView, clone_cognitive_record_to_user
 from . import logger
 from .local_store import LocalCognitiveStore
 from .model_client import CodexMiniClient, ModelError
@@ -47,6 +48,10 @@ class MemoryService:
         ensure_state_dir(config)
         self.config = config
         self.ledger = Ledger(config.ledger_path)
+        baseline_ledger_path = config.baseline_ledger_path or (config.state_dir / "baseline-ledger.sqlite3")
+        self.baseline_ledger = Ledger(baseline_ledger_path)
+        self.team_ledger = Ledger(config.team_ledger_path) if config.team_ledger_path else None
+        self.ledger_view = LayeredLedgerView(self.ledger, baseline=self.baseline_ledger, team=self.team_ledger)
         self.model = CodexMiniClient(config)
         self.engine = MemoryEngine(config, self.model)
         self.reviewer = MemoryReviewer(config, self.model)
@@ -60,11 +65,11 @@ class MemoryService:
         self.outcome_attribution = OutcomeAttributionEngine(self.ledger)
         self._runtime_skill_cache: dict[str, tuple[Any, dict[str, Any]]] = {}
         self._default_seed_skills_checked = False
-        self.default_memories_status = ensure_default_memories(self.ledger)
+        self.default_memories_status = ensure_default_memories(self.baseline_ledger or self.ledger)
         self.user_preferences_activation_count = self.ledger.activate_user_preferences()
 
     def close(self) -> None:
-        self.ledger.close()
+        self.ledger_view.close()
 
     def __enter__(self) -> "MemoryService":
         return self
@@ -430,8 +435,8 @@ class MemoryService:
 
         recall_started = time.perf_counter()
         recall_span = self.monitor.start_span(trace, "memory_recall")
-        memories = self.ledger.list_recallable_memories(cwd=cwd, session_id=session_id, limit=200)
-        edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
+        memories = self.ledger_view.list_recallable_memories(cwd=cwd, session_id=session_id, limit=200)
+        edges = self.ledger_view.list_edges([str(item["id"]) for item in memories if item.get("id")])
         recall_query = " ".join(
             str(item or "")
             for item in [
@@ -567,7 +572,7 @@ class MemoryService:
             task_profile = _task_profile_from_validated_task(validated_task, cwd=cwd, recent_observations=(active_metadata or {}).get("observations") or [])
             task_profile["domain"] = skill_decision.domain
             self.monitor.event(trace, "task_profile_inferred", span_id=str(basis_span["id"]), metadata=task_profile)
-            memory_basis = CleanMemoryRetriever(self.ledger).retrieve(validated_task.interpreted_request, cwd=cwd, session_id=session_id, limit=limit, task_profile=task_profile)
+            memory_basis = CleanMemoryRetriever(self.ledger_view).retrieve(validated_task.interpreted_request, cwd=cwd, session_id=session_id, limit=limit, task_profile=task_profile)
             memory_retrieval_latency_ms += _elapsed_ms(basis_started)
             memory_basis_ids = [str(item.get("id")) for item in memory_basis.get("memories") or [] if item.get("id")]
             durable_skill_ids = [str(item.get("id")) for item in memory_basis.get("durable_skills") or [] if item.get("id")]
@@ -611,6 +616,7 @@ class MemoryService:
             for seed_id in seed_skill_ids:
                 self.monitor.link(trace, "seed_skill", seed_id, "used")
             self.monitor.end_span(str(basis_span["id"]))
+            self._ensure_user_seed_overlays(seed_skill_ids, reason="runtime_skill_selected")
             task_prompt = validated_task.interpreted_request
             cache_key = _runtime_skill_cache_key(task_prompt, memory_basis, model=self.config.model, strict_privacy=self.config.strict_privacy)
             cached = self._runtime_skill_cache.get(cache_key)
@@ -881,8 +887,8 @@ class MemoryService:
         cwd: str | None = None,
         session_id: str | None = None,
     ) -> dict[str, Any]:
-        memories = self.ledger.list_recallable_memories(cwd=cwd, session_id=session_id, limit=200)
-        edges = self.ledger.list_edges([str(item["id"]) for item in memories if item.get("id")])
+        memories = self.ledger_view.list_recallable_memories(cwd=cwd, session_id=session_id, limit=200)
+        edges = self.ledger_view.list_edges([str(item["id"]) for item in memories if item.get("id")])
         result = MemoryRecall(memories, edges=edges).recall(user_message, limit=limit)
         return {"route": result.route, "memories": result.memories, "context": result.context}
 
@@ -1256,15 +1262,20 @@ class MemoryService:
         dry_run: bool = False,
         activate: bool = False,
     ) -> dict[str, Any]:
-        return AgencySkillSeeder(self.ledger).seed(source=source, repo_url=repo_url, limit=limit, category=category, dry_run=dry_run, activate=activate)
+        target_ledger = self.baseline_ledger if source is None and repo_url is None and self.baseline_ledger is not None else self.ledger
+        result = AgencySkillSeeder(target_ledger).seed(source=source, repo_url=repo_url, limit=limit, category=category, dry_run=dry_run, activate=activate)
+        if isinstance(result, dict):
+            result["target_ledger"] = "baseline" if target_ledger is self.baseline_ledger else "user"
+        return result
 
     def _ensure_default_seed_skills(self) -> dict[str, Any]:
         if self._default_seed_skills_checked:
             return {"imported": False, "reason": "already_checked"}
         self._default_seed_skills_checked = True
+        target_ledger = self.baseline_ledger or self.ledger
         existing = [
             record
-            for record in self.ledger.list_cognitive_records(layer="skill", limit=200)
+            for record in target_ledger.list_cognitive_records(layer="skill", limit=200)
             if record.get("record_type") == "seed_skill"
         ]
         if existing:
@@ -1272,11 +1283,25 @@ class MemoryService:
         if not default_seed_source_available():
             return {"imported": False, "reason": "bundled_seed_source_missing"}
         try:
-            result = self.seed_skills(activate=True)
+            result = AgencySkillSeeder(target_ledger).seed(activate=True)
+            result["target_ledger"] = "baseline" if target_ledger is self.baseline_ledger else "user"
         except Exception as exc:
             logger.warn("default seed skill import failed", error=str(exc)[:240])
             return {"imported": False, "reason": "default_seed_skill_import_failed", "error": str(exc)[:240]}
         return {"imported": bool(result.get("ok")), "result": result}
+
+    def _ensure_user_seed_overlays(self, seed_skill_ids: list[str], *, reason: str) -> list[str]:
+        created = []
+        for seed_id in seed_skill_ids:
+            if self.ledger.get_cognitive_record(str(seed_id)):
+                continue
+            source = self.ledger_view.get_cognitive_record(str(seed_id))
+            if not source or source.get("record_type") != "seed_skill":
+                continue
+            overlay = clone_cognitive_record_to_user(self.ledger, source, overlay_reason=reason)
+            if overlay:
+                created.append(str(overlay.get("id") or seed_id))
+        return created
 
     def list_runtime_skills(self, limit: int = 50) -> list[dict[str, Any]]:
         return [
@@ -1384,7 +1409,7 @@ class MemoryService:
         self._ensure_default_seed_skills()
         records = [
             record
-            for record in self.ledger.list_cognitive_records(layer="skill", limit=max(limit, 200))
+            for record in self.ledger_view.list_cognitive_records(layer="skill", limit=max(limit, 200))
             if record.get("record_type") == "seed_skill"
         ]
         records.sort(key=_seed_skill_sort_key)
@@ -1404,7 +1429,7 @@ class MemoryService:
         category_query = str(category or "").strip()
         records = [
             record
-            for record in self.ledger.list_cognitive_records(layer="skill", limit=5000)
+            for record in self.ledger_view.list_cognitive_records(layer="skill", limit=5000)
             if record.get("record_type") == "seed_skill"
         ]
         categories = sorted({str((record.get("metadata_json") or {}).get("category") or record.get("domain") or "") for record in records if str((record.get("metadata_json") or {}).get("category") or record.get("domain") or "")})
@@ -1435,7 +1460,7 @@ class MemoryService:
 
     def get_seed_skill(self, skill_id: str) -> dict[str, Any] | None:
         self._ensure_default_seed_skills()
-        record = self.ledger.get_cognitive_record(skill_id)
+        record = self.ledger_view.get_cognitive_record(skill_id)
         if not record or record.get("record_type") != "seed_skill":
             return None
         return public_skill_record(record)
@@ -1444,6 +1469,7 @@ class MemoryService:
         record = self.get_seed_skill(skill_id)
         if not record:
             return None
+        self._ensure_user_seed_overlays([skill_id], reason="manual_trust_state_override")
         patch = {"trust_state": trust_state, "last_status_change_at": _now()}
         status = "active"
         if trust_state == "disabled":
@@ -1508,6 +1534,7 @@ class MemoryService:
             "store": self.store.status(),
             "model": self.config.model,
             "primary_store": self.config.primary_store,
+            "ledger_layers": self.ledger_view.stats(),
             "privacy": _privacy_status(self.config),
             "cognitive": self.runtime.snapshot()["records"],
         }
@@ -1515,6 +1542,7 @@ class MemoryService:
     def lightweight_status(self) -> dict[str, Any]:
         return {
             "ledger": self.ledger.stats(),
+            "ledger_layers": self.ledger_view.stats(),
             "model": self.config.model,
             "privacy": _privacy_status(self.config),
         }
@@ -1700,6 +1728,7 @@ class MemoryService:
             "privacy": _privacy_status(self.config),
             "state_dir": str(self.config.state_dir),
             "ledger_path": str(self.config.ledger_path),
+            "ledger_layers": self.ledger_view.stats(),
             "primary_store": self.config.primary_store,
             "mcp_permissions": {
                 "write_tools": self.config.enable_mcp_write_tools,
@@ -1755,8 +1784,37 @@ class MemoryService:
     def governance_policies(self, policy_type: str | None = None, active: bool = True) -> list[dict[str, Any]]:
         return self.ledger.list_governance_policies(policy_type=policy_type, active=active)
 
-    def export_data(self, limit: int = 5000) -> dict[str, Any]:
-        data = self.ledger.export_data(limit=limit)
+    def export_data(self, limit: int = 5000, target: str = "user") -> dict[str, Any]:
+        target = str(target or "user").strip().lower()
+        if target in {"user", "personal"}:
+            data = self.ledger.export_data(limit=limit)
+            data["target_ledger"] = "user"
+            return self._sanitize_export(data)
+        if target == "baseline":
+            data = self.baseline_ledger.export_data(limit=limit)
+            data["target_ledger"] = "baseline"
+            data["github_safe"] = True
+            return self._sanitize_baseline_export(data)
+        if target == "team":
+            if not self.team_ledger:
+                return {"target_ledger": "team", "available": False, "reason": "team_ledger_not_configured"}
+            data = self.team_ledger.export_data(limit=limit)
+            data["target_ledger"] = "team"
+            return self._sanitize_export(data)
+        if target == "all":
+            return {
+                "version": 1,
+                "exported_at": _now(),
+                "target_ledger": "all",
+                "ledgers": {
+                    "user": self._sanitize_export(self.ledger.export_data(limit=limit)),
+                    "team": self._sanitize_export(self.team_ledger.export_data(limit=limit)) if self.team_ledger else None,
+                    "baseline": self._sanitize_baseline_export(self.baseline_ledger.export_data(limit=limit)),
+                },
+            }
+        raise ValueError("export target must be user, team, baseline, or all")
+
+    def _sanitize_export(self, data: dict[str, Any]) -> dict[str, Any]:
         if self.config.strict_privacy:
             for record in data.get("cognitive_records") or []:
                 if record.get("record_type") == "seed_skill":
@@ -1793,6 +1851,30 @@ class MemoryService:
                     if "prompt_preview" in metadata:
                         metadata.pop("prompt_preview", None)
                     record["metadata_json"] = metadata
+        return data
+
+    def _sanitize_baseline_export(self, data: dict[str, Any]) -> dict[str, Any]:
+        data["events"] = []
+        data["recall_events"] = []
+        data["runtime_state_transitions"] = []
+        data["runtime_traces"] = []
+        data["runtime_trace_spans"] = []
+        data["runtime_trace_events"] = []
+        data["runtime_trace_links"] = []
+        data["outcome_attributions"] = []
+        data["memories"] = [
+            memory
+            for memory in data.get("memories") or []
+            if (memory.get("review_json") or {}).get("source_id") == "default:global_agents_collaboration_rules"
+            or (memory.get("review_json") or {}).get("source_kind") == "bundled_default_memory"
+        ]
+        data["cognitive_records"] = [
+            record
+            for record in data.get("cognitive_records") or []
+            if record.get("record_type") == "seed_skill"
+            and str(record.get("source_kind") or "") in {"bundled_seed_skill", "agency_agents_seed", "seed_skill"}
+        ]
+        data["github_safe"] = True
         return data
 
     def wipe_data(self) -> dict[str, Any]:
@@ -2543,9 +2625,11 @@ def _basis_cache_marker(item: dict[str, Any], include_trust: bool) -> dict[str, 
     return marker
 
 
-def _seed_skill_sort_key(record: dict[str, Any]) -> tuple[str, str, str]:
+def _seed_skill_sort_key(record: dict[str, Any]) -> tuple[int, str, str, str]:
     metadata = record.get("metadata_json") or {}
+    layer = str(record.get("_ledger_layer") or metadata.get("ledger_layer") or "user")
     return (
+        -{"user": 3, "team": 2, "baseline": 1}.get(layer, 3),
         str(metadata.get("category") or record.get("domain") or ""),
         str(metadata.get("source_path") or record.get("source_id") or record.get("id") or ""),
         str(metadata.get("name") or record.get("content") or ""),

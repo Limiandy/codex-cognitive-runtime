@@ -339,7 +339,7 @@ def dispatch(service: MemoryService, method: str, path: str, query: dict[str, st
         require_confirm(body, "consolidation.run", "write")
         return service.consolidate_memories()
     if method == "POST" and route == ["export"]:
-        return service.export_data(limit=_optional_int(body.get("limit")) or 5000)
+        return service.export_data(limit=_optional_int(body.get("limit")) or 5000, target=str(body.get("target") or "user"))
     if method == "POST" and route == ["prune-events"]:
         require_confirm(body, "prune_events", "admin")
         return service.prune_events(older_than_days=_optional_int(body.get("older_than_days")))

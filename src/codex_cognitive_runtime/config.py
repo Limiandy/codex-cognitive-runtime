@@ -18,6 +18,8 @@ class Config:
     min_quarantine_confidence: float
     duplicate_threshold: float
     max_evidence_quote_chars: int
+    baseline_ledger_path: Path | None = None
+    team_ledger_path: Path | None = None
     primary_store: str = "ledger"
     enable_dangerous_mcp_tools: bool = False
     enable_mcp_write_tools: bool = False
@@ -48,7 +50,19 @@ def load_config() -> Config:
             data = {}
 
     model = os.environ.get("CODEX_COGNITIVE_RUNTIME_MODEL") or data.get("model") or DEFAULT_MODEL
-    ledger_path = Path(data.get("ledger_path") or state_dir / "ledger.sqlite3").expanduser()
+    ledger_path = Path(
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_USER_LEDGER_PATH")
+        or data.get("user_ledger_path")
+        or data.get("ledger_path")
+        or state_dir / "ledger.sqlite3"
+    ).expanduser()
+    baseline_ledger_path = Path(
+        os.environ.get("CODEX_COGNITIVE_RUNTIME_BASELINE_LEDGER_PATH")
+        or data.get("baseline_ledger_path")
+        or state_dir / "baseline-ledger.sqlite3"
+    ).expanduser()
+    team_ledger_value = os.environ.get("CODEX_COGNITIVE_RUNTIME_TEAM_LEDGER_PATH") or data.get("team_ledger_path") or ""
+    team_ledger_path = Path(team_ledger_value).expanduser() if team_ledger_value else None
     enable_dangerous_mcp_tools = _bool(
         os.environ.get("CODEX_COGNITIVE_RUNTIME_ENABLE_DANGEROUS_MCP_TOOLS"),
         bool(data.get("enable_dangerous_mcp_tools", False)),
@@ -106,6 +120,8 @@ def load_config() -> Config:
         model=str(model),
         state_dir=state_dir,
         ledger_path=ledger_path,
+        baseline_ledger_path=baseline_ledger_path,
+        team_ledger_path=team_ledger_path,
         min_active_confidence=float(data.get("min_active_confidence", 0.82)),
         min_quarantine_confidence=float(data.get("min_quarantine_confidence", 0.62)),
         duplicate_threshold=float(data.get("duplicate_threshold", 0.9)),

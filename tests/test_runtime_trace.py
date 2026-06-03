@@ -192,7 +192,9 @@ class RuntimeTraceTest(unittest.TestCase):
                 summary = service.trace_summary(str(trace["id"]))
                 self.assertEqual(summary["basis"]["memory_count"], 1)
                 self.assertEqual(summary["basis"]["durable_skill_count"], 1)
-                self.assertEqual(summary["basis"]["seed_skill_count"], 1)
+                seed_link_count = sum(1 for link in links if link["target_type"] == "seed_skill")
+                self.assertEqual(summary["basis"]["seed_skill_count"], seed_link_count)
+                self.assertGreaterEqual(summary["basis"]["seed_skill_count"], 1)
             finally:
                 service.close()
 

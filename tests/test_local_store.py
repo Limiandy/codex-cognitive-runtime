@@ -21,6 +21,26 @@ class LocalStoreTest(unittest.TestCase):
             os.environ["CODEX_COGNITIVE_RUNTIME_STATE_DIR"] = tmp
             config = load_config()
             self.assertEqual(config.primary_store, "ledger")
+            self.assertEqual(config.ledger_path, Path(tmp) / "ledger.sqlite3")
+            self.assertEqual(config.baseline_ledger_path, Path(tmp) / "baseline-ledger.sqlite3")
+            self.assertIsNone(config.team_ledger_path)
+
+    def test_config_supports_user_baseline_and_team_ledger_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            os.environ["CODEX_COGNITIVE_RUNTIME_STATE_DIR"] = str(root / "state")
+            os.environ["CODEX_COGNITIVE_RUNTIME_USER_LEDGER_PATH"] = str(root / "user.sqlite3")
+            os.environ["CODEX_COGNITIVE_RUNTIME_BASELINE_LEDGER_PATH"] = str(root / "baseline.sqlite3")
+            os.environ["CODEX_COGNITIVE_RUNTIME_TEAM_LEDGER_PATH"] = str(root / "team.sqlite3")
+            try:
+                config = load_config()
+                self.assertEqual(config.ledger_path, root / "user.sqlite3")
+                self.assertEqual(config.baseline_ledger_path, root / "baseline.sqlite3")
+                self.assertEqual(config.team_ledger_path, root / "team.sqlite3")
+            finally:
+                os.environ.pop("CODEX_COGNITIVE_RUNTIME_USER_LEDGER_PATH", None)
+                os.environ.pop("CODEX_COGNITIVE_RUNTIME_BASELINE_LEDGER_PATH", None)
+                os.environ.pop("CODEX_COGNITIVE_RUNTIME_TEAM_LEDGER_PATH", None)
 
     def test_active_memory_is_usable_with_ledger_only_store(self):
         with tempfile.TemporaryDirectory() as tmp:

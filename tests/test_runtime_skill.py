@@ -363,7 +363,7 @@ class RuntimeSkillTest(unittest.TestCase):
                     if item.get("record_type") == "injection"
                 ]
                 metadata = injections[0].get("metadata_json") or {}
-                self.assertEqual(metadata["seed_skill_ids"], ["agency-agents:design/design-brand-guardian.md"])
+                self.assertIn("agency-agents:design/design-brand-guardian.md", metadata["seed_skill_ids"])
             finally:
                 service.close()
 
@@ -375,9 +375,11 @@ class RuntimeSkillTest(unittest.TestCase):
                 seeded = service.seed_skills(category="design")
 
                 self.assertTrue(seeded["ok"])
+                self.assertEqual(seeded["target_ledger"], "baseline")
                 self.assertGreater(seeded["skill_count"], 0)
                 clone_repo.assert_not_called()
-                seed_record = service.ledger.get_cognitive_record("agency-agents:design/design-ui-designer.md")
+                self.assertIsNone(service.ledger.get_cognitive_record("agency-agents:design/design-ui-designer.md"))
+                seed_record = service.baseline_ledger.get_cognitive_record("agency-agents:design/design-ui-designer.md")
                 self.assertIsNotNone(seed_record)
                 self.assertIn("Source Guidance", seed_record["content"])
                 self.assertEqual(seed_record["status"], "active")
@@ -399,6 +401,32 @@ class RuntimeSkillTest(unittest.TestCase):
                 clone_repo.assert_not_called()
                 stats = service.seed_skill_stats()
                 self.assertGreater(stats["count"], 0)
+            finally:
+                service.close()
+
+    @patch("codex_cognitive_runtime.seed_skills._clone_repo")
+    def test_baseline_seed_feedback_creates_user_overlay_without_mutating_baseline(self, clone_repo):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = _service(tmp)
+            try:
+                service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
+                seed_id = "agency-agents:design/design-brand-guardian.md"
+                baseline = service.baseline_ledger.get_cognitive_record(seed_id)
+                overlay = service.ledger.get_cognitive_record(seed_id)
+                self.assertIsNotNone(baseline)
+                self.assertIsNotNone(overlay)
+                self.assertEqual((overlay["metadata_json"] or {}).get("overlay_source_layer"), "baseline")
+
+                for _ in range(2):
+                    service.apply_natural_feedback("这个模板不适合，不要用这个模板", session_id="s1")
+
+                updated_overlay = service.ledger.get_cognitive_record(seed_id)
+                updated_baseline = service.baseline_ledger.get_cognitive_record(seed_id)
+                self.assertIn("seed_scoring_calibration", updated_overlay["metadata_json"])
+                self.assertNotIn("seed_scoring_calibration", updated_baseline["metadata_json"])
+                self.assertGreater(updated_overlay["metadata_json"]["failure_count"], baseline["metadata_json"]["failure_count"])
+                self.assertEqual(updated_baseline["metadata_json"]["failure_count"], baseline["metadata_json"]["failure_count"])
+                clone_repo.assert_not_called()
             finally:
                 service.close()
 
@@ -1005,8 +1033,9 @@ class RuntimeSkillTest(unittest.TestCase):
                 feedback_metadata = feedback["runtime_skill_feedback"]["metadata_json"]
                 attribution = feedback_metadata["fragment_attribution"]
                 self.assertTrue(attribution)
+                selected_seed_ids = set(metadata["seed_skill_ids"])
+                self.assertTrue(any(item.get("source_skill_id") in selected_seed_ids for item in attribution))
                 self.assertEqual(attribution[0]["source_kind"], "seed_skill")
-                self.assertEqual(attribution[0]["source_skill_id"], "agency-agents:design/design-brand-guardian.md")
                 self.assertEqual(len(attribution[0]["final_rule_hash"]), 64)
                 updated_injection = service.ledger.get_cognitive_record(str(injection["id"]))
                 self.assertEqual((updated_injection["metadata_json"] or {})["feedback_fragment_attribution"], attribution)

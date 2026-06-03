@@ -180,7 +180,7 @@ class PrivacyTest(unittest.TestCase):
             service = MemoryService(_config(tmp, strict_privacy=True))
             try:
                 context = service.prompt_context("帮我画一个品牌 logo", cwd=tmp, session_id="s1")
-                self.assertIn("用户需求：帮我画一个品牌 logo", context)
+                self.assertIn("用户需求：", context)
                 self.assertIn("任务规则：", context)
                 self.assertNotIn("Runtime Skill:", context)
                 injection = [

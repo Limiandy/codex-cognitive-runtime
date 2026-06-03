@@ -127,12 +127,14 @@ def _rank_seed_skills_for_task(seed_skills: list[dict[str, Any]], prompt: str, t
             ranked.append(
                 (
                     -999,
+                    _ledger_layer_rank(skill),
                     -index,
                     skill,
                     {
                         "id": str(skill.get("id") or ""),
                         "name": str(metadata.get("name") or ""),
                         "score": -999,
+                        "ledger_layer": str(skill.get("_ledger_layer") or metadata.get("ledger_layer") or "user"),
                         "selected": False,
                         "reason": "excluded_internal_runtime_fragment",
                     },
@@ -143,9 +145,11 @@ def _rank_seed_skills_for_task(seed_skills: list[dict[str, Any]], prompt: str, t
         calibration = seed_scoring_adjustment(metadata, task_profile=task_profile, domain=_profile_domain(task_profile))
         calibration_delta = float(calibration.get("score_delta") or 0.0) if calibration.get("applied") else 0.0
         score = base_score + calibration_delta
+        source_rank = _ledger_layer_rank(skill)
         ranked.append(
             (
                 score,
+                source_rank,
                 -index,
                 skill,
                 {
@@ -154,6 +158,7 @@ def _rank_seed_skills_for_task(seed_skills: list[dict[str, Any]], prompt: str, t
                     "score": score,
                     "base_score": base_score,
                     "calibration": calibration,
+                    "ledger_layer": str(skill.get("_ledger_layer") or metadata.get("ledger_layer") or "user"),
                     "selected": False,
                     "target_surfaces": sorted(target.get("surfaces") or []),
                     "target_domains": sorted(target.get("domains") or []),
@@ -162,19 +167,24 @@ def _rank_seed_skills_for_task(seed_skills: list[dict[str, Any]], prompt: str, t
             )
         )
     ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
-    selected_ids = {str(item[2].get("id") or "") for item in ranked[:limit] if item[0] > -999}
+    selected_ids = {str(item[3].get("id") or "") for item in ranked[:limit] if item[0] > -999}
     scores = []
     selected = []
     for rank, item in enumerate(ranked, start=1):
-        score_record = dict(item[3])
+        score_record = dict(item[4])
         score_record["rank"] = rank
         score_record["selected"] = score_record["id"] in selected_ids
         scores.append(score_record)
         if score_record["selected"]:
-            selected.append(item[2])
+            selected.append(item[3])
         if len(selected) >= limit:
             break
     return selected, scores
+
+
+def _ledger_layer_rank(skill: dict[str, Any]) -> int:
+    layer = str(skill.get("_ledger_layer") or (skill.get("metadata_json") or {}).get("ledger_layer") or "user")
+    return {"user": 3, "team": 2, "baseline": 1}.get(layer, 3)
 
 
 def _target_terms(prompt: str, task_profile: dict[str, Any]) -> dict[str, set[str]]:
